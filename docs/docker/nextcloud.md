@@ -1,8 +1,18 @@
 # Nextcloud
 
+Self-hosted cloud storage, calendar, contacts, and office collaboration with data on ZFS.
+
 ## Overview
 
-Self-hosted cloud storage with data on ZFS.
+Nextcloud provides:
+
+- **File Sync** - Desktop and mobile clients
+- **Office** - Collaborative document editing
+- **Calendar/Contacts** - CalDAV/CardDAV sync
+- **Talk** - Video calls and chat
+- **Photos** - AI-powered photo management
+- **External Storage** - Mount S3, SMB, WebDAV
+- **Apps** - 400+ integrations
 
 ## Data Layout
 
@@ -404,3 +414,346 @@ After any restore:
    ```bash
    docker logs nextcloud 2>&1 | tail -50
    ```
+
+## Performance Optimization
+
+### Enable Memory Caching
+
+Add APCu for local caching:
+
+```bash
+docker exec -u www-data nextcloud php occ config:system:set memcache.local --value="\OC\Memcache\APCu"
+```
+
+Redis is already configured in the compose file for distributed caching:
+
+```bash
+docker exec -u www-data nextcloud php occ config:system:set memcache.distributed --value="\OC\Memcache\Redis"
+docker exec -u www-data nextcloud php occ config:system:set redis host --value="redis"
+docker exec -u www-data nextcloud php occ config:system:set redis port --value="6379" --type=integer
+```
+
+### Enable Locking with Redis
+
+```bash
+docker exec -u www-data nextcloud php occ config:system:set memcache.locking --value="\OC\Memcache\Redis"
+```
+
+### Database Optimization
+
+Enable database indices:
+
+```bash
+docker exec -u www-data nextcloud php occ db:add-missing-indices
+docker exec -u www-data nextcloud php occ db:add-missing-columns
+docker exec -u www-data nextcloud php occ db:add-missing-primary-keys
+docker exec -u www-data nextcloud php occ db:convert-filecache-bigint
+```
+
+### PHP Configuration
+
+Create optimized PHP config:
+
+```bash
+cat << 'EOF' > php-custom.ini
+memory_limit = 512M
+upload_max_filesize = 16G
+post_max_size = 16G
+max_execution_time = 3600
+max_input_time = 3600
+
+opcache.enable = 1
+opcache.interned_strings_buffer = 16
+opcache.max_accelerated_files = 10000
+opcache.memory_consumption = 128
+opcache.save_comments = 1
+opcache.revalidate_freq = 1
+EOF
+```
+
+Mount in docker-compose.yml:
+
+```yaml
+volumes:
+  - ./php-custom.ini:/usr/local/etc/php/conf.d/zzz-custom.ini:ro
+```
+
+### Preview Generation
+
+Pre-generate previews for faster browsing:
+
+```bash
+# One-time generation for all files
+docker exec -u www-data nextcloud php occ preview:generate-all
+
+# Configure preview sizes
+docker exec -u www-data nextcloud php occ config:system:set preview_max_x --value="2048"
+docker exec -u www-data nextcloud php occ config:system:set preview_max_y --value="2048"
+```
+
+## Background Jobs (Cron)
+
+### Configure Cron (Recommended)
+
+Use system cron instead of AJAX or Webcron:
+
+```bash
+# Set cron as background job method
+docker exec -u www-data nextcloud php occ background:cron
+```
+
+Add host cron job:
+
+```bash
+# /etc/cron.d/nextcloud
+*/5 * * * * root docker exec -u www-data nextcloud php cron.php
+```
+
+Or use a dedicated cron container:
+
+```yaml
+services:
+  cron:
+    image: nextcloud:stable
+    container_name: nextcloud-cron
+    restart: unless-stopped
+    depends_on:
+      - db
+      - redis
+    volumes:
+      - /mnt/tank/nextcloud-app:/var/www/html
+      - /mnt/tank/nextcloud-data:/var/www/html/data
+    entrypoint: /cron.sh
+```
+
+### Verify Cron is Working
+
+```bash
+# Check last cron run
+docker exec -u www-data nextcloud php occ background:cron
+
+# Check status
+docker exec -u www-data nextcloud php occ status
+```
+
+## Essential Apps
+
+### Install Recommended Apps
+
+```bash
+# Office suite (requires Collabora or OnlyOffice)
+docker exec -u www-data nextcloud php occ app:install richdocuments
+
+# Calendar and contacts
+docker exec -u www-data nextcloud php occ app:install calendar
+docker exec -u www-data nextcloud php occ app:install contacts
+
+# External storage
+docker exec -u www-data nextcloud php occ app:install files_external
+
+# Two-factor authentication
+docker exec -u www-data nextcloud php occ app:install twofactor_totp
+
+# Photos with AI
+docker exec -u www-data nextcloud php occ app:install memories
+docker exec -u www-data nextcloud php occ app:install recognize
+
+# Talk (video calls)
+docker exec -u www-data nextcloud php occ app:install spreed
+
+# Notes
+docker exec -u www-data nextcloud php occ app:install notes
+```
+
+### Collabora Online (Office)
+
+Add to docker-compose.yml:
+
+```yaml
+services:
+  collabora:
+    image: collabora/code:latest
+    container_name: collabora
+    restart: unless-stopped
+    environment:
+      - domain=nextcloud\\.example\\.com  # Escape dots
+      - username=admin
+      - password=${COLLABORA_PASSWORD}
+      - extra_params=--o:ssl.enable=false --o:ssl.termination=true
+    ports:
+      - "9980:9980"
+    cap_add:
+      - MKNOD
+```
+
+Configure in Nextcloud:
+
+1. Admin Settings > Richdocuments
+2. Set Collabora URL: `http://collabora:9980`
+
+## External Storage
+
+### Mount SMB/CIFS Share
+
+```bash
+# Enable external storage app
+docker exec -u www-data nextcloud php occ app:enable files_external
+
+# Configure via web UI: Settings > External Storage
+```
+
+Or via occ:
+
+```bash
+docker exec -u www-data nextcloud php occ files_external:create \
+    "/SMB Share" \
+    smb \
+    password::password \
+    --config host=192.168.1.100 \
+    --config share=shared \
+    --config root=/ \
+    --config domain=WORKGROUP \
+    --config user=smbuser \
+    --config password=smbpass
+```
+
+### Mount Local Folder
+
+Mount additional host directories in docker-compose.yml:
+
+```yaml
+volumes:
+  - /mnt/tank/nextcloud-app:/var/www/html
+  - /mnt/tank/nextcloud-data:/var/www/html/data
+  - /mnt/tank/media:/external/media:ro  # Additional mount
+```
+
+Configure as local external storage:
+
+```bash
+docker exec -u www-data nextcloud php occ files_external:create \
+    "/Media" \
+    local \
+    null::null \
+    --config datadir=/external/media
+```
+
+## Security Hardening
+
+### Enable Brute Force Protection
+
+```bash
+docker exec -u www-data nextcloud php occ config:system:set auth.bruteforce.protection.enabled --value=true --type=boolean
+```
+
+### Set Secure Headers
+
+Add to config.php via occ:
+
+```bash
+# Force HTTPS
+docker exec -u www-data nextcloud php occ config:system:set overwriteprotocol --value="https"
+
+# Secure cookies
+docker exec -u www-data nextcloud php occ config:system:set forcessl --value=true --type=boolean
+```
+
+### Enable Two-Factor Authentication
+
+```bash
+# Install TOTP app
+docker exec -u www-data nextcloud php occ app:install twofactor_totp
+
+# Enforce for all users (optional)
+docker exec -u www-data nextcloud php occ twofactorauth:enforce --on
+```
+
+### Disable Unused Features
+
+```bash
+# Disable app recommendations
+docker exec -u www-data nextcloud php occ config:system:set appstoreenabled --value=false --type=boolean
+
+# Disable check for updates (use docker pull instead)
+docker exec -u www-data nextcloud php occ config:system:set updatechecker --value=false --type=boolean
+```
+
+## Client Setup
+
+### Desktop Sync Client
+
+Install Nextcloud Desktop on your workstation:
+
+- [Linux](https://nextcloud.com/install/#install-clients): `flatpak install flathub com.nextcloud.desktopclient.nextcloud`
+- [macOS](https://nextcloud.com/install/#install-clients): Homebrew or DMG
+- [Windows](https://nextcloud.com/install/#install-clients): MSI installer
+
+Configure:
+1. Enter server URL (e.g., `https://nextcloud.example.com`)
+2. Authenticate via browser
+3. Select folders to sync
+
+### Mobile Apps
+
+- [Nextcloud Files](https://nextcloud.com/clients/) - iOS/Android
+- [Nextcloud Talk](https://nextcloud.com/talk/) - Video calls
+- [DAVx5](https://www.davx5.com/) - Calendar/Contacts sync on Android
+
+### CalDAV/CardDAV URLs
+
+For calendar/contacts sync in external apps:
+
+| Service | URL |
+|---------|-----|
+| CalDAV | `https://nextcloud.example.com/remote.php/dav` |
+| CardDAV | `https://nextcloud.example.com/remote.php/dav` |
+
+## Monitoring
+
+### Check System Status
+
+```bash
+# Full status
+docker exec -u www-data nextcloud php occ status
+
+# Security scan
+docker exec -u www-data nextcloud php occ security:certificates
+
+# App updates
+docker exec -u www-data nextcloud php occ app:update --all
+```
+
+### Log Analysis
+
+```bash
+# View Nextcloud log
+docker exec nextcloud tail -f /var/www/html/data/nextcloud.log
+
+# Parse as JSON
+docker exec nextcloud cat /var/www/html/data/nextcloud.log | jq .
+```
+
+### Health Check Script
+
+```bash
+#!/bin/bash
+# /usr/local/bin/check-nextcloud.sh
+
+STATUS=$(docker exec -u www-data nextcloud php occ status --output=json 2>/dev/null)
+
+if echo "$STATUS" | jq -e '.installed == true and .maintenance == false' > /dev/null; then
+    echo "Nextcloud: OK"
+    exit 0
+else
+    echo "Nextcloud: PROBLEM"
+    echo "$STATUS" | jq .
+    exit 1
+fi
+```
+
+## See Also
+
+- [Docker Setup](setup.md) - Docker installation
+- [Resource Limits](resources.md) - Container constraints
+- [ZFS](../zfs/index.md) - Dataset management and snapshots
+- [Tailscale](../tailscale/index.md) - Remote access
