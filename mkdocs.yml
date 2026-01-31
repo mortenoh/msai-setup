@@ -316,6 +316,20 @@ nav:
         - Aliases: bash/configuration/aliases.md
         - Functions: bash/configuration/functions.md
         - Prompt: bash/configuration/prompt.md
+        - Starship:
+            - bash/configuration/starship/index.md
+            - Installation: bash/configuration/starship/installation.md
+            - Configuration: bash/configuration/starship/configuration.md
+            - Modules: bash/configuration/starship/modules.md
+            - Git Modules: bash/configuration/starship/git-modules.md
+            - Language Modules: bash/configuration/starship/language-modules.md
+            - Cloud Modules: bash/configuration/starship/cloud-modules.md
+            - System Modules: bash/configuration/starship/system-modules.md
+            - Styling: bash/configuration/starship/styling.md
+            - Presets: bash/configuration/starship/presets.md
+            - Advanced: bash/configuration/starship/advanced.md
+            - Troubleshooting: bash/configuration/starship/troubleshooting.md
+            - Reference: bash/configuration/starship/reference.md
     - Scripting:
         - bash/scripting/index.md
         - Basics: bash/scripting/basics.md
