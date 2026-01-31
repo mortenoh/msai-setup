@@ -299,6 +299,54 @@ nav:
         - Quick Reference: tailscale/reference/quick-reference.md
         - Network Ports: tailscale/reference/ports.md
 
+  - Bash:
+    - bash/index.md
+    - Fundamentals:
+        - bash/fundamentals/index.md
+        - Shell Basics: bash/fundamentals/shell-basics.md
+        - Navigation: bash/fundamentals/navigation.md
+        - Files & Directories: bash/fundamentals/files-directories.md
+        - Viewing Files: bash/fundamentals/viewing-files.md
+        - Permissions: bash/fundamentals/permissions.md
+        - Redirection & Pipes: bash/fundamentals/redirection.md
+    - Configuration:
+        - bash/configuration/index.md
+        - Dotfiles: bash/configuration/dotfiles.md
+        - Environment: bash/configuration/environment.md
+        - Aliases: bash/configuration/aliases.md
+        - Functions: bash/configuration/functions.md
+        - Prompt: bash/configuration/prompt.md
+    - Scripting:
+        - bash/scripting/index.md
+        - Basics: bash/scripting/basics.md
+        - Conditionals: bash/scripting/conditionals.md
+        - Loops: bash/scripting/loops.md
+        - Arrays: bash/scripting/arrays.md
+        - Strings: bash/scripting/strings.md
+        - Arithmetic: bash/scripting/arithmetic.md
+        - Input/Output: bash/scripting/io.md
+        - Error Handling: bash/scripting/error-handling.md
+        - Debugging: bash/scripting/debugging.md
+    - Tools:
+        - bash/tools/index.md
+        - Text Processing: bash/tools/text-processing.md
+        - Finding Files: bash/tools/finding-files.md
+        - Modern Replacements: bash/tools/modern-replacements.md
+        - JSON Processing: bash/tools/json-processing.md
+        - Process Management: bash/tools/process-management.md
+        - Networking: bash/tools/networking.md
+        - Archives: bash/tools/archives.md
+    - Advanced:
+        - bash/advanced/index.md
+        - Job Control: bash/advanced/job-control.md
+        - Subshells: bash/advanced/subshells.md
+        - Signals: bash/advanced/signals.md
+        - Performance: bash/advanced/performance.md
+    - Reference:
+        - Quick Reference: bash/reference/quick-reference.md
+        - Keyboard Shortcuts: bash/reference/keyboard-shortcuts.md
+        - Special Variables: bash/reference/special-variables.md
+
   - AI & Local LLMs:
     - ai/index.md
     - GPU Setup:
