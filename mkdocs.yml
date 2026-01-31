@@ -139,6 +139,7 @@ nav:
       - Docker Integration: zfs/docker-integration.md
     - Operations:
       - operations/index.md
+      - Capacity Planning: operations/capacity-planning.md
       - Backup: operations/backup.md
       - Recovery: operations/recovery.md
       - Rebuild Checklist: operations/rebuild-checklist.md
@@ -147,11 +148,13 @@ nav:
     - Virtualization:
       - virtualization/index.md
       - KVM Setup: virtualization/kvm-setup.md
+      - VM Resources: virtualization/vm-resources.md
       - GPU Passthrough: virtualization/gpu-passthrough.md
       - Windows 11 VM: virtualization/windows-vm.md
     - Docker:
       - docker/index.md
       - Docker Setup: docker/setup.md
+      - Resource Limits: docker/resources.md
       - Nextcloud: docker/nextcloud.md
       - Plex: docker/plex.md
 

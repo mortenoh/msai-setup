@@ -10,6 +10,7 @@ This section covers backup, recovery, and maintenance procedures.
 
 ## Sections
 
+- [Capacity Planning](capacity-planning.md) - System-wide resource allocation strategy
 - [Backup](backup.md) - Snapshot and backup strategies
 - [Recovery](recovery.md) - Disaster recovery procedures
 - [Rebuild Checklist](rebuild-checklist.md) - Host reinstallation steps

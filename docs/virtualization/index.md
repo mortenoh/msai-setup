@@ -21,5 +21,6 @@ Virtualization stack:
 ## Sections
 
 - [KVM Setup](kvm-setup.md) - Install and configure KVM/QEMU/libvirt
+- [VM Resources](vm-resources.md) - Memory, vCPU, and I/O allocation
 - [GPU Passthrough](gpu-passthrough.md) - Pass AMD GPU to VM
 - [Windows 11 VM](windows-vm.md) - Create Windows 11 gaming VM
