@@ -4,7 +4,7 @@
 [![AI Generated](https://img.shields.io/badge/AI%20Generated-Claude-blueviolet)](https://claude.ai)
 [![MkDocs](https://img.shields.io/badge/built%20with-MkDocs%20Material-blue)](https://squidfunk.github.io/mkdocs-material/)
 
-> **This documentation is 100% AI-generated using Claude.** All 278 pages of guides, tutorials, and reference material were created through conversations with Claude (Anthropic). This serves as both practical documentation and a demonstration of AI-assisted technical writing.
+> **This documentation is 100% AI-generated using Claude.** All 290+ pages of guides, tutorials, and reference material were created through conversations with Claude (Anthropic). This serves as both practical documentation and a demonstration of AI-assisted technical writing.
 
 **[View Live Documentation](https://mortenoh.github.io/msai-setup/)**
 
@@ -33,26 +33,26 @@ The APU architecture enables running 70B+ parameter LLMs that wouldn't fit in di
 | **Ubuntu Server** | Installation, security hardening, systemd, logging | [View](https://mortenoh.github.io/msai-setup/ubuntu/) |
 | **ZFS Storage** | Pool creation, datasets, snapshots, Docker integration | [View](https://mortenoh.github.io/msai-setup/zfs/) |
 | **Virtualization** | KVM setup, GPU passthrough, Windows 11 VM | [View](https://mortenoh.github.io/msai-setup/virtualization/) |
-| **Docker** | Container setup, resource limits, Nextcloud, Plex | [View](https://mortenoh.github.io/msai-setup/docker/) |
+| **Docker** | Compose, development stacks, Ollama, monitoring, Nextcloud, Plex | [View](https://mortenoh.github.io/msai-setup/docker/) |
 | **Netplan** | Network configuration, bridges, bonds, VLANs | [View](https://mortenoh.github.io/msai-setup/netplan/) |
 | **Firewall & Security** | UFW, iptables, nftables, Docker/KVM networking | [View](https://mortenoh.github.io/msai-setup/networking/) |
 | **SSH** | Client/server config, tunneling, file transfer | [View](https://mortenoh.github.io/msai-setup/ssh/) |
 | **Tailscale** | Mesh VPN, MagicDNS, exit nodes, Docker integration | [View](https://mortenoh.github.io/msai-setup/tailscale/) |
-| **Bash** | Shell fundamentals, scripting, tools, Starship prompt | [View](https://mortenoh.github.io/msai-setup/bash/) |
-| **AI & Local LLMs** | ROCm, llama.cpp, Ollama, model management | [View](https://mortenoh.github.io/msai-setup/ai/) |
-| **Operations** | Monitoring, backup, recovery, capacity planning | [View](https://mortenoh.github.io/msai-setup/operations/) |
+| **Bash** | Shell fundamentals, scripting, tools, chezmoi, direnv, Starship | [View](https://mortenoh.github.io/msai-setup/bash/) |
+| **AI & Local LLMs** | ROCm, llama.cpp, Ollama, AI coding tools (Claude Code, Aider, Cline) | [View](https://mortenoh.github.io/msai-setup/ai/) |
+| **Operations** | Monitoring, backup, recovery, secrets management | [View](https://mortenoh.github.io/msai-setup/operations/) |
 
 ## Key Topics
 
 - **Ubuntu Server** - Installation, CIS hardening, AppArmor, Fail2ban, auditd
 - **ZFS** - Pool creation, datasets, snapshots, Docker integration
 - **KVM/QEMU** - Virtualization, GPU passthrough, Windows 11 VM
-- **Docker** - Container services, ZFS storage driver, resource management
+- **Docker** - Compose, development stacks, Ollama stack, monitoring, container services
 - **Networking** - Netplan, UFW, iptables/nftables, namespaces
 - **SSH** - Keys, agent forwarding, tunneling, jump hosts
 - **Tailscale** - WireGuard mesh VPN, ACLs, subnet routing
-- **Bash** - Scripting, modern CLI tools, Starship prompt customization
-- **Local LLMs** - ROCm setup, llama.cpp, Ollama, vLLM, model optimization
+- **Bash** - Scripting, chezmoi, direnv, 1Password CLI, modern CLI tools, Starship
+- **Local LLMs** - ROCm setup, llama.cpp, Ollama, AI coding tools (Claude Code, Aider, Cline, Continue)
 
 ## Local Development
 
