@@ -1,6 +1,16 @@
 # MS-S1 MAX Server Setup
 
-Setup guide for the Minisforum MS-S1 MAX as a home server running Ubuntu, ZFS, KVM, Docker, and local LLMs.
+[![Documentation](https://img.shields.io/badge/docs-live-blue)](https://mortenoh.github.io/msai-setup/)
+[![AI Generated](https://img.shields.io/badge/AI%20Generated-Claude-blueviolet)](https://claude.ai)
+[![MkDocs](https://img.shields.io/badge/built%20with-MkDocs%20Material-blue)](https://squidfunk.github.io/mkdocs-material/)
+
+> **This documentation is 100% AI-generated using Claude.** All 278 pages of guides, tutorials, and reference material were created through conversations with Claude (Anthropic). This serves as both practical documentation and a demonstration of AI-assisted technical writing.
+
+**[View Live Documentation](https://mortenoh.github.io/msai-setup/)**
+
+---
+
+Comprehensive setup guide for the Minisforum MS-S1 MAX as a home server running Ubuntu, ZFS, KVM, Docker, and local LLMs.
 
 ## Hardware Overview
 
@@ -15,19 +25,43 @@ Setup guide for the Minisforum MS-S1 MAX as a home server running Ubuntu, ZFS, K
 
 The APU architecture enables running 70B+ parameter LLMs that wouldn't fit in discrete GPU VRAM (typically 24GB max).
 
-## What's Covered
+## Documentation Sections
 
-- **Ubuntu Server** - Installation, hardening, systemd configuration
+| Section | Description | Link |
+|---------|-------------|------|
+| **Getting Started** | Hardware overview, BIOS setup, prerequisites | [View](https://mortenoh.github.io/msai-setup/getting-started/) |
+| **Ubuntu Server** | Installation, security hardening, systemd, logging | [View](https://mortenoh.github.io/msai-setup/ubuntu/) |
+| **ZFS Storage** | Pool creation, datasets, snapshots, Docker integration | [View](https://mortenoh.github.io/msai-setup/zfs/) |
+| **Virtualization** | KVM setup, GPU passthrough, Windows 11 VM | [View](https://mortenoh.github.io/msai-setup/virtualization/) |
+| **Docker** | Container setup, resource limits, Nextcloud, Plex | [View](https://mortenoh.github.io/msai-setup/docker/) |
+| **Netplan** | Network configuration, bridges, bonds, VLANs | [View](https://mortenoh.github.io/msai-setup/netplan/) |
+| **Firewall & Security** | UFW, iptables, nftables, Docker/KVM networking | [View](https://mortenoh.github.io/msai-setup/networking/) |
+| **SSH** | Client/server config, tunneling, file transfer | [View](https://mortenoh.github.io/msai-setup/ssh/) |
+| **Tailscale** | Mesh VPN, MagicDNS, exit nodes, Docker integration | [View](https://mortenoh.github.io/msai-setup/tailscale/) |
+| **Bash** | Shell fundamentals, scripting, tools, Starship prompt | [View](https://mortenoh.github.io/msai-setup/bash/) |
+| **AI & Local LLMs** | ROCm, llama.cpp, Ollama, model management | [View](https://mortenoh.github.io/msai-setup/ai/) |
+| **Operations** | Monitoring, backup, recovery, capacity planning | [View](https://mortenoh.github.io/msai-setup/operations/) |
+
+## Key Topics
+
+- **Ubuntu Server** - Installation, CIS hardening, AppArmor, Fail2ban, auditd
 - **ZFS** - Pool creation, datasets, snapshots, Docker integration
 - **KVM/QEMU** - Virtualization, GPU passthrough, Windows 11 VM
-- **Docker** - Container services, resource management
-- **Networking** - Netplan, UFW, Tailscale, SSH
-- **Local LLMs** - ROCm setup, llama.cpp, Ollama, inference optimization
+- **Docker** - Container services, ZFS storage driver, resource management
+- **Networking** - Netplan, UFW, iptables/nftables, namespaces
+- **SSH** - Keys, agent forwarding, tunneling, jump hosts
+- **Tailscale** - WireGuard mesh VPN, ACLs, subnet routing
+- **Bash** - Scripting, modern CLI tools, Starship prompt customization
+- **Local LLMs** - ROCm setup, llama.cpp, Ollama, vLLM, model optimization
 
-## Viewing the Documentation
+## Local Development
 
 ```bash
-# Install dependencies
+# Clone repository
+git clone https://github.com/mortenoh/msai-setup.git
+cd msai-setup
+
+# Install dependencies (requires uv)
 uv sync
 
 # Start local server
@@ -36,23 +70,6 @@ uv run mkdocs serve
 
 Then open http://localhost:8000 in your browser.
 
-## Project Structure
-
-```
-docs/
-  getting-started/    # Hardware, BIOS, prerequisites
-  ubuntu/             # Installation, security, systemd
-  zfs/                # Storage configuration
-  virtualization/     # KVM, GPU passthrough
-  docker/             # Container services
-  networking/         # Netplan
-  netplan/            # Network configuration
-  ssh/                # SSH configuration
-  tailscale/          # Mesh VPN
-  ai/                 # LLM setup and optimization
-  operations/         # Backup, recovery, capacity planning
-```
-
 ## Building Static Site
 
 ```bash
@@ -60,3 +77,31 @@ uv run mkdocs build
 ```
 
 Output goes to `site/` directory.
+
+## Project Structure
+
+```
+docs/
+  getting-started/    # Hardware, BIOS, prerequisites
+  ubuntu/             # Installation, security, systemd, logging
+  zfs/                # Pool creation, datasets, snapshots
+  virtualization/     # KVM, GPU passthrough, Windows VM
+  docker/             # Container setup, Nextcloud, Plex
+  netplan/            # Network configuration
+  networking/         # Firewall, UFW, Docker/KVM networking
+  ssh/                # Client, server, tunneling, file transfer
+  tailscale/          # Mesh VPN, features, integration
+  bash/               # Fundamentals, scripting, tools, Starship
+  ai/                 # GPU setup, inference engines, models
+  operations/         # Monitoring, backup, recovery
+```
+
+## License
+
+This documentation is provided as-is for educational purposes.
+
+## Acknowledgments
+
+- Generated entirely by [Claude](https://claude.ai) (Anthropic)
+- Built with [MkDocs Material](https://squidfunk.github.io/mkdocs-material/)
+- Deployed via [GitHub Pages](https://pages.github.com/)
