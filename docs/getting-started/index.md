@@ -14,5 +14,7 @@ The MS-S1 MAX project creates a home server that separates concerns cleanly:
 ## Sections
 
 - [Hardware](hardware.md) - MS-S1 MAX specifications and storage layout
-- [Architecture](architecture.md) - System design and component relationships
+- [Hardware Architecture](hardware-architecture.md) - APU deep-dive, memory subsystem, and design rationale
+- [Software Architecture](software-architecture.md) - System design and component relationships
+- [BIOS Setup](bios-setup.md) - Optimizing BIOS for AI and virtualization
 - [Prerequisites](prerequisites.md) - What you need before starting

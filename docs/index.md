@@ -11,6 +11,43 @@ Build a clean, minimal Ubuntu Server host that:
 - Runs services (Nextcloud, Plex, etc.) via **Docker**
 - Remains rebuildable, understandable, and low-maintenance
 
+## The Hardware
+
+This guide is built around the **Minisforum MS-S1 MAX**, a mini-PC featuring AMD's Strix Point APU - a chip that combines CPU and GPU on a single die with access to all system memory.
+
+```
+AMD Ryzen AI Max+ 395 (Strix Point APU):
++--------------------------------------------------+
+|                                                  |
+|  +-------------+          +------------------+   |
+|  |   Zen 5     |          |    RDNA 3.5      |   |
+|  |   16 cores  |          |    40 CUs        |   |
+|  |   32 threads|          |    (gfx1151)     |   |
+|  +------+------+          +--------+---------+   |
+|         |                          |             |
+|         +------------+-------------+             |
+|                      |                           |
+|         +------------v-------------+             |
+|         |   Unified Memory         |             |
+|         |   128GB DDR5-5600        |             |
+|         |   Shared CPU + GPU       |             |
+|         +--------------------------+             |
+|                                                  |
++--------------------------------------------------+
+```
+
+| Component | Specification | Why It Matters |
+|-----------|---------------|----------------|
+| CPU | Ryzen AI Max+ 395 (16 cores) | Fast prompt processing |
+| GPU | RDNA 3.5 (40 CUs) | Accelerated inference |
+| RAM | 128GB DDR5-5600 | Fits 70B+ models |
+| Architecture | Unified memory | No VRAM bottleneck |
+
+Unlike discrete GPUs limited to 24GB VRAM, the APU shares all 128GB with both CPU and GPU, enabling models that won't fit on any consumer graphics card.
+
+[:octicons-arrow-right-24: Hardware details](getting-started/hardware.md){ .md-button }
+[:octicons-arrow-right-24: Hardware architecture](getting-started/hardware-architecture.md){ .md-button .md-button--primary }
+
 ## Quick Links
 
 <div class="grid cards" markdown>

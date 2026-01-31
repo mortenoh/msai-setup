@@ -1,4 +1,6 @@
-# Architecture
+# Software Architecture
+
+This page describes the software layer design. For hardware architecture, see [Hardware Architecture](hardware-architecture.md).
 
 ## System Design
 

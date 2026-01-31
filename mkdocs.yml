@@ -71,8 +71,9 @@ nav:
   - Getting Started:
     - getting-started/index.md
     - Hardware: getting-started/hardware.md
+    - Hardware Architecture: getting-started/hardware-architecture.md
+    - Software Architecture: getting-started/software-architecture.md
     - BIOS Setup: getting-started/bios-setup.md
-    - Architecture: getting-started/architecture.md
     - Prerequisites: getting-started/prerequisites.md
 
   - System:

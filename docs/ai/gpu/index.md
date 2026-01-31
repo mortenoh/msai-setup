@@ -6,36 +6,20 @@ Configure AMD integrated graphics for AI workloads on the MS-S1 MAX.
 
 The AMD Ryzen AI Max+ 395 APU combines CPU and GPU on a single chip with access to system memory. Unlike discrete GPUs with dedicated VRAM, the integrated RDNA 3.5 graphics shares the 128GB DDR5 system RAM.
 
-```
-AMD APU Architecture (Strix Point):
-┌────────────────────────────────────────────────┐
-│              AMD Ryzen AI Max+ 395             │
-│  ┌──────────────┐     ┌──────────────────┐     │
-│  │   Zen 5 CPU  │     │   RDNA 3.5 GPU   │     │
-│  │   16 cores   │     │   40 CUs (gfx1151)│    │
-│  └──────┬───────┘     └────────┬─────────┘     │
-│         │                      │               │
-│         ▼                      ▼               │
-│  ┌──────────────────────────────────────────┐  │
-│  │        DDR5 System Memory (128GB)        │  │
-│  │     Shared by CPU + GPU + AI Engine      │  │
-│  └──────────────────────────────────────────┘  │
-└────────────────────────────────────────────────┘
-```
+For a comprehensive explanation of the APU architecture, memory subsystem, and design trade-offs, see [Hardware Architecture](../../getting-started/hardware-architecture.md).
 
-## Key Concepts
+## Quick Reference
 
-### APU vs Discrete GPU
+| Aspect | MS-S1 MAX APU |
+|--------|---------------|
+| Architecture | RDNA 3.5 |
+| Compute Units | 40 CUs |
+| GPU ID | gfx1151 |
+| Memory | Shared 128GB DDR5 |
+| Bandwidth | ~90 GB/s |
+| ROCm Support | Experimental (requires HSA_OVERRIDE_GFX_VERSION) |
 
-| Aspect | APU (Integrated) | Discrete GPU |
-|--------|------------------|--------------|
-| Memory | Shared system RAM | Dedicated VRAM |
-| Capacity | 128GB available | 8-24GB typical |
-| Bandwidth | DDR5 (~200 GB/s) | GDDR6X (~1 TB/s) |
-| Power | Lower TDP | Higher power draw |
-| Driver | ROCm with caveats | Full ROCm support |
-
-### Why APU for LLMs?
+## Why APU for LLMs?
 
 The MS-S1 MAX's 128GB configuration enables running large models that exceed typical discrete GPU VRAM:
 
