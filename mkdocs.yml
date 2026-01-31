@@ -1,0 +1,348 @@
+site_name: MS-S1 MAX Server
+site_description: Setup guide for MS-S1 MAX with Ubuntu, ZFS, KVM, Docker, and Local LLMs
+site_author: morteoh
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.instant
+    - navigation.sections
+    - navigation.top
+    - navigation.footer
+    - navigation.indexes
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.code.annotate
+    - toc.follow
+    - toc.integrate
+
+plugins:
+  - search
+  - minify:
+      minify_html: true
+  - glightbox
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.keys
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+
+nav:
+  - Home: index.md
+
+  - Getting Started:
+    - getting-started/index.md
+    - Hardware: getting-started/hardware.md
+    - Architecture: getting-started/architecture.md
+    - Prerequisites: getting-started/prerequisites.md
+
+  - System:
+    - Ubuntu Server:
+      - ubuntu/index.md
+      - Installation:
+        - ubuntu/installation/index.md
+        - Preparation: ubuntu/installation/preparation.md
+        - Secure Boot: ubuntu/installation/secure-boot.md
+        - Disk Partitioning: ubuntu/installation/disk-partitioning.md
+        - Installation Walkthrough: ubuntu/installation/installation-walkthrough.md
+        - Post-Install Checklist: ubuntu/installation/post-install-checklist.md
+      - System Configuration:
+        - ubuntu/system/index.md
+        - Users & Groups: ubuntu/system/users-groups.md
+        - sudo Configuration: ubuntu/system/sudo-configuration.md
+        - PAM: ubuntu/system/pam.md
+        - systemd: ubuntu/system/systemd.md
+        - Time Sync: ubuntu/system/time-sync.md
+      - Security:
+        - ubuntu/security/index.md
+        - Kernel Hardening: ubuntu/security/kernel-hardening.md
+        - SSH Hardening: ubuntu/security/ssh-hardening.md
+        - AppArmor: ubuntu/security/apparmor.md
+        - Fail2ban: ubuntu/security/fail2ban.md
+        - auditd: ubuntu/security/auditd.md
+        - Integrity Monitoring: ubuntu/security/integrity.md
+        - CIS Benchmarks: ubuntu/security/cis-benchmarks.md
+      - Updates:
+        - ubuntu/updates/index.md
+        - APT Management: ubuntu/updates/apt-management.md
+        - Unattended Upgrades: ubuntu/updates/unattended-upgrades.md
+        - Livepatch: ubuntu/updates/livepatch.md
+      - Logging:
+        - ubuntu/logging/index.md
+        - journald: ubuntu/logging/journald.md
+        - rsyslog: ubuntu/logging/rsyslog.md
+        - Log Rotation: ubuntu/logging/log-rotation.md
+      - Services:
+        - ubuntu/services/index.md
+        - Disable Unnecessary: ubuntu/services/disable-unnecessary.md
+        - Service Isolation: ubuntu/services/service-isolation.md
+        - Network Services: ubuntu/services/network-services.md
+      - Networking: ubuntu/networking.md
+      - Firewall: ubuntu/firewall.md
+      - Troubleshooting:
+        - ubuntu/troubleshooting/index.md
+        - Boot Issues: ubuntu/troubleshooting/boot-issues.md
+        - Network Issues: ubuntu/troubleshooting/network-issues.md
+        - Security Incidents: ubuntu/troubleshooting/security-incidents.md
+      - Reference:
+        - Quick Reference: ubuntu/reference/quick-reference.md
+        - Hardening Checklist: ubuntu/reference/checklist.md
+        - Resources: ubuntu/reference/resources.md
+    - ZFS Storage:
+      - zfs/index.md
+      - Concepts: zfs/concepts.md
+      - Pool Creation: zfs/pool-creation.md
+      - Datasets: zfs/datasets.md
+      - Snapshots: zfs/snapshots.md
+    - Operations:
+      - operations/index.md
+      - Backup: operations/backup.md
+      - Recovery: operations/recovery.md
+      - Rebuild Checklist: operations/rebuild-checklist.md
+
+  - Services:
+    - Virtualization:
+      - virtualization/index.md
+      - KVM Setup: virtualization/kvm-setup.md
+      - GPU Passthrough: virtualization/gpu-passthrough.md
+      - Windows 11 VM: virtualization/windows-vm.md
+    - Docker:
+      - docker/index.md
+      - Docker Setup: docker/setup.md
+      - Nextcloud: docker/nextcloud.md
+      - Plex: docker/plex.md
+
+  - Networking:
+    - Netplan Configuration:
+      - netplan/index.md
+      - Fundamentals:
+        - Basics: netplan/fundamentals/basics.md
+        - Renderers: netplan/fundamentals/renderers.md
+        - YAML Syntax: netplan/fundamentals/yaml-syntax.md
+        - Workflow: netplan/fundamentals/workflow.md
+      - Interfaces:
+        - Ethernet: netplan/interfaces/ethernet.md
+        - Bridges: netplan/interfaces/bridges.md
+        - Bonds: netplan/interfaces/bonds.md
+        - VLANs: netplan/interfaces/vlans.md
+        - Wireless: netplan/interfaces/wireless.md
+        - Virtual Interfaces: netplan/interfaces/virtual.md
+      - Routing:
+        - Static Routes: netplan/routing/static-routes.md
+        - Policy Routing: netplan/routing/policy-routing.md
+        - DNS: netplan/routing/dns.md
+        - IPv6: netplan/routing/ipv6.md
+      - Advanced:
+        - Multiple Addresses: netplan/advanced/multiple-addresses.md
+        - Wake-on-LAN: netplan/advanced/wake-on-lan.md
+        - Dispatcher Scripts: netplan/advanced/dispatcher.md
+        - Performance Tuning: netplan/advanced/performance.md
+      - Integration:
+        - Docker: netplan/integration/docker.md
+        - KVM/libvirt: netplan/integration/kvm.md
+        - LXD/LXC: netplan/integration/lxd.md
+      - Troubleshooting:
+        - Common Issues: netplan/troubleshooting/common-issues.md
+        - Debugging: netplan/troubleshooting/debugging.md
+        - Migration: netplan/troubleshooting/migration.md
+      - Reference:
+        - Examples: netplan/reference/examples.md
+        - Properties: netplan/reference/properties.md
+        - Diagrams: netplan/reference/diagrams.md
+    - Firewall & Security:
+      - networking/index.md
+      - Fundamentals:
+        - Linux Networking: networking/fundamentals/linux-networking.md
+        - Netfilter: networking/fundamentals/netfilter.md
+        - iptables: networking/fundamentals/iptables.md
+        - nftables: networking/fundamentals/nftables.md
+        - Namespaces: networking/fundamentals/namespaces.md
+      - UFW:
+        - Fundamentals: networking/ufw/fundamentals.md
+        - Configuration: networking/ufw/configuration.md
+        - Advanced: networking/ufw/advanced.md
+        - Logging: networking/ufw/logging.md
+      - Docker Networking:
+        - Overview: networking/docker/overview.md
+        - Docker & iptables: networking/docker/iptables.md
+        - UFW Conflict: networking/docker/ufw-conflict.md
+        - UFW Solutions: networking/docker/ufw-solutions.md
+        - Compose Networking: networking/docker/compose.md
+        - Security: networking/docker/security.md
+      - KVM Networking:
+        - Overview: networking/kvm/overview.md
+        - UFW Integration: networking/kvm/ufw-integration.md
+        - Bridged Networking: networking/kvm/bridged.md
+        - Port Forwarding: networking/kvm/port-forwarding.md
+      - LXC Networking:
+        - Overview: networking/lxc/overview.md
+        - UFW Integration: networking/lxc/ufw-integration.md
+      - Integration:
+        - Multi-Tech Conflicts: networking/integration/conflicts.md
+      - Troubleshooting:
+        - Methodology: networking/troubleshooting/methodology.md
+        - Common Problems: networking/troubleshooting/common-problems.md
+      - Reference:
+        - Complete before.rules: networking/reference/before-rules.md
+    - SSH:
+      - ssh/index.md
+      - Fundamentals:
+        - Protocol: ssh/fundamentals/protocol.md
+        - Keys: ssh/fundamentals/keys.md
+        - Authentication: ssh/fundamentals/authentication.md
+      - Client:
+        - Configuration: ssh/client/configuration.md
+        - SSH Agent: ssh/client/agent.md
+        - Connection Options: ssh/client/connection-options.md
+      - Server:
+        - Configuration: ssh/server/configuration.md
+        - Hardening: ssh/server/hardening.md
+      - File Transfer:
+        - SCP: ssh/file-transfer/scp.md
+        - SFTP: ssh/file-transfer/sftp.md
+        - Rsync: ssh/file-transfer/rsync.md
+      - Tunneling:
+        - Local Forwarding: ssh/tunneling/local-forwarding.md
+        - Remote Forwarding: ssh/tunneling/remote-forwarding.md
+        - Dynamic Forwarding: ssh/tunneling/dynamic-forwarding.md
+        - Jump Hosts: ssh/tunneling/jump-hosts.md
+      - Advanced:
+        - Multiplexing: ssh/advanced/multiplexing.md
+        - Automation: ssh/advanced/automation.md
+      - Troubleshooting:
+        - Common Problems: ssh/troubleshooting/common-problems.md
+      - Reference:
+        - Quick Reference: ssh/reference/quick-reference.md
+    - Tailscale:
+      - tailscale/index.md
+      - Fundamentals:
+        - How It Works: tailscale/fundamentals/how-it-works.md
+        - WireGuard: tailscale/fundamentals/wireguard.md
+        - Networking: tailscale/fundamentals/networking.md
+      - Installation:
+        - Linux: tailscale/installation/linux.md
+        - Containers: tailscale/installation/containers.md
+        - Other Platforms: tailscale/installation/other-platforms.md
+      - Configuration:
+        - Basic Setup: tailscale/configuration/basic-setup.md
+        - CLI Reference: tailscale/configuration/cli.md
+        - Environment Variables: tailscale/configuration/environment.md
+      - Features:
+        - MagicDNS: tailscale/features/magicdns.md
+        - Exit Nodes: tailscale/features/exit-nodes.md
+        - Subnet Routers: tailscale/features/subnet-routers.md
+        - Taildrop: tailscale/features/taildrop.md
+        - Funnel & Serve: tailscale/features/funnel-serve.md
+      - Integration:
+        - Docker: tailscale/integration/docker.md
+        - Kubernetes: tailscale/integration/kubernetes.md
+        - SSH: tailscale/integration/ssh.md
+        - VS Code: tailscale/integration/vscode.md
+      - Administration:
+        - Access Controls: tailscale/administration/acls.md
+        - User Management: tailscale/administration/users.md
+        - Key Management: tailscale/administration/keys.md
+        - Logging: tailscale/administration/logging.md
+      - Troubleshooting:
+        - Connections: tailscale/troubleshooting/connections.md
+        - Performance: tailscale/troubleshooting/performance.md
+        - Common Problems: tailscale/troubleshooting/common-problems.md
+      - Reference:
+        - Quick Reference: tailscale/reference/quick-reference.md
+        - Network Ports: tailscale/reference/ports.md
+
+  - AI & Local LLMs:
+    - ai/index.md
+    - Fundamentals:
+      - Why Local LLMs: ai/fundamentals/why-local-llms.md
+      - Unified Memory: ai/fundamentals/unified-memory.md
+      - Architecture Decisions: ai/fundamentals/architecture-decisions.md
+    - Inference Engines:
+      - ai/inference-engines/index.md
+      - llama.cpp: ai/inference-engines/llama-cpp.md
+      - Ollama: ai/inference-engines/ollama.md
+      - MLX: ai/inference-engines/mlx.md
+      - vLLM: ai/inference-engines/vllm.md
+    - GUI Tools:
+      - ai/gui-tools/index.md
+      - LM Studio: ai/gui-tools/lm-studio.md
+      - Jan.ai: ai/gui-tools/jan-ai.md
+      - Open WebUI: ai/gui-tools/open-webui.md
+    - Container Deployment:
+      - ai/containers/index.md
+      - llama.cpp Docker: ai/containers/llama-cpp-docker.md
+      - Ollama Docker: ai/containers/ollama-docker.md
+      - Model Volumes: ai/containers/model-volumes.md
+      - GPU Containers: ai/containers/gpu-containers.md
+    - API Serving:
+      - ai/api-serving/index.md
+      - OpenAI Compatible: ai/api-serving/openai-compatible.md
+      - LocalAI: ai/api-serving/localai.md
+      - Load Balancing: ai/api-serving/load-balancing.md
+    - VM Integration:
+      - ai/vm-integration/index.md
+      - Windows LM Studio: ai/vm-integration/windows-lm-studio.md
+      - API from VM: ai/vm-integration/api-from-vm.md
+    - AI Coding Tools:
+      - ai/coding-tools/index.md
+      - Claude Code: ai/coding-tools/claude-code.md
+      - Aider: ai/coding-tools/aider.md
+      - Cline: ai/coding-tools/cline.md
+      - Continue.dev: ai/coding-tools/continue-dev.md
+    - Model Management:
+      - ai/models/index.md
+      - Choosing Models: ai/models/choosing-models.md
+      - Quantization: ai/models/quantization.md
+      - Hugging Face: ai/models/huggingface.md
+      - GGUF Formats: ai/models/gguf-formats.md
+    - Performance:
+      - ai/performance/index.md
+      - Benchmarking: ai/performance/benchmarking.md
+      - Context Optimization: ai/performance/context-optimization.md
+      - Memory Management: ai/performance/memory-management.md
+    - Remote Access:
+      - ai/remote-access/index.md
+      - Tailscale Integration: ai/remote-access/tailscale-integration.md
+      - API Security: ai/remote-access/api-security.md
+    - Reference:
+      - Quick Reference: ai/reference/quick-reference.md
+      - Model Compatibility: ai/reference/model-compatibility.md
+      - Troubleshooting: ai/reference/troubleshooting.md
