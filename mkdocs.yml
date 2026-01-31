@@ -402,6 +402,10 @@ nav:
         - GitHub Actions: bash/tools/github-actions.md
         - Make: bash/tools/make.md
         - Databases: bash/tools/databases.md
+        - Version Managers:
+            - asdf: bash/tools/asdf.md
+            - mise: bash/tools/mise.md
+        - zoxide: bash/tools/zoxide.md
     - Advanced:
         - bash/advanced/index.md
         - Job Control: bash/advanced/job-control.md
@@ -471,7 +475,64 @@ nav:
       - ai/remote-access/index.md
       - Tailscale Integration: ai/remote-access/tailscale-integration.md
       - API Security: ai/remote-access/api-security.md
+    - RAG:
+      - ai/rag/index.md
+      - Fundamentals: ai/rag/fundamentals.md
+      - Implementation: ai/rag/implementation.md
+      - Optimization: ai/rag/optimization.md
+      - Integration: ai/rag/integration.md
+    - Vector Databases:
+      - ai/vector-databases/index.md
+      - ChromaDB: ai/vector-databases/chroma.md
+      - Qdrant: ai/vector-databases/qdrant.md
+      - Milvus: ai/vector-databases/milvus.md
+      - pgvector: ai/vector-databases/pgvector.md
+    - Fine-Tuning:
+      - ai/fine-tuning/index.md
+      - LoRA: ai/fine-tuning/lora.md
+      - Training: ai/fine-tuning/training.md
+      - Inference: ai/fine-tuning/inference.md
+    - Agent Frameworks:
+      - ai/agent-frameworks/index.md
+      - LangChain: ai/agent-frameworks/langchain.md
+      - LangGraph: ai/agent-frameworks/langgraph.md
+      - CrewAI: ai/agent-frameworks/crewai.md
+      - Tools: ai/agent-frameworks/tools.md
+    - Multi-Modal:
+      - ai/multimodal/index.md
+      - Vision: ai/multimodal/vision.md
+      - Audio: ai/multimodal/audio.md
+      - Image Generation: ai/multimodal/image-generation.md
+    - MCP:
+      - ai/mcp/index.md
+      - Servers: ai/mcp/servers.md
+      - Clients: ai/mcp/clients.md
+      - Examples: ai/mcp/examples.md
     - Reference:
       - Quick Reference: ai/reference/quick-reference.md
       - Model Compatibility: ai/reference/model-compatibility.md
       - Troubleshooting: ai/reference/troubleshooting.md
+
+  - Self-Hosted Services:
+    - services/index.md
+    - Reverse Proxy:
+      - services/reverse-proxy/index.md
+      - Traefik: services/reverse-proxy/traefik.md
+      - Caddy: services/reverse-proxy/caddy.md
+    - Authentication:
+      - services/authentication/index.md
+      - Authentik: services/authentication/authentik.md
+      - Authelia: services/authentication/authelia.md
+    - Media Stack:
+      - services/media-stack/index.md
+      - Jellyfin: services/media-stack/jellyfin.md
+      - "*arr Stack": services/media-stack/arr-stack.md
+    - Pi-hole: services/pi-hole/index.md
+    - Homepage: services/homepage/index.md
+    - Uptime Kuma: services/uptime-kuma/index.md
+
+  - Testing:
+    - testing/index.md
+    - Python: testing/python.md
+    - JavaScript: testing/javascript.md
+    - Bash: testing/bash.md
