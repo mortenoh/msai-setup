@@ -131,9 +131,12 @@ nav:
     - ZFS Storage:
       - zfs/index.md
       - Concepts: zfs/concepts.md
+      - Partitioning: zfs/partitioning.md
       - Pool Creation: zfs/pool-creation.md
       - Datasets: zfs/datasets.md
       - Snapshots: zfs/snapshots.md
+      - VM Storage: zfs/vm-storage.md
+      - Docker Integration: zfs/docker-integration.md
     - Operations:
       - operations/index.md
       - Backup: operations/backup.md

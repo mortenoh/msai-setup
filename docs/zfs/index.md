@@ -21,6 +21,9 @@ ZFS provides:
 ## Sections
 
 - [Concepts](concepts.md) - ZFS fundamentals
+- [Partitioning](partitioning.md) - Disk preparation for ZFS
 - [Pool Creation](pool-creation.md) - Create the tank pool
 - [Datasets](datasets.md) - Dataset hierarchy and properties
 - [Snapshots](snapshots.md) - Snapshot policies and management
+- [VM Storage](vm-storage.md) - Zvols and libvirt integration
+- [Docker Integration](docker-integration.md) - Container storage options
