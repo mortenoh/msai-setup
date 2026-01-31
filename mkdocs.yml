@@ -140,7 +140,9 @@ nav:
     - Operations:
       - operations/index.md
       - Capacity Planning: operations/capacity-planning.md
-      - Backup: operations/backup.md
+      - Monitoring: operations/monitoring.md
+      - Power Management: operations/power-management.md
+      - Backup & Recovery: operations/backup.md
       - Recovery: operations/recovery.md
       - Rebuild Checklist: operations/rebuild-checklist.md
 
