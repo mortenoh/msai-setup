@@ -2,6 +2,47 @@
 
 Neovim is a hyperextensible text editor built for modern development workflows. LazyVim is a Neovim distribution that provides sensible defaults and a plugin management system out of the box.
 
+## Norwegian Keyboard Layout
+
+Neovim works well with Norwegian keyboards, but some default keybindings may need adjustment:
+
+**Potential Issues:**
+
+- Square brackets `[]` require ++alt+8++ and ++alt+9++ (used for navigation)
+- Backtick requires ++shift+backslash++ (marks and jumps)
+- Backslash `\` requires ++alt+shift+7++ (leader key on some configs)
+- Curly braces `{}` require ++alt+shift+8++ and ++alt+shift+9++
+
+**Recommended Settings:**
+
+Add to `~/.config/nvim/lua/config/keymaps.lua`:
+
+```lua
+-- Norwegian keyboard-friendly mappings
+
+-- Easier access to [ and ] for navigation
+vim.keymap.set("n", "ø", "[", { remap = true })
+vim.keymap.set("n", "æ", "]", { remap = true })
+
+-- Or use leader key alternatives
+vim.keymap.set("n", "<leader>[", "[", { remap = true })
+vim.keymap.set("n", "<leader>]", "]", { remap = true })
+
+-- Navigate diagnostics without brackets
+vim.keymap.set("n", "<leader>dp", vim.diagnostic.goto_prev, { desc = "Previous diagnostic" })
+vim.keymap.set("n", "<leader>dn", vim.diagnostic.goto_next, { desc = "Next diagnostic" })
+
+-- Navigate hunks without brackets
+vim.keymap.set("n", "<leader>hp", function()
+  require("gitsigns").prev_hunk()
+end, { desc = "Previous hunk" })
+vim.keymap.set("n", "<leader>hn", function()
+  require("gitsigns").next_hunk()
+end, { desc = "Next hunk" })
+```
+
+**Space as Leader Key**: LazyVim uses ++space++ as the leader key by default, which works perfectly with Norwegian keyboards.
+
 ## Why Neovim?
 
 - **Performance**: Fast startup and editing, even with plugins

@@ -32,6 +32,46 @@ Network tools: `curl`, `wget`, `ssh`, `nc` (netcat). Making HTTP requests, downl
 
 Working with compressed files and archives: `tar`, `gzip`, `bzip2`, `xz`, `zip`, and `unzip`.
 
+### [Git](git.md)
+
+Comprehensive Git guide covering configuration, workflows, branching strategies, LFS, hooks, and delta integration.
+
+### [tmux](tmux.md)
+
+Terminal multiplexer for managing multiple terminal sessions, windows, and panes. Essential for remote work.
+
+### [uv](uv.md)
+
+Extremely fast Python package installer and resolver written in Rust. Drop-in replacement for pip.
+
+### [Node.js](nodejs.md)
+
+Node.js runtime with nvm version management, npm/pnpm package managers, and project configuration.
+
+### [Deno](deno.md)
+
+Secure JavaScript/TypeScript runtime with built-in tooling, permissions system, and modern APIs.
+
+### [Bun](bun.md)
+
+All-in-one JavaScript runtime, bundler, and package manager. Fast alternative to Node.js.
+
+### [Rust](rust.md)
+
+Rust toolchain management with rustup, cargo, clippy, and rustfmt. Building and cross-compiling.
+
+### [GitHub Actions](github-actions.md)
+
+CI/CD automation with workflow configuration, common patterns, and reusable workflows.
+
+### [Make](make.md)
+
+Build automation with Makefiles. Variables, targets, dependencies, and patterns for any project.
+
+### [Databases](databases.md)
+
+Quick reference for PostgreSQL, Redis, MongoDB, MySQL with Docker commands and CLI usage.
+
 ## Tool Philosophy
 
 Unix tools follow key principles:

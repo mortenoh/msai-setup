@@ -116,6 +116,84 @@ vim.keymap.set(mode, key, action, opts)
 vim.keymap.del("n", "<leader>l")
 ```
 
+### Norwegian Keyboard Configuration
+
+On Norwegian keyboards, bracket keys `[]` require ++alt+8++ and ++alt+9++, making Vim's bracket-based navigation cumbersome. Here's a complete Norwegian-friendly configuration:
+
+```lua
+-- lua/config/keymaps.lua
+-- Norwegian keyboard optimizations
+
+local map = vim.keymap.set
+
+-- ============================================
+-- Use ø and æ for bracket navigation
+-- These keys are on the home row on Norwegian keyboards
+-- ============================================
+
+-- Map ø to [ and æ to ] (all modes that use brackets)
+map({ "n", "x", "o" }, "ø", "[", { remap = true, desc = "[ key (Norwegian)" })
+map({ "n", "x", "o" }, "æ", "]", { remap = true, desc = "] key (Norwegian)" })
+
+-- Capital versions for paragraph motion
+map({ "n", "x", "o" }, "Ø", "{", { desc = "Previous paragraph" })
+map({ "n", "x", "o" }, "Æ", "}", { desc = "Next paragraph" })
+
+-- With this mapping, you can now use:
+-- ød = previous diagnostic
+-- æd = next diagnostic
+-- øh = previous git hunk
+-- æh = next git hunk
+-- øb = previous buffer
+-- æb = next buffer
+-- øq = previous quickfix
+-- æq = next quickfix
+
+-- ============================================
+-- Alternative: Leader-based navigation
+-- If you prefer not to remap ø/æ
+-- ============================================
+
+-- Diagnostics
+map("n", "<leader>dp", vim.diagnostic.goto_prev, { desc = "Previous diagnostic" })
+map("n", "<leader>dn", vim.diagnostic.goto_next, { desc = "Next diagnostic" })
+map("n", "<leader>df", vim.diagnostic.open_float, { desc = "Float diagnostic" })
+
+-- Quickfix
+map("n", "<leader>qp", "<cmd>cprev<cr>", { desc = "Previous quickfix" })
+map("n", "<leader>qn", "<cmd>cnext<cr>", { desc = "Next quickfix" })
+
+-- Location list
+map("n", "<leader>lp", "<cmd>lprev<cr>", { desc = "Previous location" })
+map("n", "<leader>ln", "<cmd>lnext<cr>", { desc = "Next location" })
+
+-- ============================================
+-- Easier marks (backtick is hard to reach)
+-- ============================================
+
+-- Use ' for exact mark position (normally ` which requires Shift+\ on Norwegian)
+map("n", "'", "`", { desc = "Jump to mark (exact position)" })
+map("n", "å", "'", { desc = "Jump to mark (line start)" })
+
+-- ============================================
+-- Other Norwegian-friendly mappings
+-- ============================================
+
+-- Easier command mode (colon requires Shift on Norwegian)
+map("n", "ö", ":", { desc = "Command mode" })
+
+-- Easier escape in insert mode
+map("i", "jk", "<Esc>", { desc = "Exit insert mode" })
+map("i", "jj", "<Esc>", { desc = "Exit insert mode" })
+```
+
+**Why ø and æ for brackets?**
+
+- Located on home row (right pinky area)
+- Single keypress vs ++alt+8++ / ++alt+9++
+- Rarely used when programming
+- Natural left/right association (ø is left of æ on the keyboard)
+
 ## Autocommands (autocmds.lua)
 
 Create automatic behaviors:

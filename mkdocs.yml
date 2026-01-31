@@ -316,6 +316,7 @@ nav:
         - Aliases: bash/configuration/aliases.md
         - Functions: bash/configuration/functions.md
         - Prompt: bash/configuration/prompt.md
+        - Ghostty: bash/configuration/ghostty/index.md
         - Starship:
             - bash/configuration/starship/index.md
             - Installation: bash/configuration/starship/installation.md
@@ -381,6 +382,16 @@ nav:
         - Process Management: bash/tools/process-management.md
         - Networking: bash/tools/networking.md
         - Archives: bash/tools/archives.md
+        - Git: bash/tools/git.md
+        - tmux: bash/tools/tmux.md
+        - uv: bash/tools/uv.md
+        - Node.js: bash/tools/nodejs.md
+        - Deno: bash/tools/deno.md
+        - Bun: bash/tools/bun.md
+        - Rust: bash/tools/rust.md
+        - GitHub Actions: bash/tools/github-actions.md
+        - Make: bash/tools/make.md
+        - Databases: bash/tools/databases.md
     - Advanced:
         - bash/advanced/index.md
         - Job Control: bash/advanced/job-control.md

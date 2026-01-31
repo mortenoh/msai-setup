@@ -8,6 +8,69 @@ The leader key is ++space++. Most LazyVim commands start with the leader key.
 
 Press ++space++ and wait to see available commands via which-key.
 
+## Norwegian Keyboard Considerations
+
+On Norwegian keyboards, several keys used frequently in Vim are harder to reach:
+
+| Character | Norwegian Key | Vim Usage |
+|-----------|---------------|-----------|
+| `[` | ++alt+8++ | Navigation (prev) |
+| `]` | ++alt+9++ | Navigation (next) |
+| `` ` `` | ++shift+backslash++ | Marks |
+| `\` | ++alt+shift+7++ | Some mappings |
+| `{` | ++alt+shift+8++ | Paragraph motion |
+| `}` | ++alt+shift+9++ | Paragraph motion |
+| `~` | ++alt+k++ | Change case |
+
+### Recommended Remappings
+
+Add to `~/.config/nvim/lua/config/keymaps.lua`:
+
+```lua
+-- Norwegian keyboard-friendly navigation
+-- Use ø and æ for bracket navigation (they're on the home row!)
+vim.keymap.set({ "n", "x", "o" }, "ø", "[", { remap = true, desc = "[ key" })
+vim.keymap.set({ "n", "x", "o" }, "æ", "]", { remap = true, desc = "] key" })
+
+-- This means:
+-- ø + d = previous diagnostic
+-- æ + d = next diagnostic
+-- ø + h = previous git hunk
+-- æ + h = next git hunk
+-- ø + b = previous buffer
+-- æ + b = next buffer
+
+-- Alternative: Leader-based navigation (works without remapping ø/æ)
+vim.keymap.set("n", "<leader>dp", vim.diagnostic.goto_prev, { desc = "Prev diagnostic" })
+vim.keymap.set("n", "<leader>dn", vim.diagnostic.goto_next, { desc = "Next diagnostic" })
+
+-- Navigate quickfix
+vim.keymap.set("n", "<leader>qp", "<cmd>cprev<cr>", { desc = "Prev quickfix" })
+vim.keymap.set("n", "<leader>qn", "<cmd>cnext<cr>", { desc = "Next quickfix" })
+
+-- Navigate buffers without brackets
+vim.keymap.set("n", "<S-h>", "<cmd>bprevious<cr>", { desc = "Prev buffer" })
+vim.keymap.set("n", "<S-l>", "<cmd>bnext<cr>", { desc = "Next buffer" })
+
+-- Easier marks (backtick is hard to reach)
+vim.keymap.set("n", "'", "`", { desc = "Jump to mark (exact)" })
+
+-- Easier paragraph motion
+vim.keymap.set({ "n", "x", "o" }, "Ø", "{", { desc = "Prev paragraph" })
+vim.keymap.set({ "n", "x", "o" }, "Æ", "}", { desc = "Next paragraph" })
+```
+
+### Why ø and æ?
+
+On Norwegian keyboards, `ø` and `æ` are:
+
+- Located on the home row (right pinky)
+- Rarely used in programming
+- Single key press vs ++alt+8++ / ++alt+9++
+- Natural left/right association (ø is left of æ)
+
+This mapping lets you use all bracket-based navigation naturally.
+
 ## General
 
 | Key | Action |
