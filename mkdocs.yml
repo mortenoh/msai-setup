@@ -71,6 +71,7 @@ nav:
   - Getting Started:
     - getting-started/index.md
     - Hardware: getting-started/hardware.md
+    - BIOS Setup: getting-started/bios-setup.md
     - Architecture: getting-started/architecture.md
     - Prerequisites: getting-started/prerequisites.md
 
@@ -291,6 +292,11 @@ nav:
 
   - AI & Local LLMs:
     - ai/index.md
+    - GPU Setup:
+      - ai/gpu/index.md
+      - ROCm Installation: ai/gpu/rocm-installation.md
+      - Driver Updates: ai/gpu/driver-updates.md
+      - Memory Configuration: ai/gpu/memory-configuration.md
     - Fundamentals:
       - Why Local LLMs: ai/fundamentals/why-local-llms.md
       - Unified Memory: ai/fundamentals/unified-memory.md

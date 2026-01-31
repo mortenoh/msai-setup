@@ -95,12 +95,15 @@ docker run --gpus '"device=0,1"' ...
 
 ## AMD ROCm Setup
 
+!!! tip "Native Installation"
+    For direct inference without containers, see [ROCm Installation](../gpu/rocm-installation.md). Native installation may provide better performance and simpler debugging for APU configurations.
+
 ### Install ROCm
 
 ```bash
-# Add repository (Ubuntu 22.04)
-wget https://repo.radeon.com/amdgpu-install/latest/ubuntu/jammy/amdgpu-install_6.0.60002-1_all.deb
-sudo apt install ./amdgpu-install_6.0.60002-1_all.deb
+# Add repository (Ubuntu 24.04)
+wget https://repo.radeon.com/amdgpu-install/latest/ubuntu/noble/amdgpu-install_6.3.60300-1_all.deb
+sudo apt install ./amdgpu-install_6.3.60300-1_all.deb
 
 # Install ROCm
 sudo amdgpu-install --usecase=rocm
@@ -415,3 +418,5 @@ docker compose config | grep -A5 devices
 - [llama.cpp Docker](llama-cpp-docker.md) - llama.cpp container
 - [Ollama Docker](ollama-docker.md) - Ollama container
 - [vLLM](../inference-engines/vllm.md) - Multi-GPU serving
+- [ROCm Installation](../gpu/rocm-installation.md) - Native ROCm setup
+- [Memory Configuration](../gpu/memory-configuration.md) - APU memory optimization
