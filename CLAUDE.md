@@ -1,5 +1,7 @@
 # Claude Code Instructions
 
+When in doubt, follow conventions from chapkit: https://github.com/dhis2-chap/chapkit
+
 ## Git Commits
 
 - Use conventional commits format (feat:, fix:, docs:, chore:, refactor:, etc.)
