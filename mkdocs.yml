@@ -330,6 +330,34 @@ nav:
             - Advanced: bash/configuration/starship/advanced.md
             - Troubleshooting: bash/configuration/starship/troubleshooting.md
             - Reference: bash/configuration/starship/reference.md
+        - Neovim:
+            - bash/configuration/neovim/index.md
+            - Installation: bash/configuration/neovim/installation.md
+            - Configuration: bash/configuration/neovim/configuration.md
+            - Keybindings: bash/configuration/neovim/keybindings.md
+            - Plugins: bash/configuration/neovim/plugins.md
+            - Language Support: bash/configuration/neovim/language-support.md
+            - Customization: bash/configuration/neovim/customization.md
+            - Troubleshooting: bash/configuration/neovim/troubleshooting.md
+            - Reference: bash/configuration/neovim/reference.md
+        - Zed:
+            - bash/configuration/zed/index.md
+            - Installation: bash/configuration/zed/installation.md
+            - Configuration: bash/configuration/zed/configuration.md
+            - Keybindings: bash/configuration/zed/keybindings.md
+            - Extensions: bash/configuration/zed/extensions.md
+            - AI Features: bash/configuration/zed/ai-features.md
+            - Collaboration: bash/configuration/zed/collaboration.md
+            - Reference: bash/configuration/zed/reference.md
+        - VS Code:
+            - bash/configuration/vscode/index.md
+            - Installation: bash/configuration/vscode/installation.md
+            - Configuration: bash/configuration/vscode/configuration.md
+            - Keybindings: bash/configuration/vscode/keybindings.md
+            - Extensions: bash/configuration/vscode/extensions.md
+            - AI Features: bash/configuration/vscode/ai-features.md
+            - Debugging: bash/configuration/vscode/debugging.md
+            - Reference: bash/configuration/vscode/reference.md
     - Scripting:
         - bash/scripting/index.md
         - Basics: bash/scripting/basics.md
@@ -346,6 +374,9 @@ nav:
         - Text Processing: bash/tools/text-processing.md
         - Finding Files: bash/tools/finding-files.md
         - Modern Replacements: bash/tools/modern-replacements.md
+        - fzf: bash/tools/fzf.md
+        - lazygit: bash/tools/lazygit.md
+        - lazydocker: bash/tools/lazydocker.md
         - JSON Processing: bash/tools/json-processing.md
         - Process Management: bash/tools/process-management.md
         - Networking: bash/tools/networking.md
