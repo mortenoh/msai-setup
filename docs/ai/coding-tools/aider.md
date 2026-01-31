@@ -379,6 +379,304 @@ aider --model ollama/qwen2.5:32b  # 128K context
 | Auto-commits | Yes | Optional | No |
 | Multi-file | Yes | Yes | Yes |
 
+## Local Model Recommendations
+
+### Best Models for Aider
+
+| Model | VRAM | Context | Strengths | Use Case |
+|-------|------|---------|-----------|----------|
+| DeepSeek Coder V2 16B | 12GB | 128K | Excellent coding | General development |
+| Qwen 2.5 Coder 32B | 24GB | 128K | Best local coding | Complex refactoring |
+| Llama 3.3 70B | 48GB | 128K | Strong reasoning | Architecture, planning |
+| Codestral 22B | 16GB | 32K | Fast, accurate | Quick edits |
+| DeepSeek R1 Distill 32B | 24GB | 64K | Reasoning + coding | Debug, analysis |
+
+### Model Configuration by Task
+
+```yaml
+# ~/.aider.conf.yml - Task-optimized setup
+
+# For general coding (balanced)
+model: ollama/deepseek-coder-v2:16b
+
+# For complex reasoning tasks
+# model: ollama/qwen2.5-coder:32b
+
+# For quick fixes (faster)
+weak-model: ollama/codestral:22b
+```
+
+### Performance Tuning
+
+```yaml
+# ~/.aider.conf.yml
+
+# Reduce context for faster responses
+map-tokens: 1024
+
+# Disable streaming for batch mode
+stream: false
+
+# Use less context on constrained systems
+edit-format: diff
+
+# Limit output tokens
+max-chat-history-tokens: 4096
+```
+
+### Memory-Constrained Setup
+
+For systems with limited VRAM (8-16GB):
+
+```bash
+# Use smaller, quantized model
+aider --model ollama/deepseek-coder-v2:16b-q4_K_M
+
+# Or use efficient model
+aider --model ollama/codestral:22b-q4_K_M
+```
+
+## Git Workflow Integration
+
+### Branch-Based Development
+
+```bash
+# Create feature branch
+git checkout -b feature/auth
+
+# Start Aider in branch
+aider
+
+# Aider commits stay on this branch
+```
+
+### Commit Message Customization
+
+```yaml
+# ~/.aider.conf.yml
+
+# Custom commit message prefix
+commit-prompt: |
+  Generate a commit message following conventional commits format.
+  Use these prefixes: feat, fix, docs, style, refactor, test, chore
+  Keep the subject line under 50 characters.
+  Include a body explaining WHY the change was made.
+```
+
+### Staging Workflow
+
+```bash
+# Review changes before letting Aider commit
+aider --no-auto-commits
+
+# Then manually:
+git diff
+git add -p
+git commit
+```
+
+### Working with PRs
+
+```bash
+# Start session for PR work
+git checkout pr-branch
+aider
+
+# When done, push and create PR
+git push origin pr-branch
+gh pr create
+```
+
+## Multi-File Editing Strategies
+
+### Explicit File Addition
+
+```bash
+# Start with core files
+aider src/models/user.py src/api/users.py
+
+# Add related files as needed
+/add src/services/user_service.py
+/add tests/test_users.py
+```
+
+### Pattern-Based Addition
+
+```bash
+# Add all Python files in directory
+aider src/api/*.py
+
+# Or use shell expansion
+aider $(find src -name "*.py" -type f)
+```
+
+### Read-Only Context
+
+```bash
+# Add documentation for context only
+/read-only docs/API.md
+/read-only README.md
+
+# These files inform responses but aren't edited
+```
+
+### Large Codebase Strategy
+
+```bash
+# 1. Start with interface/API files
+aider src/api/endpoints.py
+
+# 2. Add implementation as needed
+/add src/services/implementation.py
+
+# 3. Add tests last
+/add tests/test_endpoints.py
+```
+
+### Refactoring Across Files
+
+```plaintext
+User: Rename UserService to AccountService across all files
+
+Aider: I'll need to modify these files:
+- src/services/user_service.py (rename file and class)
+- src/api/users.py (update imports)
+- src/main.py (update dependency injection)
+- tests/test_user_service.py (rename and update)
+
+Shall I proceed?
+```
+
+## Advanced Configuration
+
+### Project-Specific Config
+
+Create `.aider.conf.yml` in project root:
+
+```yaml
+# Project uses specific model
+model: ollama/qwen2.5-coder:32b
+
+# Project conventions
+auto-commits: true
+attribute-commits: false
+dirty-commits: false
+
+# Language-specific
+edit-format: udiff
+
+# Files to always ignore
+aiderignore:
+  - "*.min.js"
+  - "vendor/"
+  - "node_modules/"
+  - ".env*"
+```
+
+### Environment-Based Config
+
+```bash
+# ~/.bashrc or ~/.zshrc
+
+# Work projects
+alias aider-work='aider --config ~/.aider-work.yml'
+
+# Personal projects
+alias aider-personal='aider --config ~/.aider-personal.yml'
+
+# Quick mode for small fixes
+alias aider-quick='aider --model ollama/codestral:22b --no-auto-commits'
+```
+
+### Voice Mode
+
+```bash
+# Enable voice input
+aider --voice
+
+# Requires: pip install aider-chat[voice]
+# Uses OpenAI Whisper for transcription
+```
+
+## Integration with Other Tools
+
+### With Git Hooks
+
+```bash
+# .git/hooks/pre-commit
+#!/bin/bash
+# Run linting before Aider commits
+ruff check --fix .
+black .
+```
+
+### With CI/CD
+
+```yaml
+# .github/workflows/aider-review.yml
+name: Aider Review
+on: pull_request
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run Aider review
+        run: |
+          pip install aider-chat
+          aider --model openai/gpt-4 --message "Review this PR" --yes
+```
+
+### With tmux
+
+```bash
+# Start Aider in named tmux session
+tmux new-session -d -s aider "cd ~/project && aider"
+
+# Attach later
+tmux attach -t aider
+```
+
+## Troubleshooting Local Models
+
+### Model Response Issues
+
+```bash
+# Test model directly
+curl http://localhost:11434/api/generate -d '{
+  "model": "deepseek-coder-v2:16b",
+  "prompt": "Write a hello world in Python"
+}'
+
+# Check Aider sees model
+aider --list-models ollama/
+```
+
+### Memory Issues
+
+```bash
+# Monitor VRAM usage
+watch -n 1 nvidia-smi
+
+# Use quantized models
+ollama pull deepseek-coder-v2:16b-q4_K_M
+
+# Reduce context
+aider --map-tokens 512
+```
+
+### Connection Issues
+
+```bash
+# Verify Ollama is listening
+curl http://localhost:11434/
+
+# Set explicit host
+export OLLAMA_HOST=http://localhost:11434
+aider --model ollama/deepseek-coder-v2:16b
+```
+
 ## See Also
 
 - [AI Coding Tools Index](index.md) - Tool comparison

@@ -338,6 +338,367 @@ OLLAMA_HOST=0.0.0.0 ollama serve
 - Use .clinerules for project conventions
 - Reference documentation when needed
 
+## MCP Server Configuration
+
+Cline supports MCP (Model Context Protocol) for extending capabilities with external tools.
+
+### MCP Settings
+
+In VS Code settings (`settings.json`):
+
+```json
+{
+  "cline.mcpServers": {
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/home/user/projects"],
+      "disabled": false
+    },
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "${env:GITHUB_TOKEN}"
+      }
+    },
+    "postgres": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-postgres"],
+      "env": {
+        "DATABASE_URL": "postgresql://user:pass@localhost/db"
+      }
+    }
+  }
+}
+```
+
+### Available MCP Servers
+
+| Server | Purpose | Installation |
+|--------|---------|--------------|
+| Filesystem | File operations | `@modelcontextprotocol/server-filesystem` |
+| GitHub | Repository access | `@modelcontextprotocol/server-github` |
+| PostgreSQL | Database queries | `@modelcontextprotocol/server-postgres` |
+| SQLite | Local databases | `@modelcontextprotocol/server-sqlite` |
+| Puppeteer | Browser automation | `@modelcontextprotocol/server-puppeteer` |
+| Brave Search | Web search | `@modelcontextprotocol/server-brave-search` |
+
+### Custom MCP Server
+
+Create custom tools for Cline:
+
+```typescript
+// my-mcp-server/src/index.ts
+import { Server } from "@modelcontextprotocol/sdk/server/index.js";
+import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+
+const server = new Server(
+  { name: "my-tools", version: "1.0.0" },
+  { capabilities: { tools: {} } }
+);
+
+server.setRequestHandler("tools/list", async () => ({
+  tools: [{
+    name: "run_tests",
+    description: "Run project tests",
+    inputSchema: {
+      type: "object",
+      properties: {
+        pattern: { type: "string", description: "Test file pattern" }
+      }
+    }
+  }]
+}));
+
+server.setRequestHandler("tools/call", async (request) => {
+  if (request.params.name === "run_tests") {
+    const result = await runTests(request.params.arguments.pattern);
+    return { content: [{ type: "text", text: result }] };
+  }
+});
+
+const transport = new StdioServerTransport();
+await server.connect(transport);
+```
+
+Add to settings:
+
+```json
+{
+  "cline.mcpServers": {
+    "my-tools": {
+      "command": "node",
+      "args": ["/path/to/my-mcp-server/dist/index.js"]
+    }
+  }
+}
+```
+
+## Local Model Setup
+
+### Ollama Configuration
+
+```json
+{
+  "cline.apiProvider": "ollama",
+  "cline.ollamaBaseUrl": "http://localhost:11434",
+  "cline.ollamaModelId": "qwen2.5-coder:32b"
+}
+```
+
+### Recommended Models for Cline
+
+| Model | VRAM | Best For |
+|-------|------|----------|
+| Qwen 2.5 Coder 32B | 24GB | Complex refactoring, planning |
+| DeepSeek Coder V2 16B | 12GB | General coding tasks |
+| Codestral 22B | 16GB | Fast code completion |
+| Llama 3.3 70B | 48GB | Architecture decisions |
+
+### LM Studio Configuration
+
+```json
+{
+  "cline.apiProvider": "lmstudio",
+  "cline.lmStudioBaseUrl": "http://localhost:1234",
+  "cline.lmStudioModelId": "loaded-model"
+}
+```
+
+### OpenAI-Compatible Servers
+
+For llama.cpp server or other OpenAI-compatible endpoints:
+
+```json
+{
+  "cline.apiProvider": "openai-compatible",
+  "cline.openAiCompatibleBaseUrl": "http://localhost:8080/v1",
+  "cline.openAiCompatibleApiKey": "not-needed",
+  "cline.openAiCompatibleModelId": "llama3.3"
+}
+```
+
+### Remote Ollama (Tailscale)
+
+```json
+{
+  "cline.apiProvider": "ollama",
+  "cline.ollamaBaseUrl": "http://server.tailnet.ts.net:11434",
+  "cline.ollamaModelId": "qwen2.5-coder:32b"
+}
+```
+
+## VS Code Integration
+
+### Workspace Settings
+
+Create `.vscode/settings.json` for project-specific config:
+
+```json
+{
+  "cline.apiProvider": "ollama",
+  "cline.ollamaModelId": "deepseek-coder-v2:16b",
+  "cline.customInstructions": "This is a TypeScript React project. Use functional components and hooks."
+}
+```
+
+### Task Integration
+
+Create `.vscode/tasks.json` to work with Cline:
+
+```json
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Run Tests",
+      "type": "shell",
+      "command": "npm test",
+      "problemMatcher": "$tsc"
+    },
+    {
+      "label": "Lint",
+      "type": "shell",
+      "command": "npm run lint",
+      "problemMatcher": "$eslint-stylish"
+    }
+  ]
+}
+```
+
+Cline can run these tasks during development.
+
+### Keybinding Customization
+
+Add to `keybindings.json`:
+
+```json
+[
+  {
+    "key": "ctrl+shift+c",
+    "command": "cline.openInNewTab"
+  },
+  {
+    "key": "ctrl+shift+a",
+    "command": "cline.acceptAllChanges"
+  }
+]
+```
+
+## Custom Instructions Patterns
+
+### Project-Level Instructions (.clinerules)
+
+Create `.clinerules` in project root:
+
+```markdown
+# Project: E-commerce API
+
+## Stack
+- Node.js 20 with TypeScript
+- Express.js framework
+- PostgreSQL with Prisma ORM
+- Jest for testing
+
+## Conventions
+- Use async/await, never callbacks
+- All functions must have TypeScript types
+- Error handling with custom AppError class
+- Logging with winston logger
+
+## File Structure
+- src/controllers/ - Request handlers
+- src/services/ - Business logic
+- src/repositories/ - Data access
+- src/middleware/ - Express middleware
+- src/utils/ - Helper functions
+
+## Testing
+- Unit tests in __tests__ directories
+- Integration tests in tests/integration/
+- Minimum 80% coverage
+
+## Security
+- Never expose internal errors to clients
+- Validate all input with zod schemas
+- Use parameterized queries only
+```
+
+### Task-Specific Instructions
+
+In the Cline panel, provide context:
+
+```plaintext
+Context: This is a migration from Express to Fastify.
+
+Rules:
+1. Keep the same API structure
+2. Update middleware to Fastify hooks
+3. Replace Express types with Fastify types
+4. Maintain all existing tests
+```
+
+### Code Style Instructions
+
+```json
+{
+  "cline.customInstructions": "Follow these rules:\n1. Use 2-space indentation\n2. Prefer const over let\n3. Use arrow functions for callbacks\n4. Add JSDoc for public APIs\n5. Keep functions under 30 lines"
+}
+```
+
+## Advanced Workflows
+
+### Plan Mode Best Practices
+
+1. Start with high-level request
+2. Review Cline's plan
+3. Ask clarifying questions
+4. Approve or refine
+5. Let Act mode execute
+
+Example conversation:
+
+```plaintext
+You: Add user authentication to this Express API
+
+Cline: I'll create a plan for authentication:
+1. Install dependencies (jsonwebtoken, bcrypt)
+2. Create User model with password hashing
+3. Add auth middleware for JWT verification
+4. Create /auth/register endpoint
+5. Create /auth/login endpoint
+6. Protect existing routes
+
+Should I proceed with this plan?
+
+You: Also add refresh token support
+
+Cline: Updated plan:
+1-5. [same as above]
+6. Add refresh token model
+7. Create /auth/refresh endpoint
+8. Update login to return both tokens
+9. Protect existing routes
+
+Shall I proceed?
+```
+
+### Iterative Development
+
+```plaintext
+Step 1: "Create the data model for users"
+Step 2: "Add the user service with CRUD operations"
+Step 3: "Create API endpoints for user management"
+Step 4: "Add input validation with zod"
+Step 5: "Write unit tests for the user service"
+```
+
+### Debugging with Cline
+
+```plaintext
+"This test is failing:
+
+[paste error]
+
+The test file is tests/user.test.ts and it tests src/services/user.ts.
+Help me understand why it's failing and fix it."
+```
+
+## Troubleshooting
+
+### Extension Not Loading
+
+```bash
+# Check extension is installed
+code --list-extensions | grep -i cline
+
+# Reinstall if needed
+code --uninstall-extension saoudrizwan.claude-dev
+code --install-extension saoudrizwan.claude-dev
+```
+
+### Model Connection Issues
+
+```bash
+# Test Ollama connection
+curl http://localhost:11434/api/tags
+
+# Check model is available
+ollama list
+```
+
+### High Memory Usage
+
+- Use smaller models for simple tasks
+- Reduce context window in model settings
+- Close unused editor tabs
+
+### Changes Not Applying
+
+- Check file permissions
+- Ensure no other process has file locked
+- Try reloading VS Code window
+
 ## See Also
 
 - [AI Coding Tools Index](index.md) - Tool comparison

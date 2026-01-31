@@ -327,6 +327,300 @@ curl -H "x-api-key: $ANTHROPIC_API_KEY" \
 | Multi-file | Yes | Yes | Yes |
 | Code execution | Yes | Limited | Yes |
 
+## MCP (Model Context Protocol) Servers
+
+Claude Code supports MCP servers for extending functionality with external tools and data sources.
+
+### Configure MCP Servers
+
+Create or edit `~/.claude/claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/path/to/allowed/dir"]
+    },
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "ghp_xxxxx"
+      }
+    },
+    "postgres": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-postgres", "postgresql://user:pass@localhost/db"]
+    }
+  }
+}
+```
+
+### Available MCP Servers
+
+| Server | Purpose | Package |
+|--------|---------|---------|
+| Filesystem | File access | `@modelcontextprotocol/server-filesystem` |
+| GitHub | Repository access | `@modelcontextprotocol/server-github` |
+| PostgreSQL | Database queries | `@modelcontextprotocol/server-postgres` |
+| SQLite | Local databases | `@modelcontextprotocol/server-sqlite` |
+| Fetch | HTTP requests | `@modelcontextprotocol/server-fetch` |
+
+### Custom MCP Server
+
+Build your own MCP server:
+
+```typescript
+// mcp-server/index.ts
+import { Server } from "@modelcontextprotocol/sdk/server/index.js";
+import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+
+const server = new Server(
+  { name: "my-mcp-server", version: "1.0.0" },
+  { capabilities: { tools: {} } }
+);
+
+server.setRequestHandler("tools/list", async () => ({
+  tools: [{
+    name: "my_tool",
+    description: "Does something useful",
+    inputSchema: {
+      type: "object",
+      properties: { query: { type: "string" } }
+    }
+  }]
+}));
+
+const transport = new StdioServerTransport();
+await server.connect(transport);
+```
+
+## Custom Hooks
+
+Hooks run shell commands at specific points during Claude Code execution.
+
+### Hook Configuration
+
+Create `~/.claude/hooks.json`:
+
+```json
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": ["echo 'Running command...' >> /tmp/claude-log.txt"]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write",
+        "hooks": ["prettier --write \"$CLAUDE_FILE_PATH\""]
+      }
+    ],
+    "Notification": [
+      {
+        "matcher": "*",
+        "hooks": ["terminal-notifier -message \"$CLAUDE_NOTIFICATION\""]
+      }
+    ]
+  }
+}
+```
+
+### Available Hook Points
+
+| Hook | Trigger | Environment Variables |
+|------|---------|----------------------|
+| `PreToolUse` | Before tool execution | `CLAUDE_TOOL_NAME`, `CLAUDE_TOOL_INPUT` |
+| `PostToolUse` | After tool execution | `CLAUDE_TOOL_NAME`, `CLAUDE_TOOL_OUTPUT` |
+| `Notification` | On notifications | `CLAUDE_NOTIFICATION` |
+| `Stop` | Session ends | `CLAUDE_SESSION_ID` |
+
+### Auto-Format Hook Example
+
+```json
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write",
+        "hooks": [
+          "case \"$CLAUDE_FILE_PATH\" in *.py) black \"$CLAUDE_FILE_PATH\" ;; *.js|*.ts) prettier --write \"$CLAUDE_FILE_PATH\" ;; esac"
+        ]
+      }
+    ]
+  }
+}
+```
+
+## Project-Specific Configuration (CLAUDE.md)
+
+Create `CLAUDE.md` in your project root to provide context and instructions.
+
+### Basic CLAUDE.md
+
+```markdown
+# Claude Code Instructions
+
+## Project Overview
+This is a Python FastAPI application with PostgreSQL backend.
+
+## Code Style
+- Use Black for formatting
+- Follow PEP 8 conventions
+- Type hints required for all functions
+
+## Testing
+- Run tests with: pytest tests/
+- Coverage required: 80%+
+
+## File Structure
+- src/api/ - API endpoints
+- src/models/ - SQLAlchemy models
+- src/services/ - Business logic
+```
+
+### Advanced CLAUDE.md
+
+```markdown
+# Claude Code Instructions
+
+## Git Commits
+- Use conventional commits format (feat:, fix:, docs:, chore:)
+- No co-authored-by lines
+- Keep messages concise
+
+## Security
+- Never commit secrets or API keys
+- Use environment variables for configuration
+- Sanitize user input
+
+## Database
+- Migrations in alembic/versions/
+- Run: alembic upgrade head
+- Never modify production data directly
+
+## Dependencies
+- Package manager: uv
+- Add deps: uv add <package>
+- Lock file must be committed
+
+## Patterns
+- Repository pattern for data access
+- Dependency injection via FastAPI
+- Pydantic for validation
+```
+
+### Per-Directory Instructions
+
+Create `.claude/instructions.md` for directory-specific context:
+
+```markdown
+# API Endpoints
+
+All endpoints in this directory follow REST conventions:
+- GET /items - List all
+- GET /items/{id} - Get one
+- POST /items - Create
+- PUT /items/{id} - Update
+- DELETE /items/{id} - Delete
+
+Error responses use RFC 7807 Problem Details format.
+```
+
+## Local Workflow Patterns
+
+### Development Workflow
+
+```bash
+# Start new feature
+claude "Create a new branch for user authentication feature"
+
+# Implement with tests
+claude "Implement JWT authentication with tests. Follow the patterns in src/auth/"
+
+# Review before commit
+claude "Review my changes and suggest improvements"
+
+# Commit with conventional format
+claude "Commit these changes"
+```
+
+### Code Review Workflow
+
+```bash
+# Review PR
+claude "Review PR #42 for security issues and code quality"
+
+# Get specific feedback
+claude "Check the database queries in this PR for N+1 problems"
+```
+
+### Debugging Workflow
+
+```bash
+# Analyze error
+claude "This test is failing with 'KeyError: user_id'. Help me debug"
+
+# Trace issue
+claude "Follow the data flow from the API endpoint to the database for the create_user function"
+```
+
+## Integration with Ollama (Fallback)
+
+While Claude Code is designed for the Anthropic API, you can set up Ollama as a fallback for when the API is unavailable.
+
+### Ollama Proxy Setup
+
+Use an API translation proxy like LiteLLM:
+
+```bash
+# Install LiteLLM
+pip install litellm
+
+# Start proxy
+litellm --model ollama/llama3.3 --port 4000
+```
+
+```bash
+# Set environment
+export ANTHROPIC_API_BASE=http://localhost:4000/v1
+```
+
+### When to Use Local Fallback
+
+| Scenario | Recommendation |
+|----------|----------------|
+| API unavailable | Use local fallback |
+| Rate limited | Use local for simple tasks |
+| Offline work | Use local models |
+| Complex refactoring | Use Anthropic API |
+| Security-sensitive | Use local models |
+
+### Alternative: Aider for Local
+
+For native local model support, use [Aider](aider.md) alongside Claude Code:
+
+```bash
+# Claude Code for complex tasks
+claude "Architect the new microservice structure"
+
+# Aider for local model tasks
+aider --model ollama/deepseek-coder-v2:16b "Implement the data models"
+```
+
+## Environment Variables Reference
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `ANTHROPIC_API_KEY` | API key for authentication | Required |
+| `ANTHROPIC_API_BASE` | API base URL | `https://api.anthropic.com` |
+| `CLAUDE_CONFIG_DIR` | Config directory | `~/.claude` |
+| `CLAUDE_MODEL` | Default model | `claude-sonnet-4-20250514` |
+| `CLAUDE_MAX_TOKENS` | Max response tokens | `4096` |
+
 ## See Also
 
 - [AI Coding Tools Index](index.md) - Tool comparison

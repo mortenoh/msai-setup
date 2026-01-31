@@ -145,6 +145,7 @@ nav:
       - Backup & Recovery: operations/backup.md
       - Recovery: operations/recovery.md
       - Rebuild Checklist: operations/rebuild-checklist.md
+      - Secrets Management: operations/secrets-management.md
 
   - Services:
     - Virtualization:
@@ -156,7 +157,11 @@ nav:
     - Docker:
       - docker/index.md
       - Docker Setup: docker/setup.md
+      - Docker Compose: docker/compose.md
       - Resource Limits: docker/resources.md
+      - Development Stacks: docker/development-stacks.md
+      - Ollama Stack: docker/ollama-stack.md
+      - Monitoring: docker/monitoring.md
       - Nextcloud: docker/nextcloud.md
       - Plex: docker/plex.md
 
@@ -384,6 +389,11 @@ nav:
         - Archives: bash/tools/archives.md
         - Git: bash/tools/git.md
         - tmux: bash/tools/tmux.md
+        - btop: bash/tools/btop.md
+        - yt-dlp: bash/tools/yt-dlp.md
+        - chezmoi: bash/tools/chezmoi.md
+        - direnv: bash/tools/direnv.md
+        - 1Password CLI: bash/tools/1password-cli.md
         - uv: bash/tools/uv.md
         - Node.js: bash/tools/nodejs.md
         - Deno: bash/tools/deno.md
