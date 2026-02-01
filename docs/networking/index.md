@@ -53,6 +53,10 @@ A home server running virtualization and containers creates a complex networking
 
 - [Multi-Technology Conflicts](integration/conflicts.md) - When Docker, KVM, and LXC collide
 
+### External Access
+
+- [External Access Guide](external-access/index.md) - Accessing services from outside your network
+
 ### Troubleshooting
 
 - [Debugging Methodology](troubleshooting/methodology.md) - Systematic approach to network issues

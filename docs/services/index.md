@@ -9,6 +9,7 @@ Containerized applications for your homelab infrastructure.
 | Service | Description |
 |---------|-------------|
 | [Reverse Proxy](reverse-proxy/index.md) | Route traffic to services (Traefik, Caddy) |
+| [SSL/TLS Certificates](ssl-tls/index.md) | Certificate management and HTTPS |
 | [Authentication](authentication/index.md) | SSO and identity management |
 | [Pi-hole](pi-hole/index.md) | Network-wide ad blocking |
 
