@@ -2,6 +2,15 @@
 
 Setup guide for the MS-S1 MAX mini-PC running Ubuntu Server with ZFS, KVM, and Docker.
 
+!!! danger "AI-Generated Content - Not Verified or Tested"
+    This entire documentation site is **100% AI-generated** using Claude. The content has **not been manually verified or tested**.
+
+    - Commands, configurations, and procedures may contain errors or omissions
+    - Always review commands before executing them, especially those requiring root/sudo
+    - Use at your own risk
+
+    This serves as both practical documentation and a demonstration of AI-assisted technical writing.
+
 ## Project Goals
 
 Build a clean, minimal Ubuntu Server host that:

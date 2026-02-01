@@ -574,6 +574,30 @@ nav:
     - Uptime Kuma: services/uptime-kuma/index.md
     - SSL/TLS: services/ssl-tls/index.md
 
+  - Remote Desktop:
+    - remote-desktop/index.md
+    - Fundamentals:
+      - remote-desktop/fundamentals/index.md
+      - Protocols: remote-desktop/fundamentals/protocols.md
+    - VNC:
+      - remote-desktop/vnc/index.md
+      - Server Setup: remote-desktop/vnc/server-setup.md
+      - macOS Clients: remote-desktop/vnc/macos-clients.md
+    - RDP:
+      - remote-desktop/rdp/index.md
+      - Windows Setup: remote-desktop/rdp/windows-setup.md
+      - macOS Clients: remote-desktop/rdp/macos-clients.md
+    - SPICE:
+      - remote-desktop/spice/index.md
+      - Server Setup: remote-desktop/spice/server-setup.md
+      - macOS Clients: remote-desktop/spice/macos-clients.md
+    - Integration:
+      - remote-desktop/integration/index.md
+      - Tailscale: remote-desktop/integration/tailscale.md
+      - GPU Passthrough: remote-desktop/integration/gpu-passthrough.md
+    - Reference:
+      - Quick Reference: remote-desktop/reference/quick-reference.md
+
   - Testing:
     - testing/index.md
     - Python: testing/python.md

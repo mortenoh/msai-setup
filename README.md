@@ -6,6 +6,9 @@
 
 > **This documentation is 100% AI-generated using Claude.** All 290+ pages of guides, tutorials, and reference material were created through conversations with Claude (Anthropic). This serves as both practical documentation and a demonstration of AI-assisted technical writing.
 
+> [!CAUTION]
+> **Not Verified or Tested**: This documentation has not been manually verified or tested. Commands, configurations, and procedures may contain errors, omissions, or may not work as described. Always review commands before executing them, especially those requiring root/sudo privileges. Use at your own risk.
+
 **[View Live Documentation](https://mortenoh.github.io/msai-setup/)**
 
 ---
