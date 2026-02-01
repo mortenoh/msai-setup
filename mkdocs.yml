@@ -137,6 +137,13 @@ nav:
       - Snapshots: zfs/snapshots.md
       - VM Storage: zfs/vm-storage.md
       - Docker Integration: zfs/docker-integration.md
+    - Bcachefs:
+      - bcachefs/index.md
+      - Concepts: bcachefs/concepts.md
+      - Installation: bcachefs/installation.md
+      - Usage: bcachefs/usage.md
+      - Features: bcachefs/features.md
+      - Limitations: bcachefs/limitations.md
     - Operations:
       - operations/index.md
       - Capacity Planning: operations/capacity-planning.md
@@ -169,11 +176,13 @@ nav:
     - Netplan Configuration:
       - netplan/index.md
       - Fundamentals:
+        - netplan/fundamentals/index.md
         - Basics: netplan/fundamentals/basics.md
         - Renderers: netplan/fundamentals/renderers.md
         - YAML Syntax: netplan/fundamentals/yaml-syntax.md
         - Workflow: netplan/fundamentals/workflow.md
       - Interfaces:
+        - netplan/interfaces/index.md
         - Ethernet: netplan/interfaces/ethernet.md
         - Bridges: netplan/interfaces/bridges.md
         - Bonds: netplan/interfaces/bonds.md
@@ -181,41 +190,49 @@ nav:
         - Wireless: netplan/interfaces/wireless.md
         - Virtual Interfaces: netplan/interfaces/virtual.md
       - Routing:
+        - netplan/routing/index.md
         - Static Routes: netplan/routing/static-routes.md
         - Policy Routing: netplan/routing/policy-routing.md
         - DNS: netplan/routing/dns.md
         - IPv6: netplan/routing/ipv6.md
       - Advanced:
+        - netplan/advanced/index.md
         - Multiple Addresses: netplan/advanced/multiple-addresses.md
         - Wake-on-LAN: netplan/advanced/wake-on-lan.md
         - Dispatcher Scripts: netplan/advanced/dispatcher.md
         - Performance Tuning: netplan/advanced/performance.md
       - Integration:
+        - netplan/integration/index.md
         - Docker: netplan/integration/docker.md
         - KVM/libvirt: netplan/integration/kvm.md
         - LXD/LXC: netplan/integration/lxd.md
       - Troubleshooting:
+        - netplan/troubleshooting/index.md
         - Common Issues: netplan/troubleshooting/common-issues.md
         - Debugging: netplan/troubleshooting/debugging.md
         - Migration: netplan/troubleshooting/migration.md
       - Reference:
+        - netplan/reference/index.md
         - Examples: netplan/reference/examples.md
         - Properties: netplan/reference/properties.md
         - Diagrams: netplan/reference/diagrams.md
     - Firewall & Security:
       - networking/index.md
       - Fundamentals:
+        - networking/fundamentals/index.md
         - Linux Networking: networking/fundamentals/linux-networking.md
         - Netfilter: networking/fundamentals/netfilter.md
         - iptables: networking/fundamentals/iptables.md
         - nftables: networking/fundamentals/nftables.md
         - Namespaces: networking/fundamentals/namespaces.md
       - UFW:
+        - networking/ufw/index.md
         - Fundamentals: networking/ufw/fundamentals.md
         - Configuration: networking/ufw/configuration.md
         - Advanced: networking/ufw/advanced.md
         - Logging: networking/ufw/logging.md
       - Docker Networking:
+        - networking/docker/index.md
         - Overview: networking/docker/overview.md
         - Docker & iptables: networking/docker/iptables.md
         - UFW Conflict: networking/docker/ufw-conflict.md
@@ -223,84 +240,106 @@ nav:
         - Compose Networking: networking/docker/compose.md
         - Security: networking/docker/security.md
       - KVM Networking:
+        - networking/kvm/index.md
         - Overview: networking/kvm/overview.md
         - UFW Integration: networking/kvm/ufw-integration.md
         - Bridged Networking: networking/kvm/bridged.md
         - Port Forwarding: networking/kvm/port-forwarding.md
       - LXC Networking:
+        - networking/lxc/index.md
         - Overview: networking/lxc/overview.md
         - UFW Integration: networking/lxc/ufw-integration.md
       - Integration:
+        - networking/integration/index.md
         - Multi-Tech Conflicts: networking/integration/conflicts.md
       - Troubleshooting:
+        - networking/troubleshooting/index.md
         - Methodology: networking/troubleshooting/methodology.md
         - Common Problems: networking/troubleshooting/common-problems.md
       - Reference:
+        - networking/reference/index.md
         - Complete before.rules: networking/reference/before-rules.md
+      - External Access: networking/external-access/index.md
     - SSH:
       - ssh/index.md
       - Fundamentals:
+        - ssh/fundamentals/index.md
         - Protocol: ssh/fundamentals/protocol.md
         - Keys: ssh/fundamentals/keys.md
         - Authentication: ssh/fundamentals/authentication.md
       - Client:
+        - ssh/client/index.md
         - Configuration: ssh/client/configuration.md
         - SSH Agent: ssh/client/agent.md
         - Connection Options: ssh/client/connection-options.md
       - Server:
+        - ssh/server/index.md
         - Configuration: ssh/server/configuration.md
         - Hardening: ssh/server/hardening.md
       - File Transfer:
+        - ssh/file-transfer/index.md
         - SCP: ssh/file-transfer/scp.md
         - SFTP: ssh/file-transfer/sftp.md
         - Rsync: ssh/file-transfer/rsync.md
       - Tunneling:
+        - ssh/tunneling/index.md
         - Local Forwarding: ssh/tunneling/local-forwarding.md
         - Remote Forwarding: ssh/tunneling/remote-forwarding.md
         - Dynamic Forwarding: ssh/tunneling/dynamic-forwarding.md
         - Jump Hosts: ssh/tunneling/jump-hosts.md
       - Advanced:
+        - ssh/advanced/index.md
         - Multiplexing: ssh/advanced/multiplexing.md
         - Automation: ssh/advanced/automation.md
       - Troubleshooting:
+        - ssh/troubleshooting/index.md
         - Common Problems: ssh/troubleshooting/common-problems.md
       - Reference:
+        - ssh/reference/index.md
         - Quick Reference: ssh/reference/quick-reference.md
     - Tailscale:
       - tailscale/index.md
       - Fundamentals:
+        - tailscale/fundamentals/index.md
         - How It Works: tailscale/fundamentals/how-it-works.md
         - WireGuard: tailscale/fundamentals/wireguard.md
         - Networking: tailscale/fundamentals/networking.md
       - Installation:
+        - tailscale/installation/index.md
         - Linux: tailscale/installation/linux.md
         - Containers: tailscale/installation/containers.md
         - Other Platforms: tailscale/installation/other-platforms.md
       - Configuration:
+        - tailscale/configuration/index.md
         - Basic Setup: tailscale/configuration/basic-setup.md
         - CLI Reference: tailscale/configuration/cli.md
         - Environment Variables: tailscale/configuration/environment.md
       - Features:
+        - tailscale/features/index.md
         - MagicDNS: tailscale/features/magicdns.md
         - Exit Nodes: tailscale/features/exit-nodes.md
         - Subnet Routers: tailscale/features/subnet-routers.md
         - Taildrop: tailscale/features/taildrop.md
         - Funnel & Serve: tailscale/features/funnel-serve.md
       - Integration:
+        - tailscale/integration/index.md
         - Docker: tailscale/integration/docker.md
         - Kubernetes: tailscale/integration/kubernetes.md
         - SSH: tailscale/integration/ssh.md
         - VS Code: tailscale/integration/vscode.md
       - Administration:
+        - tailscale/administration/index.md
         - Access Controls: tailscale/administration/acls.md
         - User Management: tailscale/administration/users.md
         - Key Management: tailscale/administration/keys.md
         - Logging: tailscale/administration/logging.md
       - Troubleshooting:
+        - tailscale/troubleshooting/index.md
         - Connections: tailscale/troubleshooting/connections.md
         - Performance: tailscale/troubleshooting/performance.md
         - Common Problems: tailscale/troubleshooting/common-problems.md
       - Reference:
+        - tailscale/reference/index.md
         - Quick Reference: tailscale/reference/quick-reference.md
         - Network Ports: tailscale/reference/ports.md
 
@@ -413,6 +452,7 @@ nav:
         - Signals: bash/advanced/signals.md
         - Performance: bash/advanced/performance.md
     - Reference:
+        - bash/reference/index.md
         - Quick Reference: bash/reference/quick-reference.md
         - Keyboard Shortcuts: bash/reference/keyboard-shortcuts.md
         - Special Variables: bash/reference/special-variables.md
@@ -425,6 +465,7 @@ nav:
       - Driver Updates: ai/gpu/driver-updates.md
       - Memory Configuration: ai/gpu/memory-configuration.md
     - Fundamentals:
+      - ai/fundamentals/index.md
       - Why Local LLMs: ai/fundamentals/why-local-llms.md
       - Unified Memory: ai/fundamentals/unified-memory.md
       - Architecture Decisions: ai/fundamentals/architecture-decisions.md
@@ -509,6 +550,7 @@ nav:
       - Clients: ai/mcp/clients.md
       - Examples: ai/mcp/examples.md
     - Reference:
+      - ai/reference/index.md
       - Quick Reference: ai/reference/quick-reference.md
       - Model Compatibility: ai/reference/model-compatibility.md
       - Troubleshooting: ai/reference/troubleshooting.md
@@ -530,6 +572,7 @@ nav:
     - Pi-hole: services/pi-hole/index.md
     - Homepage: services/homepage/index.md
     - Uptime Kuma: services/uptime-kuma/index.md
+    - SSL/TLS: services/ssl-tls/index.md
 
   - Testing:
     - testing/index.md

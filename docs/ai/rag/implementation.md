@@ -589,4 +589,4 @@ curl -X POST http://localhost:8000/query \
 
 - [Optimization Guide](optimization.md)
 - [Vector Databases](../vector-databases/index.md)
-- [Ollama Integration](../inference-engines/ollama/index.md)
+- [Ollama Integration](../inference-engines/ollama.md)

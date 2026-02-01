@@ -369,4 +369,4 @@ def preprocess_image(image_path: str, max_size: int = 1024) -> str:
 
 - [Multi-Modal Overview](index.md)
 - [Audio Processing](audio.md)
-- [Ollama Guide](../inference-engines/ollama/index.md)
+- [Ollama Guide](../inference-engines/ollama.md)

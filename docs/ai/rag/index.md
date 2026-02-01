@@ -106,12 +106,12 @@ print(response["result"])
 
 All local inference engines work with RAG:
 
-- [Ollama](../inference-engines/ollama/index.md) - Easiest integration
-- [llama.cpp](../inference-engines/llama-cpp/index.md) - Maximum performance
-- [vLLM](../inference-engines/vllm/index.md) - High throughput serving
+- [Ollama](../inference-engines/ollama.md) - Easiest integration
+- [llama.cpp](../inference-engines/llama-cpp.md) - Maximum performance
+- [vLLM](../inference-engines/vllm.md) - High throughput serving
 
 ## See Also
 
 - [Vector Databases](../vector-databases/index.md)
-- [Embeddings Guide](../models/embeddings.md)
+- [Model Management](../models/index.md)
 - [LangChain Integration](../agent-frameworks/langchain.md)

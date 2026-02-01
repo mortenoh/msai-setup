@@ -359,6 +359,6 @@ rm ~/.local/share/zoxide/db.zo
 
 ## See Also
 
-- [Shell Configuration](../configuration/shell.md)
+- [Shell Configuration](../configuration/index.md)
 - [fzf](fzf.md) - Fuzzy finder
 - [tmux](tmux.md) - Terminal multiplexer

@@ -462,4 +462,4 @@ def run_scheduler():
 
 - [Implementation Guide](implementation.md)
 - [MCP Guide](../mcp/index.md)
-- [API Serving](../inference-engines/api-serving.md)
+- [API Serving](../api-serving/index.md)

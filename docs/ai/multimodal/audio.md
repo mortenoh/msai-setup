@@ -363,4 +363,4 @@ def diarize_audio(audio_path: str) -> list:
 
 - [Multi-Modal Overview](index.md)
 - [Vision Models](vision.md)
-- [LocalAI Guide](../inference-engines/localai/index.md)
+- [LocalAI Guide](../api-serving/localai.md)

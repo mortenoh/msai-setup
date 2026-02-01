@@ -389,5 +389,5 @@ docker exec pihole cat /var/log/pihole/pihole-FTL.log
 ## See Also
 
 - [Services Overview](../index.md)
-- [Docker Networking](../../docker/networking.md)
-- [Unbound DNS](../../networking/dns.md)
+- [Docker Compose](../../docker/compose.md)
+- [Netplan DNS](../../netplan/routing/dns.md)

@@ -357,4 +357,4 @@ asdf plugin update nodejs
 
 - [mise](mise.md) - Modern alternative
 - [Node.js with nvm](nodejs.md)
-- [Python with uv](../../../ai/coding-tools/python-uv.md)
+- [Python with uv](uv.md)

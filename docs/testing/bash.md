@@ -436,4 +436,4 @@ teardown() {
 
 - [Testing Overview](index.md)
 - [Bash Scripting](../bash/scripting/index.md)
-- [GitHub Actions](../bash/tools/git/github-actions.md)
+- [GitHub Actions](../bash/tools/github-actions.md)

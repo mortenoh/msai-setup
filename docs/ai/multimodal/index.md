@@ -319,5 +319,5 @@ def audio_to_response(audio_path: str) -> tuple[str, str]:
 
 - [Vision Guide](vision.md)
 - [Audio Guide](audio.md)
-- [Ollama Integration](../inference-engines/ollama/index.md)
-- [LocalAI Guide](../inference-engines/localai/index.md)
+- [Ollama Integration](../inference-engines/ollama.md)
+- [LocalAI Guide](../api-serving/localai.md)

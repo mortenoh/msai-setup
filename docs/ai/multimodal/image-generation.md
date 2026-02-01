@@ -404,4 +404,4 @@ def create_grid(images: list, cols: int = 2) -> Image:
 
 - [Multi-Modal Overview](index.md)
 - [Vision Models](vision.md)
-- [LocalAI Guide](../inference-engines/localai/index.md)
+- [LocalAI Guide](../api-serving/localai.md)

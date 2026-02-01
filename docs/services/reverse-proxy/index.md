@@ -101,4 +101,4 @@ myapp.domain.com {
 - [Traefik Setup](traefik.md)
 - [Caddy Setup](caddy.md)
 - [Authentication](../authentication/index.md)
-- [Docker Networking](../../docker/networking.md)
+- [Docker Compose](../../docker/compose.md)

@@ -35,7 +35,6 @@ MCP provides a standardized way for LLMs to:
 
 | Document | Description |
 |----------|-------------|
-| [Concepts](concepts.md) | Core MCP concepts and terminology |
 | [Servers](servers.md) | Building MCP servers |
 | [Clients](clients.md) | Connecting to MCP servers |
 | [Examples](examples.md) | Practical MCP implementations |

@@ -467,4 +467,4 @@ export default defineConfig({
 
 - [Testing Overview](index.md)
 - [Python Testing](python.md)
-- [GitHub Actions](../bash/tools/git/github-actions.md)
+- [GitHub Actions](../bash/tools/github-actions.md)

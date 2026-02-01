@@ -336,4 +336,4 @@ curl http://localhost:8080/api/http/services
 
 - [Reverse Proxy Overview](index.md)
 - [Authentication with Authentik](../authentication/authentik.md)
-- [Docker Networking](../../docker/networking.md)
+- [Docker Compose](../../docker/compose.md)

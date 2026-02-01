@@ -171,5 +171,5 @@ ollama pull mxbai-embed-large
 ## See Also
 
 - [RAG Implementation](../rag/index.md)
-- [Embeddings Guide](../models/embeddings.md)
-- [Ollama Integration](../inference-engines/ollama/index.md)
+- [Model Management](../models/index.md)
+- [Ollama Integration](../inference-engines/ollama.md)

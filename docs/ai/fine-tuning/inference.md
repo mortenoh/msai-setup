@@ -382,5 +382,5 @@ model = AutoModelForCausalLM.from_pretrained(
 
 - [LoRA Guide](lora.md)
 - [Training Guide](training.md)
-- [Ollama Integration](../inference-engines/ollama/index.md)
-- [vLLM Guide](../inference-engines/vllm/index.md)
+- [Ollama Integration](../inference-engines/ollama.md)
+- [vLLM Guide](../inference-engines/vllm.md)

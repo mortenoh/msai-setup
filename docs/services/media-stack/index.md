@@ -228,4 +228,4 @@ services:
 
 - [Jellyfin Setup](jellyfin.md)
 - [*arr Stack Setup](arr-stack.md)
-- [Docker GPU Access](../../docker/gpu.md)
+- [Docker Setup](../../docker/setup.md)

@@ -399,4 +399,4 @@ docker logs -f caddy
 
 - [Reverse Proxy Overview](index.md)
 - [Traefik](traefik.md)
-- [Docker Networking](../../docker/networking.md)
+- [Docker Compose](../../docker/compose.md)

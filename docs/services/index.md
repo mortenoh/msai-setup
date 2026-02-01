@@ -126,5 +126,5 @@ services:
 ## See Also
 
 - [Docker Setup](../docker/index.md)
-- [Monitoring Stack](../operations/monitoring/index.md)
+- [Monitoring](../operations/monitoring.md)
 - [Networking](../networking/index.md)

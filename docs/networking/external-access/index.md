@@ -80,7 +80,7 @@ curl http://homeserver.tailnet-name.ts.net
 - Need truly public access (no login)
 - Compliance requirements for self-hosted
 
-See [Tailscale Documentation](../tailscale/index.md) for full setup.
+See [Tailscale Documentation](../../tailscale/index.md) for full setup.
 
 ## WireGuard VPN (Self-Hosted)
 
