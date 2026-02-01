@@ -32,6 +32,7 @@ The APU architecture enables running 70B+ parameter LLMs that wouldn't fit in di
 | **Getting Started** | Hardware overview, BIOS setup, prerequisites | [View](https://mortenoh.github.io/msai-setup/getting-started/) |
 | **Ubuntu Server** | Installation, security hardening, systemd, logging | [View](https://mortenoh.github.io/msai-setup/ubuntu/) |
 | **ZFS Storage** | Pool creation, datasets, snapshots, Docker integration | [View](https://mortenoh.github.io/msai-setup/zfs/) |
+| **Bcachefs** | Next-gen COW filesystem, DKMS setup, encryption, caching | [View](https://mortenoh.github.io/msai-setup/bcachefs/) |
 | **Virtualization** | KVM setup, GPU passthrough, Windows 11 VM | [View](https://mortenoh.github.io/msai-setup/virtualization/) |
 | **Docker** | Compose, development stacks, Ollama, monitoring, Nextcloud, Plex | [View](https://mortenoh.github.io/msai-setup/docker/) |
 | **Netplan** | Network configuration, bridges, bonds, VLANs | [View](https://mortenoh.github.io/msai-setup/netplan/) |
@@ -46,6 +47,7 @@ The APU architecture enables running 70B+ parameter LLMs that wouldn't fit in di
 
 - **Ubuntu Server** - Installation, CIS hardening, AppArmor, Fail2ban, auditd
 - **ZFS** - Pool creation, datasets, snapshots, Docker integration
+- **Bcachefs** - Next-gen filesystem, encryption, compression, SSD caching
 - **KVM/QEMU** - Virtualization, GPU passthrough, Windows 11 VM
 - **Docker** - Compose, development stacks, Ollama stack, monitoring, container services
 - **Networking** - Netplan, UFW, iptables/nftables, namespaces
@@ -85,6 +87,7 @@ docs/
   getting-started/    # Hardware, BIOS, prerequisites
   ubuntu/             # Installation, security, systemd, logging
   zfs/                # Pool creation, datasets, snapshots
+  bcachefs/           # Next-gen COW filesystem documentation
   virtualization/     # KVM, GPU passthrough, Windows VM
   docker/             # Container setup, Nextcloud, Plex
   netplan/            # Network configuration
