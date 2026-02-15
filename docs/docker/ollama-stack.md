@@ -113,18 +113,19 @@ services:
     group_add:
       - video
       - render
-    environment:
-      - HSA_OVERRIDE_GFX_VERSION=10.3.0  # Adjust for your GPU
+    # environment:
+    #   - HSA_OVERRIDE_GFX_VERSION=10.3.0  # Only for ROCm 6.x
     restart: unless-stopped
 ```
 
-For specific AMD GPUs, set `HSA_OVERRIDE_GFX_VERSION`:
+!!! note "HSA_OVERRIDE_GFX_VERSION"
+    For ROCm 7.x with gfx1151 (Strix Halo), this variable is **not needed** -- native support is included. Only set it for older AMD GPUs on ROCm 6.x:
 
-| GPU | Version |
-|-----|---------|
-| RX 6700 XT | 10.3.0 |
-| RX 6800/6900 | 10.3.0 |
-| RX 7900 XTX | 11.0.0 |
+    | GPU | Version |
+    |-----|---------|
+    | RX 6700 XT | 10.3.0 |
+    | RX 6800/6900 | 10.3.0 |
+    | RX 7900 XTX | 11.0.0 |
 
 ## Model Management
 

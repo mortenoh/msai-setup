@@ -68,7 +68,10 @@ sudo apt upgrade
 
 ### Major Version Upgrades
 
-For major ROCm version changes (e.g., 6.2 to 6.3):
+For major ROCm version changes (e.g., 6.x to 7.x):
+
+!!! warning "OEM Kernel Compatibility"
+    When upgrading to ROCm 7.x, ensure you are running the OEM kernel (`linux-oem-24.04c`, 6.14+). ROCm 7.x with gfx1151 requires this kernel for full support. See [ROCm Installation](rocm-installation.md) for kernel setup.
 
 **Step 1: Backup configuration**
 
@@ -156,6 +159,14 @@ apt list --upgradable | grep firmware
 # Install firmware updates
 sudo apt upgrade linux-firmware
 ```
+
+!!! warning "linux-firmware Regression"
+    The `linux-firmware` version 20251125 has been reported to break ROCm on Strix Halo systems. If ROCm stops working after a firmware update, downgrade to a previous version and hold the package:
+
+    ```bash
+    sudo apt install linux-firmware=<previous-version>
+    sudo apt-mark hold linux-firmware
+    ```
 
 ## Handling Conflicts
 

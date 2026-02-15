@@ -54,12 +54,105 @@ The UMA (Unified Memory Architecture) Frame Buffer Size setting in BIOS reserves
 !!! note "Auto Mode"
     The "Auto" setting allows dynamic allocation. For LLM inference with llama.cpp or Ollama, this typically works well as these tools manage memory directly rather than relying on the UMA pool.
 
+!!! tip "amd-ttm is the Primary Method"
+    The BIOS UMA setting reserves a fixed amount of memory (typically up to 32GB). For AI workloads requiring maximum GPU-accessible memory, use the software-based `amd-ttm` tool instead. See the [Software VRAM Allocation](#software-vram-allocation-amd-ttm) section below.
+
 ### Setting in BIOS
 
 See [BIOS Setup](../../getting-started/bios-setup.md) for detailed instructions. The setting is typically found under:
 
 - Advanced > Graphics Configuration > UMA Frame Buffer Size
 - Or: Advanced > AMD CBS > NBIO > GFX Configuration
+
+## Software VRAM Allocation (amd-ttm)
+
+The `amd-ttm` tool from `amd-debug-tools` provides software-based control over how much system memory is accessible as GPU memory (GTT -- Graphics Translation Table). This is the primary method for maximizing GPU-accessible memory for LLM inference.
+
+### Why amd-ttm?
+
+| Method | Max GPU Memory | Persistence | Notes |
+|--------|---------------|-------------|-------|
+| BIOS UMA | ~32GB | Permanent | Fixed reservation, always unavailable to OS |
+| amd-ttm | ~115GB | Survives reboot | Software-controlled, flexible |
+
+The BIOS UMA setting and `amd-ttm` are complementary. UMA reserves a fixed pool visible as VRAM, while `amd-ttm` controls the GTT size that the GPU can use from system memory. For LLM inference, `amd-ttm` is far more impactful.
+
+### Installation
+
+```bash
+pipx install amd-debug-tools
+```
+
+### Check Current Allocation
+
+```bash
+amd-ttm
+# Shows current GTT allocation (default is ~62GB on 128GB systems)
+```
+
+### Set Allocation
+
+```bash
+# Allocate 108GB for GPU use (leaves ~20GB for OS and services)
+amd-ttm --set 108
+sudo reboot
+```
+
+After reboot, verify:
+
+```bash
+amd-ttm
+# Should confirm ~108GB
+
+rocm-smi --showmeminfo vram
+```
+
+!!! warning "High Allocation Values"
+    Setting values above 90% of total RAM (e.g., 115GB on a 128GB system) triggers warnings from `amd-ttm` but does work. However, leaving too little for the OS can cause instability under heavy system load. 108GB is a safe default for a 128GB system.
+
+### Recommended Values
+
+| Total RAM | amd-ttm Value | OS Headroom | Use Case |
+|-----------|--------------|-------------|----------|
+| 128GB | 108GB | ~20GB | Large LLMs (70B Q6, 405B Q2) |
+| 128GB | 96GB | ~32GB | Conservative, mixed workloads |
+| 64GB | 48GB | ~16GB | Smaller models |
+
+## Kernel Parameter Alternative
+
+For persistent VRAM allocation without `amd-debug-tools`, you can set kernel parameters via GRUB. This uses the `amdttm.pages_limit` and `amdttm.page_pool_size` parameters.
+
+### Calculation
+
+Convert the desired GB allocation to the kernel parameter value:
+
+```
+pages = (GB * 1024 * 1024) / 4.096
+```
+
+For 108GB:
+
+```
+pages = (108 * 1024 * 1024) / 4.096 = 27,648,000
+```
+
+### GRUB Configuration
+
+```bash
+# Edit GRUB defaults
+sudo nano /etc/default/grub
+
+# Add to GRUB_CMDLINE_LINUX_DEFAULT:
+# amdttm.pages_limit=27648000 amdttm.page_pool_size=27648000
+```
+
+```bash
+sudo update-grub
+sudo reboot
+```
+
+!!! note "Kernel 6.16.9+"
+    Kernel versions 6.16.9 and later may handle GTT sizing automatically based on available memory, reducing the need for manual configuration.
 
 ## System Memory Considerations
 
@@ -86,19 +179,18 @@ Reserve memory for different components:
 |-----------|------------------------|
 | Operating system | 4-8GB |
 | System services | 2-4GB |
-| UMA Frame Buffer | 8-16GB (from BIOS) |
-| Available for models | 100-110GB |
+| GPU memory (via amd-ttm) | 108-115GB |
+| Available for models | 108-115GB |
 
-**Example calculation for 128GB system:**
+**Example calculation for 128GB system with amd-ttm:**
 
 ```
 Total RAM:            128GB
-- OS overhead:          4GB
-- Services:             4GB
-- UMA (if 16GB):       16GB
-------------------------
-Available for LLMs:   104GB
+amd-ttm allocation:  108GB  (GPU-accessible)
+OS headroom:          ~20GB  (remaining for OS, services)
 ```
+
+With `amd-ttm`, the GPU can access up to 108-115GB for model inference, significantly more than the 100-104GB available with BIOS UMA alone.
 
 ### Memory Pressure Monitoring
 

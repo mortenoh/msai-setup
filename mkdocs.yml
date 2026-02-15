@@ -461,6 +461,7 @@ nav:
     - ai/index.md
     - GPU Setup:
       - ai/gpu/index.md
+      - Quick Start: ai/gpu/quick-start.md
       - ROCm Installation: ai/gpu/rocm-installation.md
       - Driver Updates: ai/gpu/driver-updates.md
       - Memory Configuration: ai/gpu/memory-configuration.md

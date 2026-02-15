@@ -68,7 +68,7 @@ The Ryzen AI Max+ 395 is built on the Strix Point platform:
 | Compute Units | 40 CUs |
 | Stream Processors | 2560 |
 | GPU ID | gfx1151 |
-| ROCm Support | Experimental (requires HSA_OVERRIDE_GFX_VERSION) |
+| ROCm Support | Supported (ROCm 7.x) |
 | Ray Accelerators | 40 |
 
 ### Memory Subsystem
@@ -168,7 +168,7 @@ For sustained AI workloads:
 ### Limitations
 
 - **Speed**: Expect 5-15 tokens/sec for 70B models
-- **ROCm support**: Strix Point requires environment variable overrides
+- **ROCm support**: Requires OEM kernel (6.14+) and ROCm 7.x
 - **No tensor cores**: RDNA 3.5 lacks dedicated AI accelerators
 - **Single GPU**: Cannot scale with additional GPUs
 

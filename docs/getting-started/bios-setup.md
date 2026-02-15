@@ -56,6 +56,9 @@ The UMA (Unified Memory Architecture) Frame Buffer allocates a portion of system
 !!! note "LLM Inference"
     For llama.cpp and similar tools, the UMA setting is less critical than total system RAM. The inference engines manage memory directly. However, ROCm applications may benefit from larger UMA allocation.
 
+!!! tip "amd-ttm for AI Workloads"
+    For AI inference, the software-based `amd-ttm` tool provides much more GPU-accessible memory (up to ~115GB) than BIOS UMA alone (max ~32GB). See [Memory Configuration](../ai/gpu/memory-configuration.md#software-vram-allocation-amd-ttm) for setup instructions.
+
 ### Memory Interleaving
 
 Ensure memory is running in dual-channel mode:

@@ -102,8 +102,8 @@ docker run --gpus '"device=0,1"' ...
 
 ```bash
 # Add repository (Ubuntu 24.04)
-wget https://repo.radeon.com/amdgpu-install/latest/ubuntu/noble/amdgpu-install_6.3.60300-1_all.deb
-sudo apt install ./amdgpu-install_6.3.60300-1_all.deb
+wget https://repo.radeon.com/amdgpu-install/latest/ubuntu/noble/amdgpu-install_7.1.1.70101-1_all.deb
+sudo apt install ./amdgpu-install_7.1.1.70101-1_all.deb
 
 # Install ROCm
 sudo amdgpu-install --usecase=rocm
@@ -410,7 +410,7 @@ docker compose config | grep -A5 devices
 |----------|-------------|
 | `HIP_VISIBLE_DEVICES` | Limit visible GPUs |
 | `ROCR_VISIBLE_DEVICES` | Alternative device selection |
-| `HSA_OVERRIDE_GFX_VERSION` | Override GPU architecture |
+| `HSA_OVERRIDE_GFX_VERSION` | Override GPU architecture (ROCm 6.x only, not needed for ROCm 7.x with gfx1151) |
 
 ## See Also
 
