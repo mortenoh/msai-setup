@@ -143,6 +143,151 @@ def text_to_speech(text: str, output_path: str):
         f.write(response.content)
 ```
 
+### Kokoro TTS
+
+High-quality local TTS with an 82M parameter model. Apache-2.0 license, 54+ voices across 10+ languages (English, Spanish, French, German, Italian, Portuguese, Hindi, Japanese, Korean, Chinese). Supports voice blending, ONNX runtime for fast CPU inference, and PyTorch GPU acceleration.
+
+#### TTS Options Comparison
+
+| Engine | Parameters | Voices | Languages | API | License |
+|--------|-----------|--------|-----------|-----|---------|
+| Coqui TTS | Varies | Many | 20+ | Python | MPL-2.0 |
+| Piper | Small | 100+ | 30+ | CLI | MIT |
+| Bark | 300M+ | Limited | 10+ | Python | MIT |
+| **Kokoro** | **82M** | **54+** | **10+** | **OpenAI-compatible** | **Apache-2.0** |
+
+#### Python (pip)
+
+```bash
+pip install kokoro
+```
+
+```python
+from kokoro import KPipeline
+
+# Initialize pipeline (language code: 'a' for American English)
+pipeline = KPipeline(lang_code="a")
+
+# Generate speech
+generator = pipeline("Hello, this is Kokoro text to speech.", voice="af_heart")
+
+for i, (gs, ps, audio) in enumerate(generator):
+    # Save audio (24kHz sample rate)
+    import soundfile as sf
+    sf.write(f"output_{i}.wav", audio, 24000)
+```
+
+Available language codes:
+
+| Code | Language | Code | Language |
+|------|----------|------|----------|
+| `a` | American English | `b` | British English |
+| `e` | Spanish | `f` | French |
+| `h` | Hindi | `i` | Italian |
+| `j` | Japanese | `k` | Korean |
+| `p` | Brazilian Portuguese | `z` | Chinese |
+
+#### Docker (Kokoro-FastAPI)
+
+OpenAI-compatible TTS server using the Kokoro model:
+
+```yaml
+# docker-compose.yml
+services:
+  kokoro:
+    image: ghcr.io/remsky/kokoro-fastapi:v0.4-gpu
+    ports:
+      - "8880:8880"
+    volumes:
+      - kokoro-voices:/app/api/src/voices
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+volumes:
+  kokoro-voices:
+```
+
+For CPU-only deployment:
+
+```yaml
+services:
+  kokoro:
+    image: ghcr.io/remsky/kokoro-fastapi:v0.4-cpu
+    ports:
+      - "8880:8880"
+    volumes:
+      - kokoro-voices:/app/api/src/voices
+
+volumes:
+  kokoro-voices:
+```
+
+Generate speech using the OpenAI-compatible API:
+
+```bash
+curl -X POST http://localhost:8880/v1/audio/speech \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "kokoro",
+    "input": "Hello, this is a test of Kokoro TTS.",
+    "voice": "af_heart",
+    "response_format": "mp3"
+  }' \
+  --output speech.mp3
+```
+
+```python
+from openai import OpenAI
+
+client = OpenAI(base_url="http://localhost:8880/v1", api_key="not-needed")
+
+response = client.audio.speech.create(
+    model="kokoro",
+    input="Hello from Kokoro TTS!",
+    voice="af_heart",
+    response_format="mp3",
+)
+
+response.stream_to_file("output.mp3")
+```
+
+!!! note "AMD ROCm support"
+    Kokoro-FastAPI has a PR (#431) adding gfx1151 (Strix Halo) ROCm support. Until merged,
+    use the CPU image with ONNX runtime -- inference is fast even on CPU due to the small
+    model size (82M parameters).
+
+#### Voice Blending
+
+Kokoro supports blending two voices to create custom voice profiles:
+
+```bash
+# Blend two voices (70% af_heart, 30% af_nova)
+curl -X POST http://localhost:8880/v1/audio/speech \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "kokoro",
+    "input": "This is a blended voice.",
+    "voice": "af_heart(0.7)+af_nova(0.3)"
+  }' \
+  --output blended.mp3
+```
+
+#### Integration with Open WebUI
+
+Configure Kokoro as the TTS provider in Open WebUI:
+
+1. Go to **Admin Panel** > **Settings** > **Audio**
+2. Set **TTS Engine** to `OpenAI`
+3. Set **API Base URL** to `http://kokoro:8880/v1` (Docker) or `http://localhost:8880/v1`
+4. Set **API Key** to any value (not validated)
+5. Set **TTS Model** to `kokoro`
+6. Set **TTS Voice** to `af_heart` (or any available voice)
+
 ## Audio Transcription Pipeline
 
 ### Basic Pipeline

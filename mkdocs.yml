@@ -541,6 +541,10 @@ nav:
       - LangGraph: ai/agent-frameworks/langgraph.md
       - CrewAI: ai/agent-frameworks/crewai.md
       - Tools: ai/agent-frameworks/tools.md
+    - AI Automation:
+      - ai/automation/index.md
+      - n8n: ai/automation/n8n.md
+      - Dify: ai/automation/dify.md
     - Multi-Modal:
       - ai/multimodal/index.md
       - Vision: ai/multimodal/vision.md

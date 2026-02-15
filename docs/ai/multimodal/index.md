@@ -30,7 +30,7 @@ Multi-modal AI processes and generates multiple types of content: text, images, 
 | Vision (image input) | Yes | Yes | Yes |
 | Image generation | No | Yes | No |
 | Audio transcription | No | Yes | No |
-| Text-to-speech | No | Yes | No |
+| Text-to-speech | No | Yes (+ Kokoro TTS) | No |
 
 ## In This Section
 
