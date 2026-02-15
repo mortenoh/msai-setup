@@ -130,6 +130,9 @@ with open("sunset.png", "wb") as f:
 
 ## ComfyUI
 
+!!! tip "Dedicated ComfyUI Guide"
+    ComfyUI now has a comprehensive dedicated guide covering installation, image/video/audio/3D generation, model management, and more. See the [ComfyUI Guide](../gui-tools/comfyui.md).
+
 ### Docker Setup
 
 ```yaml

@@ -481,6 +481,7 @@ nav:
       - LM Studio: ai/gui-tools/lm-studio.md
       - Jan.ai: ai/gui-tools/jan-ai.md
       - Open WebUI: ai/gui-tools/open-webui.md
+      - ComfyUI: ai/gui-tools/comfyui.md
     - Container Deployment:
       - ai/containers/index.md
       - llama.cpp Docker: ai/containers/llama-cpp-docker.md

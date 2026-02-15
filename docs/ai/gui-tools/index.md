@@ -13,16 +13,17 @@ GUI tools provide:
 
 ## Tool Comparison
 
-| Feature | LM Studio | Jan.ai | Open WebUI |
-|---------|-----------|--------|------------|
-| **Platform** | macOS, Windows, Linux | macOS, Windows, Linux | Web (any) |
-| **Model source** | HuggingFace | HuggingFace | Any OpenAI-compatible |
-| **Local server** | Yes | Yes | Connects to backends |
-| **Offline** | Yes | Yes | Backend dependent |
-| **Multi-user** | No | No | Yes |
-| **RAG** | No | Extensions | Built-in |
-| **Open source** | No | Yes | Yes |
-| **Privacy** | Good | Excellent | Depends on setup |
+| Feature | LM Studio | Jan.ai | Open WebUI | ComfyUI |
+|---------|-----------|--------|------------|---------|
+| **Platform** | macOS, Windows, Linux | macOS, Windows, Linux | Web (any) | Web (any) |
+| **Primary use** | LLM chat | LLM chat | LLM chat | Image/video/audio/3D generation |
+| **Model source** | HuggingFace | HuggingFace | Any OpenAI-compatible | HuggingFace, Civitai |
+| **Local server** | Yes | Yes | Connects to backends | Yes (built-in) |
+| **Offline** | Yes | Yes | Backend dependent | Yes |
+| **Multi-user** | No | No | Yes | No |
+| **RAG** | No | Extensions | Built-in | N/A |
+| **Open source** | No | Yes | Yes | Yes (GPL-3.0) |
+| **Privacy** | Good | Excellent | Depends on setup | Excellent |
 
 ## Feature Matrix
 
@@ -43,7 +44,7 @@ GUI tools provide:
 └─────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────┐
-│                    Web-Based Interface                           │
+│                    Web-Based Interfaces                          │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                  │
 │  ┌─────────────────────────────────────────────────────────┐    │
@@ -55,6 +56,17 @@ GUI tools provide:
 │  │ ✓ Model switching                                       │    │
 │  │ ✓ Chat history                                          │    │
 │  │ ✓ Self-hosted                                           │    │
+│  └─────────────────────────────────────────────────────────┘    │
+│                                                                  │
+│  ┌─────────────────────────────────────────────────────────┐    │
+│  │                       ComfyUI                            │    │
+│  ├─────────────────────────────────────────────────────────┤    │
+│  │ ✓ Node-based workflow editor                            │    │
+│  │ ✓ Image, video, audio/music, 3D generation              │    │
+│  │ ✓ Native AMD ROCm support                               │    │
+│  │ ✓ Thousands of custom nodes                             │    │
+│  │ ✓ API-driven (every workflow is JSON)                   │    │
+│  │ ✓ Self-hosted, open source (GPL-3.0)                    │    │
 │  └─────────────────────────────────────────────────────────┘    │
 │                                                                  │
 └─────────────────────────────────────────────────────────────────┘
@@ -70,6 +82,11 @@ GUI tools provide:
 | Server deployment | Open WebUI |
 | Model discovery | LM Studio |
 | Offline work | Jan.ai or LM Studio |
+| Image generation | ComfyUI |
+| Video generation | ComfyUI |
+| Audio/music generation | ComfyUI |
+| 3D model generation | ComfyUI |
+| Node-based workflows | ComfyUI |
 
 ## Quick Start
 
@@ -123,6 +140,14 @@ docker run -d \
     Multi-backend web interface with RAG and auth
 
     [:octicons-arrow-right-24: Open WebUI guide](open-webui.md)
+
+-   :material-lan: **ComfyUI**
+
+    ---
+
+    Node-based workbench for image, video, audio, and 3D generation
+
+    [:octicons-arrow-right-24: ComfyUI guide](comfyui.md)
 
 </div>
 
