@@ -14,7 +14,7 @@ A well-planned partition layout enhances security, simplifies management, and en
 | Flexibility | LVM enables resizing without reinstallation |
 | Recovery | Separate /boot allows recovery even if root is corrupted |
 
-### Ubuntu 24.04 Partitioning Options
+### Ubuntu 26.04 Partitioning Options
 
 The installer offers three approaches:
 

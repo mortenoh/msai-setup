@@ -8,7 +8,7 @@
     - AMD CPU with IOMMU support
     - GPU capable of passthrough
     - At least 32 GB RAM recommended
-- [ ] Ubuntu Server 24.04 LTS ISO
+- [ ] Ubuntu Server 26.04 LTS ISO ("Resolute Raccoon", released 2026-04-23)
 - [ ] USB drive for installation
 - [ ] Network connection (Ethernet preferred)
 - [ ] SSH client on another machine

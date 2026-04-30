@@ -1,6 +1,6 @@
 # Users and Groups
 
-Proper user and group management is fundamental to system security. This page covers creating, managing, and securing user accounts on Ubuntu Server 24.04.
+Proper user and group management is fundamental to system security. This page covers creating, managing, and securing user accounts on Ubuntu Server 26.04.
 
 ## User Management Fundamentals
 
@@ -216,7 +216,7 @@ sudo groupdel groupname
 
 ### Default Permissions
 
-Ubuntu 24.04 creates home directories with `755` by default. This may be too permissive.
+Ubuntu 26.04 creates home directories with `755` by default. This may be too permissive.
 
 ```bash
 # Check current home directory permissions

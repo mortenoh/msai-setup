@@ -36,17 +36,17 @@ APT (Advanced Package Tool) is Ubuntu's package management system. Understanding
 Main repository file: `/etc/apt/sources.list`
 
 ```bash
-# Ubuntu 24.04 example
-deb http://archive.ubuntu.com/ubuntu noble main restricted
-deb http://archive.ubuntu.com/ubuntu noble-updates main restricted
-deb http://archive.ubuntu.com/ubuntu noble universe
-deb http://archive.ubuntu.com/ubuntu noble-updates universe
-deb http://archive.ubuntu.com/ubuntu noble multiverse
-deb http://archive.ubuntu.com/ubuntu noble-updates multiverse
-deb http://archive.ubuntu.com/ubuntu noble-backports main restricted universe multiverse
-deb http://security.ubuntu.com/ubuntu noble-security main restricted
-deb http://security.ubuntu.com/ubuntu noble-security universe
-deb http://security.ubuntu.com/ubuntu noble-security multiverse
+# Ubuntu 26.04 example
+deb http://archive.ubuntu.com/ubuntu resolute main restricted
+deb http://archive.ubuntu.com/ubuntu resolute-updates main restricted
+deb http://archive.ubuntu.com/ubuntu resolute universe
+deb http://archive.ubuntu.com/ubuntu resolute-updates universe
+deb http://archive.ubuntu.com/ubuntu resolute multiverse
+deb http://archive.ubuntu.com/ubuntu resolute-updates multiverse
+deb http://archive.ubuntu.com/ubuntu resolute-backports main restricted universe multiverse
+deb http://security.ubuntu.com/ubuntu resolute-security main restricted
+deb http://security.ubuntu.com/ubuntu resolute-security universe
+deb http://security.ubuntu.com/ubuntu resolute-security multiverse
 ```
 
 ### Repository Format
@@ -60,7 +60,7 @@ deb [options] uri distribution component1 [component2] [...]
 | Type | deb | Binary packages (deb-src for source) |
 | Options | [arch=amd64] | Architecture, signed-by, etc. |
 | URI | http://archive.ubuntu.com/ubuntu | Repository URL |
-| Distribution | noble | Ubuntu codename |
+| Distribution | resolute | Ubuntu codename |
 | Components | main restricted | Package categories |
 
 ### Repository Components
@@ -91,7 +91,7 @@ deb [options] uri distribution component1 [component2] [...]
 sudo add-apt-repository ppa:user/ppa-name
 
 # Add repository
-sudo add-apt-repository "deb http://repo.example.com/ubuntu noble main"
+sudo add-apt-repository "deb http://repo.example.com/ubuntu resolute main"
 
 # Remove repository
 sudo add-apt-repository --remove ppa:user/ppa-name
@@ -107,7 +107,7 @@ sudo nano /etc/apt/sources.list.d/docker.list
 ```
 
 ```
-deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu noble stable
+deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu resolute stable
 ```
 
 ### GPG Keys
@@ -129,7 +129,7 @@ sudo chmod 644 /etc/apt/keyrings/docker.gpg
 Reference in sources list:
 
 ```
-deb [signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu noble stable
+deb [signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu resolute stable
 ```
 
 ## Common Operations
@@ -230,7 +230,7 @@ Create `/etc/apt/preferences.d/custom`:
 ```
 # Pin all packages from security to higher priority
 Package: *
-Pin: release a=noble-security
+Pin: release a=resolute-security
 Pin-Priority: 900
 
 # Pin specific package to specific version
@@ -261,7 +261,7 @@ apt-cache policy nginx
 #   Candidate: 1.24.0-1
 #   Version table:
 #  *** 1.24.0-1 500
-#         500 http://archive.ubuntu.com/ubuntu noble/main amd64 Packages
+#         500 http://archive.ubuntu.com/ubuntu resolute/main amd64 Packages
 ```
 
 ## Holding Packages
@@ -461,10 +461,10 @@ debsums package-name
 
 ```bash
 # Always use HTTPS
-deb https://repo.example.com/ubuntu noble main
+deb https://repo.example.com/ubuntu resolute main
 
 # Always verify signatures
-deb [signed-by=/etc/apt/keyrings/repo.gpg] https://repo.example.com/ubuntu noble main
+deb [signed-by=/etc/apt/keyrings/repo.gpg] https://repo.example.com/ubuntu resolute main
 ```
 
 ## Quick Reference

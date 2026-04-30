@@ -6,7 +6,7 @@ Proper preparation ensures a smooth installation and establishes a secure baseli
 
 ### Check System Compatibility
 
-Before installation, verify your hardware is compatible with Ubuntu 24.04 LTS.
+Before installation, verify your hardware is compatible with Ubuntu 26.04 LTS.
 
 ```bash
 # From a live USB or existing Linux system
@@ -25,7 +25,7 @@ ip link show
 
 ### UEFI vs Legacy BIOS
 
-Ubuntu 24.04 supports both UEFI and Legacy BIOS boot modes. UEFI is strongly recommended for:
+Ubuntu 26.04 supports both UEFI and Legacy BIOS boot modes. UEFI is strongly recommended for:
 
 - **Secure Boot support** - Cryptographic verification of boot components
 - **GPT partitioning** - Supports disks larger than 2 TB
@@ -43,7 +43,7 @@ ls /sys/firmware/efi
 
 | Component | Check | Action if Incompatible |
 |-----------|-------|------------------------|
-| CPU | 64-bit capable | Required for 24.04 |
+| CPU | 64-bit capable | Required for 26.04 |
 | RAM | 1 GB minimum | Upgrade or use server-minimal |
 | Storage | SATA/NVMe supported | Use compatible controller |
 | Network | Recognized by kernel | May need firmware package |
@@ -53,11 +53,11 @@ ls /sys/firmware/efi
 
 ### Obtain the ISO
 
-Download Ubuntu Server 24.04 LTS from the official source:
+Download Ubuntu Server 26.04 LTS from the official source:
 
 ```bash
 # Download from official mirror
-wget https://releases.ubuntu.com/24.04/ubuntu-24.04-live-server-amd64.iso
+wget https://releases.ubuntu.com/26.04/ubuntu-26.04-live-server-amd64.iso
 ```
 
 !!! warning "Official Sources Only"
@@ -70,8 +70,8 @@ Verification ensures the ISO hasn't been corrupted or tampered with.
 **Step 1: Download verification files**
 
 ```bash
-wget https://releases.ubuntu.com/24.04/SHA256SUMS
-wget https://releases.ubuntu.com/24.04/SHA256SUMS.gpg
+wget https://releases.ubuntu.com/26.04/SHA256SUMS
+wget https://releases.ubuntu.com/26.04/SHA256SUMS.gpg
 ```
 
 **Step 2: Verify GPG signature**
@@ -90,10 +90,10 @@ You should see "Good signature from Ubuntu CD Image Automatic Signing Key".
 **Step 3: Verify checksum**
 
 ```bash
-sha256sum -c SHA256SUMS 2>&1 | grep ubuntu-24.04-live-server-amd64.iso
+sha256sum -c SHA256SUMS 2>&1 | grep ubuntu-26.04-live-server-amd64.iso
 ```
 
-Expected output: `ubuntu-24.04-live-server-amd64.iso: OK`
+Expected output: `ubuntu-26.04-live-server-amd64.iso: OK`
 
 ### Verification Summary
 
@@ -114,7 +114,7 @@ Expected output: `ubuntu-24.04-live-server-amd64.iso: OK`
 lsblk
 
 # Write ISO to USB (replace /dev/sdX with your device)
-sudo dd if=ubuntu-24.04-live-server-amd64.iso of=/dev/sdX bs=4M status=progress oflag=sync
+sudo dd if=ubuntu-26.04-live-server-amd64.iso of=/dev/sdX bs=4M status=progress oflag=sync
 ```
 
 !!! danger "Double-Check Device"
@@ -134,6 +134,15 @@ After creating the boot media, verify it works:
 1. Boot a test system from the USB
 2. Select "Check disc for defects" from the boot menu
 3. Let the verification complete
+
+## MS-S1 MAX Firmware Update (Recommended Before Install)
+
+Flash BIOS **1.06** (released 2026-01-04) before installing 26.04. It addresses memory training, NVMe, USB4 v2 stability and adds AMD PSP/UEFI security patches that the 26.04 kernel expects.
+
+The flash is doable from Linux + EFI shell (no Windows required). See [capetron/minisforum-ms-s1-max-bios](https://github.com/capetron/minisforum-ms-s1-max-bios) for the script. Disable Secure Boot during the flash; the first post-flash boot takes 5-10 minutes for memory retraining and resets BIOS settings to defaults.
+
+!!! warning "USB4 rear-port instability"
+    A known ACPI power-management flaw on the rear USB4 v2 ports is still being investigated upstream as of early 2026 and is **not fully resolved by BIOS 1.06**. If USB4 stability matters during install, use the front 40 Gbps ports.
 
 ## BIOS/UEFI Configuration
 

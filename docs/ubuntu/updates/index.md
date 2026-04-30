@@ -118,7 +118,7 @@ sudo do-release-upgrade
 Security updates come from:
 
 ```
-deb http://security.ubuntu.com/ubuntu noble-security main restricted
+deb http://security.ubuntu.com/ubuntu resolute-security main restricted
 ```
 
 This is the primary source for unattended-upgrades.

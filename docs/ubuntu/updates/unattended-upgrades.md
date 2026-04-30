@@ -58,12 +58,12 @@ Unattended-Upgrade::Allowed-Origins {
 };
 ```
 
-For Ubuntu 24.04 (noble), this expands to:
+For Ubuntu 26.04 (resolute), this expands to:
 
-- Ubuntu:noble
-- Ubuntu:noble-security
-- UbuntuESMApps:noble-apps-security
-- UbuntuESM:noble-infra-security
+- Ubuntu:resolute
+- Ubuntu:resolute-security
+- UbuntuESMApps:resolute-apps-security
+- UbuntuESM:resolute-infra-security
 
 ### Blacklist Packages
 

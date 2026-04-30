@@ -2,6 +2,15 @@
 
 MS-S1 MAX specific BIOS configuration for optimal performance with AMD APU workloads.
 
+## Firmware Version
+
+Run **BIOS 1.06** (released 2026-01-04) or later before installing Ubuntu 26.04. Earlier firmware has known memory training, NVMe, and USB4 v2 stability issues that 26.04's Linux 7.0 kernel exposes more aggressively.
+
+The flash is doable from Linux + EFI shell — see [capetron/minisforum-ms-s1-max-bios](https://github.com/capetron/minisforum-ms-s1-max-bios). Disable Secure Boot during the flash and expect 5-10 minutes of memory retraining on the first boot afterwards (BIOS settings reset to defaults).
+
+!!! warning "Rear USB4 ports"
+    A known ACPI power-management flaw on the rear USB4 v2 (80 Gbps) ports is **not fully resolved by 1.06** as of early 2026. Prefer the front 40 Gbps USB4 ports for any device where stability matters.
+
 ## Accessing BIOS
 
 Power on the system and press the appropriate key during POST:
@@ -41,23 +50,20 @@ The UMA (Unified Memory Architecture) Frame Buffer allocates a portion of system
 
 | Setting | Location | Recommended |
 |---------|----------|-------------|
-| UMA Frame Buffer | Advanced > Graphics | Auto or 16GB |
-| VRAM Size | (same setting, different name) | Auto or 16GB |
+| UMA Frame Buffer | Advanced > Graphics | 512 MB (small) |
+| VRAM Size | (same setting, different name) | 512 MB (small) |
 
 **Setting options explained:**
 
 | Value | Use Case |
 |-------|----------|
-| Auto | Dynamic allocation, usually sufficient |
-| 512MB-4GB | Desktop/server without GPU workloads |
-| 8GB-16GB | GPU compute, AI inference |
-| 32GB+ | Heavy 3D rendering (rarely needed for LLMs) |
+| 512MB | **Recommended for Strix Halo + AI workloads** — keep dedicated VRAM small, use GTT for the rest |
+| 1-4GB | Desktop/server with mixed light GPU workloads |
+| 8-16GB | Only if a workload specifically requires large fixed VRAM and cannot use GTT |
+| 32GB+ | Rarely useful — locks RAM away from the OS |
 
-!!! note "LLM Inference"
-    For llama.cpp and similar tools, the UMA setting is less critical than total system RAM. The inference engines manage memory directly. However, ROCm applications may benefit from larger UMA allocation.
-
-!!! tip "amd-ttm for AI Workloads"
-    For AI inference, the software-based `amd-ttm` tool provides much more GPU-accessible memory (up to ~115GB) than BIOS UMA alone (max ~32GB). See [Memory Configuration](../ai/gpu/memory-configuration.md#software-vram-allocation-amd-ttm) for setup instructions.
+!!! tip "AMD's official Strix Halo guidance"
+    AMD's ROCm system-optimization guide recommends keeping dedicated VRAM **small (~0.5 GB)** and letting GTT-backed allocations dynamically use up to ~50% of system RAM (raisable via `amd-ttm`). Large UMA reservations were the right answer on older APUs but on Strix Halo they just take RAM out of the OS pool without giving ROCm anything it couldn't get via GTT. See [Memory Configuration](../ai/gpu/memory-configuration.md#software-vram-allocation-amd-ttm) for the runtime knobs.
 
 ### Memory Interleaving
 
@@ -218,7 +224,7 @@ Quick reference for AI/server workloads:
 | Category | Setting | Value |
 |----------|---------|-------|
 | Memory | XMP/DOCP | Enabled |
-| Memory | UMA Frame Buffer | Auto or 16GB |
+| Memory | UMA Frame Buffer | 512 MB (Strix Halo: keep small, use GTT) |
 | AMD | IOMMU | Enabled |
 | AMD | Above 4G Decoding | Enabled |
 | AMD | Re-Size BAR | Enabled |

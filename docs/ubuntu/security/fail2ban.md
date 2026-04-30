@@ -472,7 +472,7 @@ done
 
 ## nftables vs iptables
 
-Ubuntu 24.04 may use nftables backend:
+Ubuntu 26.04 may use nftables backend:
 
 ```ini
 [DEFAULT]

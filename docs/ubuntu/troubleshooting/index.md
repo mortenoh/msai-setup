@@ -1,6 +1,6 @@
 # Troubleshooting Overview
 
-This section covers diagnosing and resolving common issues on Ubuntu Server 24.04 LTS.
+This section covers diagnosing and resolving common issues on Ubuntu Server 26.04 LTS.
 
 ## Troubleshooting Methodology
 

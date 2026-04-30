@@ -17,7 +17,7 @@ For a comprehensive explanation of the APU architecture, memory subsystem, and d
 | GPU ID | gfx1151 |
 | Memory | Shared 128GB DDR5 |
 | Bandwidth | ~90 GB/s |
-| ROCm Support | Supported (ROCm 7.x, native gfx1151) |
+| ROCm Support | Native (Ubuntu 26.04 ships ROCm 7.1 in Universe; gfx1151 supported upstream) |
 
 ## Why APU for LLMs?
 
@@ -34,16 +34,16 @@ The tradeoff is lower memory bandwidth compared to discrete GPUs, resulting in s
 
 ### [Quick Start](quick-start.md)
 
-Get from bare Ubuntu 24.04 to running LLMs on GPU in one page:
+Get from bare Ubuntu 26.04 LTS to running LLMs on GPU in one page:
 
-- OEM kernel, ROCm 7.x, VRAM allocation, Ollama
+- Linux 7.0 (default), `apt install rocm`, VRAM allocation, Ollama
 
 ### [ROCm Installation](rocm-installation.md)
 
-Native ROCm installation for Ubuntu 24.04:
+Native ROCm installation for Ubuntu 26.04:
 
 - APU compatibility and current support status
-- OEM kernel (6.14+) and ROCm 7.x installation
+- In-distro ROCm 7.1 vs upstream AMD repo (newer ROCm)
 - Verification with rocminfo and rocm-smi
 
 ### [Driver Updates](driver-updates.md)

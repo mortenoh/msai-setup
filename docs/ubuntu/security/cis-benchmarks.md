@@ -1,6 +1,6 @@
 # CIS Benchmarks
 
-The Center for Internet Security (CIS) Benchmarks provide prescriptive guidance for securing systems. This page covers implementing CIS recommendations for Ubuntu Server 24.04 LTS.
+The Center for Internet Security (CIS) Benchmarks provide prescriptive guidance for securing systems. This page covers implementing CIS recommendations for Ubuntu Server 26.04 LTS.
 
 ## Understanding CIS Benchmarks
 
@@ -37,7 +37,7 @@ CIS Benchmarks are:
 
 1. Visit [CIS Benchmarks](https://www.cisecurity.org/benchmark/ubuntu_linux)
 2. Register for free account
-3. Download Ubuntu 24.04 LTS benchmark PDF
+3. Download Ubuntu 26.04 LTS benchmark PDF
 
 ### Ubuntu Security Guide
 

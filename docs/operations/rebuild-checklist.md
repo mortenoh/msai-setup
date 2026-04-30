@@ -31,7 +31,7 @@ virsh list --all > ~/vm-list.txt
 ## Phase 2: Install Ubuntu
 
 1. Boot from USB
-2. Install Ubuntu Server 24.04 LTS
+2. Install Ubuntu Server 26.04 LTS
 3. Use same partition layout:
     - 512 MB EFI
     - 1 GB /boot (ext4)

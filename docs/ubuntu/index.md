@@ -1,6 +1,6 @@
-# Ubuntu Server 24.04 LTS
+# Ubuntu Server 26.04 LTS
 
-Comprehensive guide for installing, configuring, and hardening Ubuntu Server 24.04 LTS.
+Comprehensive guide for installing, configuring, and hardening Ubuntu Server 26.04 LTS ("Resolute Raccoon", released 2026-04-23, supported through April 2031).
 
 ## Overview
 

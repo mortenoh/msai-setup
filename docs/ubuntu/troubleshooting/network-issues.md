@@ -1,6 +1,6 @@
 # Network Issues
 
-This page covers diagnosing and resolving network connectivity problems on Ubuntu Server 24.04 LTS.
+This page covers diagnosing and resolving network connectivity problems on Ubuntu Server 26.04 LTS.
 
 ## Diagnostic Process
 

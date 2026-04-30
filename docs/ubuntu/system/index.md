@@ -1,6 +1,6 @@
 # System Configuration Overview
 
-This section covers fundamental system configuration for Ubuntu Server 24.04 LTS with a focus on security and manageability.
+This section covers fundamental system configuration for Ubuntu Server 26.04 LTS with a focus on security and manageability.
 
 ## Core Concepts
 

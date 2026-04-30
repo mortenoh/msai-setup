@@ -1,42 +1,42 @@
 # Strix Halo ROCm Quick Start
 
-Single-page path from bare Ubuntu 24.04 to running LLMs on GPU with the AMD Ryzen AI Max+ 395 APU (gfx1151).
+Single-page path from bare Ubuntu 26.04 LTS to running LLMs on GPU with the AMD Ryzen AI Max+ 395 APU (gfx1151).
 
 !!! info "Tested Environment"
-    Ubuntu 24.04, ROCm 7.x, kernel 6.14+ (OEM), 128GB DDR5. For detailed configuration of individual components, see the linked pages throughout this guide.
+    Ubuntu 26.04 LTS ("Resolute Raccoon"), Linux 7.0 kernel, ROCm 7.1 (in-distro) or upstream 7.2.x, 128GB DDR5. For detailed configuration of individual components, see the linked pages throughout this guide.
 
-## 1. Install OEM Kernel
+## 1. Verify Kernel
 
-The stock Ubuntu 24.04 kernel does not include full gfx1151 support. Install the OEM kernel (6.14+):
-
-```bash
-sudo apt install linux-oem-24.04c
-sudo reboot
-```
-
-Verify after reboot:
+Ubuntu 26.04 ships Linux 7.0 by default and the server installer auto-installs HWE/OEM metapackages where applicable, so no manual kernel install is needed for gfx1151. Confirm:
 
 ```bash
 uname -r
-# Should show 6.14.x or newer
+# Should show 7.0.x or newer
 ```
+
+AMD's official requirement for Ryzen AI Max (gfx1151) is kernel 6.18.4+ (mainline) or 6.17 HWE — Ubuntu 26.04's 7.0 kernel clears this.
 
 ## 2. Install ROCm 7.x
 
-Download and install the `amdgpu-install` package:
+**Option A: in-distro ROCm 7.1 (one command, fewest moving parts)**
 
 ```bash
-wget https://repo.radeon.com/amdgpu-install/latest/ubuntu/noble/amdgpu-install_7.1.1.70101-1_all.deb
-sudo apt install ./amdgpu-install_7.1.1.70101-1_all.deb
+sudo apt update
+sudo apt install rocm
 ```
 
-Install the ROCm stack:
+Ubuntu 26.04 ships ROCm 7.1.0 in Universe. This is roughly one minor behind upstream's 7.2.x but receives Ubuntu security updates and avoids third-party repos.
+
+**Option B: upstream AMD repo (newer ROCm, faster cadence)**
 
 ```bash
+# AMD's resolute path may not be live yet at release; verify on repo.radeon.com first.
+wget https://repo.radeon.com/amdgpu-install/latest/ubuntu/noble/amdgpu-install_7.1.1.70101-1_all.deb
+sudo apt install ./amdgpu-install_7.1.1.70101-1_all.deb
 sudo amdgpu-install --usecase=rocm,hip,opencl,graphics,dkms
 ```
 
-Add your user to the required groups:
+Add your user to the required groups (either option):
 
 ```bash
 sudo usermod -aG video,render $USER
@@ -151,8 +151,8 @@ sudo reboot
 # Check which kernels are installed
 dpkg -l | grep linux-image
 
-# Set OEM kernel as default
-sudo sed -i 's/GRUB_DEFAULT=.*/GRUB_DEFAULT="Advanced options for Ubuntu>Ubuntu, with Linux 6.14.0-1-oem"/' /etc/default/grub
+# Set the desired kernel as default (replace 7.0.x-N-generic with the actual entry)
+sudo sed -i 's/GRUB_DEFAULT=.*/GRUB_DEFAULT="Advanced options for Ubuntu>Ubuntu, with Linux 7.0.0-N-generic"/' /etc/default/grub
 sudo update-grub
 sudo reboot
 ```

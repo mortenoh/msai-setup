@@ -32,6 +32,7 @@ sudo apt install tailscale
 
 | Distribution | Codename | Repository URL |
 |--------------|----------|----------------|
+| Ubuntu 26.04 | resolute | `ubuntu/resolute` (verify on pkgs.tailscale.com; fall back to `noble` if not yet published) |
 | Ubuntu 24.04 | noble | `ubuntu/noble` |
 | Ubuntu 22.04 | jammy | `ubuntu/jammy` |
 | Ubuntu 20.04 | focal | `ubuntu/focal` |

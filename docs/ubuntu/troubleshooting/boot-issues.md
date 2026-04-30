@@ -1,6 +1,6 @@
 # Boot Issues
 
-This page covers diagnosing and resolving boot problems on Ubuntu Server 24.04 LTS.
+This page covers diagnosing and resolving boot problems on Ubuntu Server 26.04 LTS.
 
 ## Boot Process Overview
 

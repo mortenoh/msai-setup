@@ -101,16 +101,15 @@ docker run --gpus '"device=0,1"' ...
 ### Install ROCm
 
 ```bash
-# Add repository (Ubuntu 24.04)
-wget https://repo.radeon.com/amdgpu-install/latest/ubuntu/noble/amdgpu-install_7.1.1.70101-1_all.deb
-sudo apt install ./amdgpu-install_7.1.1.70101-1_all.deb
-
-# Install ROCm
-sudo amdgpu-install --usecase=rocm
+# Ubuntu 26.04: ROCm 7.1 ships in Universe
+sudo apt update
+sudo apt install rocm
 
 # Add user to groups
 sudo usermod -aG video,render $USER
 ```
+
+For newer ROCm than 7.1, use AMD's `amdgpu-install` from `repo.radeon.com` — see [ROCm Installation](../gpu/rocm-installation.md) for the upstream path.
 
 ### Verify Installation
 

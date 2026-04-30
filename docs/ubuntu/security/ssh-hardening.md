@@ -2,7 +2,7 @@
 
 This page covers Ubuntu-specific SSH hardening. For comprehensive SSH documentation including client configuration, tunneling, and file transfer, see the [SSH Guide](../../ssh/index.md).
 
-## SSH Configuration on Ubuntu 24.04
+## SSH Configuration on Ubuntu 26.04
 
 ### Configuration File Locations
 
@@ -13,7 +13,7 @@ This page covers Ubuntu-specific SSH hardening. For comprehensive SSH documentat
 | `/etc/ssh/ssh_config` | Client defaults |
 | `~/.ssh/config` | Per-user client config |
 
-### Ubuntu 24.04 Defaults
+### Ubuntu 26.04 Defaults
 
 Ubuntu ships with reasonably secure defaults:
 
@@ -43,7 +43,7 @@ sudo nano /etc/ssh/sshd_config.d/99-hardening.conf
 
 ```bash
 # /etc/ssh/sshd_config.d/99-hardening.conf
-# Ubuntu 24.04 SSH Hardening
+# Ubuntu 26.04 SSH Hardening
 
 ###########################################
 # Authentication

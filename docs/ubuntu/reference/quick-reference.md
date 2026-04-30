@@ -1,6 +1,6 @@
 # Quick Reference
 
-Command and configuration cheat sheet for Ubuntu Server 24.04 LTS administration.
+Command and configuration cheat sheet for Ubuntu Server 26.04 LTS administration.
 
 ## System Information
 

@@ -13,7 +13,7 @@
 
 ---
 
-Comprehensive setup guide for the Minisforum MS-S1 MAX as a home server running Ubuntu, ZFS, KVM, Docker, and local LLMs.
+Comprehensive setup guide for the Minisforum MS-S1 MAX as a home server running Ubuntu Server 26.04 LTS ("Resolute Raccoon"), ZFS, KVM, Docker, and local LLMs.
 
 ## Hardware Overview
 

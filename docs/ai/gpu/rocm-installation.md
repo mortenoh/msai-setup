@@ -1,6 +1,9 @@
 # ROCm Installation
 
-Install AMD ROCm stack natively on Ubuntu 24.04 for the AMD Ryzen AI Max+ 395 APU.
+Install AMD ROCm stack natively on Ubuntu 26.04 LTS for the AMD Ryzen AI Max+ 395 APU.
+
+!!! tip "26.04 ships ROCm in the archive"
+    Ubuntu 26.04 ships **ROCm 7.1.0** in the Universe repo, so `sudo apt install rocm` gives you a working stack with no third-party repository. The in-distro version trails upstream by roughly one minor release; use the AMD repo path below only if you need newer than 7.1.0.
 
 ## APU Support Status
 
@@ -11,7 +14,7 @@ Install AMD ROCm stack natively on Ubuntu 24.04 for the AMD Ryzen AI Max+ 395 AP
 
 | Component | Support Level | Notes |
 |-----------|---------------|-------|
-| amdgpu kernel driver | Good | Requires OEM kernel 6.14+ |
+| amdgpu kernel driver | Good | Linux 7.0 (26.04 default) covers gfx1151; min for upstream is 6.18.4 / 6.17 HWE |
 | ROCm runtime | Supported (ROCm 7.x) | Native gfx1151 support |
 | HIP | Supported | Applications work natively |
 | OpenCL | Good | Generally functional |
@@ -31,19 +34,16 @@ The AMD Ryzen AI Max+ 395 uses the RDNA 3.5 architecture with GPU ID `gfx1151`.
 
 ### Kernel Requirements
 
-The stock Ubuntu 24.04 kernel (6.8) does not include full gfx1151 support. Install the OEM kernel (6.14+):
+Ubuntu 26.04 ships **Linux 7.0**, which has full gfx1151 support out of the box. The 26.04 server installer also auto-installs HWE/OEM metapackages when matching hardware is detected, so no manual kernel install is needed on the MS-S1 Max.
 
-```bash
-sudo apt install linux-oem-24.04c
-sudo reboot
-```
-
-Verify after reboot:
+Verify:
 
 ```bash
 uname -r
-# Should show 6.14.x or newer
+# Should show 7.0.x or newer
 ```
+
+If you are still on an older release, AMD's published minimum for gfx1151 is kernel 6.18.4 mainline or 6.17 HWE.
 
 ### Check GPU Detection
 
@@ -72,14 +72,24 @@ newgrp render
 
 ## Installation Methods
 
-### Method 1: amdgpu-install (Recommended)
+### Method 1: In-distro `apt install rocm` (Recommended for 26.04)
 
-The `amdgpu-install` script provides the simplest installation path.
+```bash
+sudo apt update
+sudo apt install rocm
+```
+
+This pulls ROCm 7.1.0 from Ubuntu's Universe repo. It includes the runtime, HIP, OpenCL, and Lemonade Server. Use this unless you specifically need a newer ROCm than 7.1.0.
+
+### Method 2: amdgpu-install (Newer ROCm via AMD's repo)
+
+The `amdgpu-install` script tracks upstream ROCm faster than the Ubuntu archive.
 
 **Download the installer:**
 
 ```bash
-# Ubuntu 24.04 (Noble)
+# AMD's resolute (26.04) path may not be published yet. Check repo.radeon.com first;
+# fall back to the noble (24.04) installer if needed.
 wget https://repo.radeon.com/amdgpu-install/latest/ubuntu/noble/amdgpu-install_7.1.1.70101-1_all.deb
 
 # Install the installer package
@@ -96,8 +106,8 @@ sudo apt install ./amdgpu-install_7.1.1.70101-1_all.deb
 sudo amdgpu-install --usecase=rocm,hip,opencl,graphics,dkms
 ```
 
-!!! warning "Do not skip DKMS"
-    The `--no-dkms` flag skips building the amdgpu kernel module via DKMS. This will prevent ROCm from working with the OEM kernel. Always include `dkms` in the use cases.
+!!! note "DKMS is optional on 26.04"
+    The 7.0 kernel includes upstream amdgpu support for gfx1151, so DKMS is no longer strictly required to make ROCm work. Including `dkms` is still useful when you need a fresher amdgpu than the in-tree driver — for example to pick up a Strix-Halo-specific fix that hasn't landed in the running kernel yet.
 
 **Available use cases:**
 
@@ -121,6 +131,9 @@ wget -qO - https://repo.radeon.com/rocm/rocm.gpg.key | sudo gpg --dearmor -o /et
 
 # Add repository
 echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/rocm/apt/7.1 noble main" | sudo tee /etc/apt/sources.list.d/rocm.list
+# AMD's repo may not yet publish a 'resolute' suite at 26.04 launch. The noble (24.04) suite typically works
+# on 26.04 since ROCm packages are largely libstdc++/glibc-compatible across versions; switch to 'resolute'
+# once it appears.
 
 # Update package lists
 sudo apt update
@@ -303,21 +316,21 @@ If `rocminfo` fails, check for blacklist entries:
 grep -r amdgpu /etc/modprobe.d/
 # Remove any lines containing "blacklist amdgpu"
 
-# Rebuild initramfs after changes
+# Rebuild initramfs after changes (26.04 uses dracut by default, which is invoked the same way)
 sudo update-initramfs -u
 sudo reboot
 ```
 
 ### Wrong Kernel Booting After Upgrade
 
-If the system boots an older kernel instead of the OEM kernel:
+If the system boots an older kernel:
 
 ```bash
 # List installed kernels
 dpkg -l | grep linux-image
 
-# Set OEM kernel as GRUB default
-sudo sed -i 's/GRUB_DEFAULT=.*/GRUB_DEFAULT="Advanced options for Ubuntu>Ubuntu, with Linux 6.14.0-1-oem"/' /etc/default/grub
+# Set the desired kernel as GRUB default (replace with the actual entry name)
+sudo sed -i 's/GRUB_DEFAULT=.*/GRUB_DEFAULT="Advanced options for Ubuntu>Ubuntu, with Linux 7.0.0-N-generic"/' /etc/default/grub
 sudo update-grub
 sudo reboot
 ```

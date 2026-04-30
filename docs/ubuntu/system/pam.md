@@ -162,10 +162,10 @@ sudo chage -l username
 
 ### Install Faillock Module
 
-Ubuntu 24.04 uses `pam_faillock` (replaced `pam_tally2`):
+Ubuntu 26.04 uses `pam_faillock` (replaced `pam_tally2`):
 
 ```bash
-# Already included in Ubuntu 24.04
+# Already included in Ubuntu 26.04
 ```
 
 ### Configure Lockout Policy

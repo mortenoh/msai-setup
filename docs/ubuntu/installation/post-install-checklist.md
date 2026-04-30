@@ -67,6 +67,45 @@ Add/update:
 127.0.1.1   srv-ubuntu-01
 ```
 
+## MS-S1 MAX Hardware Verification
+
+Confirm the Strix-Halo-specific hardware came up correctly under the 26.04 / Linux 7.0 kernel.
+
+### 10GbE (Realtek RTL8127)
+
+The `r8169` driver gained RTL8127A support in Linux 6.16, so 26.04's 7.0 kernel binds both 10GbE ports natively. No `r8127-dkms` required (the older 24.04 guides recommending DKMS are stale).
+
+```bash
+# Both 10GbE NICs should appear with state UP after cabling
+ip -br link
+
+# Confirm the driver bound is r8169
+sudo lspci -k | grep -A3 -i "ethernet"
+```
+
+If a port is missing, rebooting once after the install upgrade usually does it. As a fallback only, install [PeterSuh-Q3/r8127](https://github.com/PeterSuh-Q3/r8127) DKMS.
+
+### MediaTek MT7925 WiFi
+
+Works out of the box in 7.0. If you don't plan to use WiFi on a server, leave it disabled.
+
+### GPU (gfx1151)
+
+```bash
+# Driver bound
+lspci -k | grep -A3 -i vga
+
+# Kernel sees the iGPU
+ls /dev/dri/
+# Expect: card0, renderD128
+```
+
+For the full ROCm/AI stack, continue to [Quick Start](../../ai/gpu/quick-start.md).
+
+### USB4 stability
+
+Prefer the **front 40 Gbps USB4 ports** for any device that must stay connected. The rear 80 Gbps USB4 v2 ports have a known ACPI power-management flaw upstream that BIOS 1.06 does not fully resolve.
+
 ## Verify SSH Security
 
 ### Check SSH Configuration

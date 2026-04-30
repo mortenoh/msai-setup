@@ -1,6 +1,9 @@
 # Installation Walkthrough
 
-Step-by-step guide through the Ubuntu Server 24.04 LTS installer with security-focused choices.
+Step-by-step guide through the Ubuntu Server 26.04 LTS installer with security-focused choices.
+
+!!! info "26.04 Server installer changes"
+    The 26.04 live-server ISO **automatically installs the HWE/OEM kernel** when it detects matching hardware (such as Strix Halo). On the MS-S1 Max this means you no longer need to install `linux-oem-*` manually after first boot. Defaults also include **dracut** (replacing `initramfs-tools`), **TPM-backed full-disk encryption**, and **crash dumps enabled by default**.
 
 ## Boot from Installation Media
 
@@ -321,7 +324,7 @@ After BIOS/UEFI:
 After boot completes:
 
 ```
-Ubuntu 24.04 LTS srv-ubuntu-01 tty1
+Ubuntu 26.04 LTS srv-ubuntu-01 tty1
 
 srv-ubuntu-01 login: _
 ```

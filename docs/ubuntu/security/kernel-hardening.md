@@ -246,7 +246,7 @@ kernel.sysrq = 0
 ### /etc/sysctl.d/99-security.conf
 
 ```ini
-# Ubuntu 24.04 Kernel Hardening
+# Ubuntu 26.04 Kernel Hardening
 # Apply with: sudo sysctl --system
 
 #########################################

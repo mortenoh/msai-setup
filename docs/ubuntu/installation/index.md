@@ -1,6 +1,6 @@
 # Installation Overview
 
-This section provides comprehensive guidance for installing Ubuntu Server 24.04 LTS with security and reliability as primary considerations.
+This section provides comprehensive guidance for installing Ubuntu Server 26.04 LTS ("Resolute Raccoon") with security and reliability as primary considerations.
 
 ## Installation Philosophy
 

@@ -1,6 +1,6 @@
 # Complete Hardening Checklist
 
-Comprehensive checklist for hardening Ubuntu Server 24.04 LTS. Use this as a verification guide after installation.
+Comprehensive checklist for hardening Ubuntu Server 26.04 LTS. Use this as a verification guide after installation.
 
 ## Pre-Installation
 

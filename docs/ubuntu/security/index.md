@@ -1,6 +1,6 @@
 # Security Overview
 
-This section covers comprehensive security hardening for Ubuntu Server 24.04 LTS, building on the foundation established in the installation and system configuration sections.
+This section covers comprehensive security hardening for Ubuntu Server 26.04 LTS, building on the foundation established in the installation and system configuration sections.
 
 ## Security Philosophy
 

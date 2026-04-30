@@ -71,7 +71,7 @@ sudo apt upgrade
 For major ROCm version changes (e.g., 6.x to 7.x):
 
 !!! warning "OEM Kernel Compatibility"
-    When upgrading to ROCm 7.x, ensure you are running the OEM kernel (`linux-oem-24.04c`, 6.14+). ROCm 7.x with gfx1151 requires this kernel for full support. See [ROCm Installation](rocm-installation.md) for kernel setup.
+    When upgrading ROCm, make sure your kernel is recent enough for gfx1151: Ubuntu 26.04's default Linux 7.0 covers it. Older releases need at least 6.18.4 mainline or 6.17 HWE. See [ROCm Installation](rocm-installation.md) for kernel setup.
 
 **Step 1: Backup configuration**
 

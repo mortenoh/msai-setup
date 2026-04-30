@@ -4,7 +4,7 @@ Comprehensive logging is essential for security monitoring, troubleshooting, and
 
 ## Logging Architecture
 
-### Ubuntu 24.04 Logging Stack
+### Ubuntu 26.04 Logging Stack
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
