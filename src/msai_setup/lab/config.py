@@ -9,8 +9,18 @@ from __future__ import annotations
 
 import os
 import platform
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
+
+from msai_setup.lab import instance as _instance
+
+
+def _default_vm_name() -> str:
+    return os.environ.get("VM_NAME") or _instance.get_current() or "ms-s1-max-lab"
+
+
+def _default_target_dir() -> Path:
+    return Path(os.environ.get("TARGET_DIR", "target")).resolve()
 
 
 def _env(key: str, default: str) -> str:
@@ -30,8 +40,6 @@ def _detect_arch() -> str:
     return "amd64"
 
 
-REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-
 _HOST_ARCH = _detect_arch()
 
 # Ubuntu ISO locations differ by architecture:
@@ -45,10 +53,12 @@ if _HOST_ARCH == "arm64":
     _DEFAULT_ISO_FILENAME = "ubuntu-24.04.3-live-server-arm64.iso"
     _DEFAULT_ISO_BASE = "https://cdimage.ubuntu.com/releases/24.04/release"
     _DEFAULT_OSTYPE = "Ubuntu24_LTS_arm64"
+    _DEFAULT_PLATFORM = "arm"
 else:
     _DEFAULT_ISO_FILENAME = "ubuntu-24.04.4-live-server-amd64.iso"
     _DEFAULT_ISO_BASE = "https://releases.ubuntu.com/24.04"
     _DEFAULT_OSTYPE = "Ubuntu24_LTS_64"
+    _DEFAULT_PLATFORM = "x86"
 
 
 @dataclass(frozen=True)
@@ -59,9 +69,11 @@ class LabConfig:
     config so the lab is deterministic.
     """
 
-    # VM identity
-    vm_name: str = _env("VM_NAME", "ms-s1-max-lab")
-    vm_hostname: str = _env("VM_HOSTNAME", "ms-s1-max-lab.local")
+    # VM identity. `vm_name` reads the current-instance pointer (see
+    # instance.py) at load_config() time so it picks up `msai use`/`msai
+    # create` changes; fallback is a fixed name so --help doesn't blow up.
+    vm_name: str = field(default_factory=_default_vm_name)
+    vm_hostname: str = _env("VM_HOSTNAME", "")  # filled in load_config()
     vm_user: str = _env("VM_USER", "morten")
     vm_password: str = _env("VM_PASSWORD", "changeme")
     vm_fullname: str = _env("VM_FULLNAME", "Morten Hansen")
@@ -74,33 +86,45 @@ class LabConfig:
     # Networking
     ssh_forward_port: int = _env_int("SSH_FORWARD_PORT", 2222)
 
-    # Storage
-    target_dir: Path = REPO_ROOT / _env("TARGET_DIR", "target")
+    # Storage. Defaults to ./target relative to the current working
+    # directory - run from the repo root and this lands at `./target/`,
+    # which is already in .gitignore. Override via `TARGET_DIR=/abs/path`.
+    target_dir: Path = field(default_factory=_default_target_dir)
     primary_disk_size_mb: int = _env_int("PRIMARY_DISK_SIZE_MB", 80000)
     lab_disk_count: int = _env_int("LAB_DISK_COUNT", 6)
     lab_disk_size_mb: int = _env_int("LAB_DISK_SIZE_MB", 8000)
 
-    # Ubuntu ISO.
+    # Ubuntu ISO + VirtualBox platform.
     #
-    # Defaults auto-pick based on host architecture (Apple Silicon Macs need
-    # arm64; everywhere else amd64). VirtualBox 7.2.x ships unattended-install
-    # templates up to ~Ubuntu 25.04; for newer releases the script falls back
-    # to interactive install automatically (see 01_provision.py).
+    # Defaults auto-pick based on host architecture: arm Macs get the arm64
+    # ISO + VBox ARM platform; everywhere else gets amd64 + x86. We drive the
+    # Ubuntu install ourselves through a cloud-init CIDATA ISO (see
+    # cloudinit.py), so VBoxManage's stale `unattended install` templates
+    # don't enter the picture - any Ubuntu release works.
     #
-    # The real MS-S1 MAX install still targets 26.04 amd64; the lab is for
-    # exercising the tools and workflow, not pinning the Ubuntu point release.
+    # The real MS-S1 MAX still targets 26.04 amd64; the lab is for exercising
+    # the tools and workflow, not pinning the Ubuntu point release.
     host_arch: str = _HOST_ARCH
+    platform: str = _env("VBOX_PLATFORM", _DEFAULT_PLATFORM)
     ubuntu_release: str = _env("UBUNTU_RELEASE", "24.04")
     ubuntu_iso_filename: str = _env("UBUNTU_ISO_FILENAME", _DEFAULT_ISO_FILENAME)
     ubuntu_iso_base_url: str = _env("UBUNTU_ISO_BASE_URL", _DEFAULT_ISO_BASE)
     vm_ostype: str = _env("VM_OSTYPE", _DEFAULT_OSTYPE)
 
-    # SSH key to push to the VM during bootstrap. Defaults to a sensible
-    # location; override if you keep keys elsewhere.
-    ssh_public_key_path: Path = Path(_env(
-        "SSH_PUBLIC_KEY",
-        str(Path.home() / ".ssh" / "id_ed25519.pub"),
-    ))
+    # SSH key to push to the VM via cloud-init.
+    #
+    # Default: a dedicated lab keypair generated under target/. This
+    # isolates the lab from your main SSH keys (which may live in 1Password
+    # SSH agent, a yubikey, etc) and makes the lab fully throwaway. Override
+    # via $SSH_PUBLIC_KEY if you'd rather authorise a key you already have.
+    ssh_public_key_path: Path = field(
+        default_factory=lambda: Path(
+            os.environ.get(
+                "SSH_PUBLIC_KEY",
+                str(_default_target_dir() / "lab_id_ed25519.pub"),
+            )
+        )
+    )
 
     @property
     def iso_url(self) -> str:
@@ -122,6 +146,16 @@ class LabConfig:
     def primary_disk_path(self) -> Path:
         return self.target_dir / f"{self.vm_name}-primary.vdi"
 
+    @property
+    def cidata_iso_path(self) -> Path:
+        return self.target_dir / f"{self.vm_name}-cidata.iso"
+
+    @property
+    def autoinstall_iso_path(self) -> Path:
+        """Ubuntu ISO remastered with `autoinstall` baked into GRUB cmdline."""
+        stem = Path(self.ubuntu_iso_filename).stem
+        return self.target_dir / f"{stem}-autoinstall.iso"
+
     def lab_disk_path(self, index: int) -> Path:
         return self.target_dir / f"{self.vm_name}-lab-{index:02d}.vdi"
 
@@ -130,8 +164,17 @@ class LabConfig:
         return "127.0.0.1"
 
 
-def load_config() -> LabConfig:
-    """Build a LabConfig from current env. Call once per phase."""
-    config = LabConfig()
+def load_config(vm_name: str | None = None) -> LabConfig:
+    """Build a LabConfig.
+
+    `vm_name` (if given) overrides the env / current-instance default and is
+    used to scope all the per-instance paths (disks, ISOs, state file).
+    """
+    overrides: dict[str, str] = {}
+    if vm_name is not None:
+        overrides["vm_name"] = vm_name
+    config = LabConfig(**overrides) if overrides else LabConfig()
+    if not config.vm_hostname:
+        config = LabConfig(**{**overrides, "vm_hostname": f"{config.vm_name}.local"})
     config.target_dir.mkdir(parents=True, exist_ok=True)
     return config

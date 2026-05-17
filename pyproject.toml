@@ -34,6 +34,11 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["src/msai_setup"]
 
+# Ship Ansible playbooks + config with the wheel so `msai lab apply`
+# finds them regardless of cwd.
+[tool.hatch.build.targets.wheel.force-include]
+"src/msai_setup/lab/ansible" = "msai_setup/lab/ansible"
+
 [tool.ruff]
 target-version = "py314"
 line-length = 120

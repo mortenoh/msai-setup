@@ -93,13 +93,24 @@ def showvminfo(name: str) -> dict[str, str]:
 # --- VM lifecycle ------------------------------------------------------------
 
 
-def create_vm(name: str, *, ostype: str = "Ubuntu_64") -> None:
-    """Create + register a VM. No-op if it already exists."""
+def create_vm(name: str, *, ostype: str = "Ubuntu_64", platform: str = "x86") -> None:
+    """Create + register a VM. No-op if it already exists.
+
+    `platform` is 'x86' (default) or 'arm'. On Apple Silicon you want 'arm'
+    AND a matching ostype (e.g. Ubuntu24_LTS_arm64). This is set at createvm
+    time only — `modifyvm` can't change it later.
+    """
     if vm_exists(name):
         log.info("vm %s already exists", name)
         return
-    _run(["createvm", "--name", name, "--ostype", ostype, "--register"])
-    log.info("created vm %s", name)
+    _run([
+        "createvm",
+        "--name", name,
+        "--ostype", ostype,
+        "--platform-architecture", platform,
+        "--register",
+    ])
+    log.info("created vm %s (platform=%s, ostype=%s)", name, platform, ostype)
 
 
 def configure_vm(
@@ -108,26 +119,41 @@ def configure_vm(
     memory_mb: int,
     cpus: int,
     vram_mb: int,
-    firmware: str = "efi64",
+    platform: str = "x86",
 ) -> None:
-    """Apply baseline hardware config. Re-runnable to update settings."""
-    _run([
+    """Apply baseline hardware config. Re-runnable to update settings.
+
+    Firmware and USB controller flags differ between x86 and ARM:
+      - x86: --firmware efi64; explicit USB OHCI/EHCI/XHCI toggles
+      - ARM: VBox picks ARM-appropriate firmware from createvm's platform
+        flag; classic USB toggles aren't applicable.
+    """
+    common = [
         "modifyvm", name,
         "--memory", str(memory_mb),
         "--cpus", str(cpus),
         "--vram", str(vram_mb),
-        "--firmware", firmware,
         "--nic1", "nat",
         "--rtcuseutc", "on",
         "--audio-driver", "none",
-        "--usbohci", "off",
-        "--usbehci", "off",
-        "--usbxhci", "off",
         "--boot1", "disk",
         "--boot2", "dvd",
         "--boot3", "none",
         "--boot4", "none",
-    ])
+    ]
+    if platform == "x86":
+        common.extend([
+            "--firmware", "efi64",
+            "--usbohci", "off",
+            "--usbehci", "off",
+            "--usbxhci", "off",
+        ])
+    else:
+        # ARM: the default `vboxvga` graphics controller conflicts with RAM
+        # allocation on ARM (VERR_PGM_RAM_CONFLICT on startvm). `qemuramfb`
+        # is the ARM-appropriate alternative.
+        common.extend(["--graphicscontroller", "qemuramfb"])
+    _run(common)
 
 
 def enable_vrde(name: str, *, port: int = 3389) -> None:
@@ -237,64 +263,6 @@ def attach_iso(name: str, *, controller: str, port: int, device: int, iso: Path)
         medium=iso, type_="dvddrive",
         nonrotational=False, discard=False,
     )
-
-
-# --- Unattended install ------------------------------------------------------
-
-
-def unattended_install_supported(iso: Path) -> bool:
-    """Ask VBoxManage whether it can do an unattended install of this ISO.
-
-    Newer Ubuntu Server ISOs (with the modern Subiquity installer) require a
-    VBoxManage version that ships unattended-install templates for them.
-    Older releases / desktop ISOs / older VBox combinations may not be
-    supported, in which case VBoxManage's `unattended detect` returns
-    "Unattended installation supported = no" (and exit non-zero).
-    """
-    result = subprocess.run(
-        ["VBoxManage", "unattended", "detect", "--iso", str(iso)],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    # The detect output contains "Unattended installation supported = yes/no".
-    # On unsupported ISOs the exit code is non-zero AND the text says "no".
-    return "Unattended installation supported = yes" in (result.stdout or "")
-
-
-def unattended_install(
-    name: str,
-    *,
-    iso: Path,
-    user: str,
-    password: str,
-    full_user_name: str,
-    hostname: str,
-    time_zone: str = "Europe/Oslo",
-    locale: str = "en_US",
-    install_guest_additions: bool = True,
-) -> None:
-    """Configure an unattended install.
-
-    Note: VBoxManage's `--locale` wants `ll_CC` (e.g. `en_US`), NOT the full
-    Linux locale string (`en_US.UTF-8`). The full locale is applied via
-    cloud-init / debconf during the install itself.
-    """
-    """Configure (but don't start) an unattended install on the VM."""
-    args = [
-        "unattended", "install", name,
-        "--iso", str(iso),
-        "--user", user,
-        "--password", password,
-        "--full-user-name", full_user_name,
-        "--hostname", hostname,
-        "--time-zone", time_zone,
-        "--locale", locale,
-    ]
-    if install_guest_additions:
-        args.append("--install-additions")
-    _run(args)
-    log.info("configured unattended install for %s (user=%s)", name, user)
 
 
 # --- Power & control ---------------------------------------------------------

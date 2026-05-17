@@ -1,9 +1,13 @@
-"""Ubuntu ISO download + SHA256 verification."""
+"""Ubuntu ISO download + SHA256 verification + autoinstall remastering."""
 
 from __future__ import annotations
 
 import hashlib
 import logging
+import re
+import shutil
+import subprocess
+import tempfile
 import urllib.request
 from pathlib import Path
 
@@ -56,6 +60,73 @@ def _download(url: str, dest: Path) -> None:
                 last_report = bytes_read
     tmp.rename(dest)
     log.info("download complete: %s", dest)
+
+
+def remaster_iso_for_autoinstall(src: Path, dst: Path) -> None:
+    """Copy `src` ISO to `dst` with `autoinstall` injected into the GRUB cmdline.
+
+    Ubuntu's Subiquity installer only runs unattended when its kernel sees the
+    `autoinstall` argument. The stock install ISO doesn't have it. We extract
+    `boot/grub/grub.cfg`, append `autoinstall` before the `---` separator on
+    every `linux /casper/vmlinuz...` and `linux /casper/hwe-vmlinuz...` line,
+    and write a new bootable ISO.
+
+    Idempotent: skips work if `dst` already exists and is newer than `src`.
+    """
+    if shutil.which("xorriso") is None:
+        raise SystemExit("xorriso not on PATH (brew install xorriso)")
+
+    if dst.exists() and dst.stat().st_mtime >= src.stat().st_mtime:
+        log.info("remastered ISO already current: %s", dst)
+        return
+
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory() as td:
+        td_path = Path(td)
+        extracted = td_path / "grub.cfg"
+
+        log.info("extracting grub.cfg from %s", src)
+        subprocess.run(
+            [
+                "xorriso", "-osirrox", "on",
+                "-indev", str(src),
+                "-extract", "/boot/grub/grub.cfg", str(extracted),
+            ],
+            check=True, capture_output=True, text=True,
+        )
+
+        # ISO9660 preserves read-only perms; allow writing.
+        extracted.chmod(0o644)
+        original = extracted.read_text()
+        # Inject `autoinstall` after each kernel filename, before the `---`.
+        # Match the pattern: `linux<whitespace>/casper/<name>vmlinuz<args>---`
+        pattern = re.compile(
+            r"(linux\s+/casper/[\w.-]*vmlinuz)(\s+)(.*?---)",
+            re.MULTILINE,
+        )
+        modified, n = pattern.subn(r"\1\2autoinstall \3", original)
+        if n == 0:
+            raise RuntimeError(
+                "couldn't find /casper/vmlinuz pattern in grub.cfg; "
+                "ISO layout may have changed:\n" + original[:400]
+            )
+        log.info("patched %d GRUB menu entries with autoinstall", n)
+        extracted.write_text(modified)
+
+        log.info("writing remastered ISO to %s", dst)
+        subprocess.run(
+            [
+                "xorriso",
+                "-indev", str(src),
+                "-outdev", str(dst),
+                "-boot_image", "any", "keep",
+                "-map", str(extracted), "/boot/grub/grub.cfg",
+                "-commit",
+            ],
+            check=True, capture_output=True, text=True,
+        )
+    log.info("remastered ISO ready: %s (%.1f MiB)",
+             dst, dst.stat().st_size / (1024 * 1024))
 
 
 def ensure_iso(iso_path: Path, *, url: str, sha_url: str) -> None:

@@ -1,11 +1,20 @@
 """MS-S1 MAX CLI."""
 
+from __future__ import annotations
+
 from typing import Annotated
 
 import typer
+from rich.table import Table
 
 from msai_setup.doctor.checks import Category
 from msai_setup.doctor.runner import run_category, run_doctor
+from msai_setup.lab import instance as lab_instance
+from msai_setup.lab import vbox as lab_vbox
+from msai_setup.lab.cli import lab_app
+from msai_setup.lab.config import load_config
+from msai_setup.lab.provision import main as lab_provision
+from msai_setup.utils.formatting import console
 
 app = typer.Typer(
     name="msai",
@@ -15,10 +24,11 @@ app = typer.Typer(
 
 doctor_app = typer.Typer(
     name="doctor",
-    help="System health checks",
+    help="System health checks (run these ON the MS-S1 MAX, not your laptop).",
     invoke_without_command=True,
 )
 app.add_typer(doctor_app, name="doctor")
+app.add_typer(lab_app, name="lab")
 
 
 @app.command()
@@ -37,20 +47,164 @@ def docs() -> None:
     subprocess.run(["mkdocs", "serve"], check=True)
 
 
+# ---------------------------------------------------------------------------
+# Lab-instance lifecycle (top-level convenience commands)
+# ---------------------------------------------------------------------------
+
+
 @app.command()
-def status() -> None:
-    """Show quick status overview of all services."""
-    from msai_setup.utils.formatting import console
+def create(
+    name: Annotated[str, typer.Argument(help="Instance name (lowercase, hyphens).")],
+) -> None:
+    """Create a new lab instance and make it the current one.
 
-    console.print("\n[header]MS-S1 MAX Status[/header]")
-    console.print("[dim]" + "=" * 16 + "[/dim]")
-    console.print("[dim]Run 'msai doctor' for detailed health checks[/dim]\n")
+    Provisions a VirtualBox VM by the given name: downloads Ubuntu, builds
+    install + cloud-init ISOs, creates disks, boots headless and waits for
+    SSH. After this, `msai lab <cmd>` commands target this instance.
+    """
+    lab_instance.validate_name(name)
+    existing = {i.name for i in lab_instance.list_instances()}
+    if name in existing:
+        typer.echo(f"instance '{name}' already exists; switching to it instead.")
+        lab_instance.set_current(name)
+        return
+    lab_instance.set_current(name)
+    typer.echo(f"current instance is now '{name}'")
+    lab_provision()
 
-    # Run abbreviated checks for status overview
-    run_doctor(fix=False)
+
+@app.command(name="list")
+@app.command(name="ls", hidden=True)
+def list_instances() -> None:
+    """List lab instances visible in target/."""
+    items = lab_instance.list_instances()
+    if not items:
+        typer.echo("no instances yet. Create one: msai create <name>")
+        return
+
+    table = Table(title="Lab instances", show_lines=False)
+    table.add_column("", style="dim", justify="center")
+    table.add_column("Name")
+    table.add_column("State")
+    table.add_column("Disks")
+    table.add_column("VBox VM")
+
+    for info in items:
+        marker = "*" if info.is_current else " "
+        vm_present = lab_vbox.vm_exists(info.name)
+        vm_running = lab_vbox.vm_running(info.name) if vm_present else False
+        vbox_status = (
+            "running" if vm_running
+            else "stopped" if vm_present
+            else "absent"
+        )
+        table.add_row(
+            marker,
+            info.name,
+            "ok" if info.has_state else "(not provisioned)",
+            "ok" if info.has_disks else "-",
+            vbox_status,
+        )
+    console.print(table)
+    console.print("[dim]* = current instance (msai use <name> to switch)[/dim]")
 
 
-# Doctor subcommands
+@app.command()
+def use(
+    name: Annotated[str, typer.Argument(help="Instance name to switch to.")],
+) -> None:
+    """Switch the current instance pointer to an existing instance."""
+    existing = {i.name for i in lab_instance.list_instances()}
+    if name not in existing:
+        typer.echo(
+            f"instance '{name}' not found. Known: {', '.join(sorted(existing)) or '(none)'}",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    lab_instance.set_current(name)
+    typer.echo(f"current instance is now '{name}'")
+
+
+@app.command()
+def start(
+    name: Annotated[
+        str | None,
+        typer.Argument(help="Instance name (default: current)."),
+    ] = None,
+) -> None:
+    """Power on a lab instance (headless)."""
+    target = name or lab_instance.require_current()
+    if not lab_vbox.vm_exists(target):
+        typer.echo(f"VM '{target}' not present. Create it: msai create {target}", err=True)
+        raise typer.Exit(code=1)
+    if lab_vbox.vm_running(target):
+        typer.echo(f"VM '{target}' is already running.")
+        return
+    lab_vbox.start_headless(target)
+    typer.echo(f"started '{target}' headless")
+
+
+@app.command()
+def stop(
+    name: Annotated[
+        str | None,
+        typer.Argument(help="Instance name (default: current)."),
+    ] = None,
+    force: Annotated[
+        bool,
+        typer.Option(
+            "--force/--no-force",
+            help="Hard power-off (default: graceful ACPI shutdown).",
+        ),
+    ] = False,
+) -> None:
+    """Power off a lab instance."""
+    target = name or lab_instance.require_current()
+    if not lab_vbox.vm_running(target):
+        typer.echo(f"VM '{target}' is not running.")
+        return
+    if force:
+        lab_vbox.power_off(target)
+        typer.echo(f"hard-powered-off '{target}'")
+    else:
+        lab_vbox.acpi_power_button(target)
+        typer.echo(
+            f"sent ACPI power button to '{target}'; the guest will shut down cleanly. "
+            "Use --force to skip the wait."
+        )
+
+
+@app.command(name="ssh")
+@app.command(name="login", hidden=True)
+def ssh_login(
+    name: Annotated[
+        str | None,
+        typer.Argument(help="Instance name (default: current)."),
+    ] = None,
+) -> None:
+    """SSH into a lab instance using the lab keypair."""
+    import os
+
+    target = name or lab_instance.require_current()
+    cfg = load_config(vm_name=target)
+    priv_key = cfg.ssh_public_key_path.with_suffix("")
+    if not priv_key.exists():
+        typer.echo(f"lab key missing at {priv_key}; run `msai create <name>` first.", err=True)
+        raise typer.Exit(code=1)
+    cmd = [
+        "ssh",
+        "-p", str(cfg.ssh_forward_port),
+        "-i", str(priv_key),
+        "-o", "StrictHostKeyChecking=accept-new",
+        "-o", "UserKnownHostsFile=/dev/null",
+        f"{cfg.vm_user}@{cfg.ssh_host}",
+    ]
+    os.execvp(cmd[0], cmd)
+
+
+# ---------------------------------------------------------------------------
+# Doctor subcommands (run ON the MS-S1 MAX, not the laptop)
+# ---------------------------------------------------------------------------
 
 FixOption = Annotated[
     bool,

@@ -115,3 +115,7 @@ cython_debug/
 
 # Ruff cache
 .ruff_cache/
+
+# VBox stray logs (created when VBoxManage startvm is run with no log dir)
+*VBoxHeadless*.log
+

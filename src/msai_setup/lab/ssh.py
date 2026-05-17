@@ -16,8 +16,42 @@ from pathlib import Path
 log = logging.getLogger(__name__)
 
 
+def ensure_lab_keypair(public_key_path: Path) -> Path:
+    """Generate an Ed25519 keypair at `public_key_path` (.pub) if missing.
+
+    Returns the path to the private key (drops the .pub suffix). Idempotent:
+    leaves an existing keypair alone.
+    """
+    if public_key_path.suffix != ".pub":
+        raise ValueError(f"expected a .pub path, got {public_key_path}")
+    priv = public_key_path.with_suffix("")  # strip .pub
+    if public_key_path.exists() and priv.exists():
+        log.info("lab keypair already present: %s", priv)
+        return priv
+    public_key_path.parent.mkdir(parents=True, exist_ok=True)
+    log.info("generating dedicated lab keypair at %s", priv)
+    subprocess.run(
+        [
+            "ssh-keygen",
+            "-t", "ed25519",
+            "-N", "",                       # no passphrase
+            "-f", str(priv),
+            "-C", "msai-lab",
+        ],
+        check=True,
+        capture_output=True,
+    )
+    log.info("lab keypair generated")
+    return priv
+
+
 def wait_for_port(host: str, port: int, *, timeout: int = 1800, interval: int = 5) -> None:
-    """Poll a TCP port until it accepts connections or `timeout` seconds pass."""
+    """Poll a TCP port until it accepts connections or `timeout` seconds pass.
+
+    NOTE: VirtualBox NAT port-forwards accept the host-side TCP handshake even
+    before guest sshd is listening, so this only confirms the forward exists -
+    NOT that ssh is up. Use wait_for_ssh for the latter.
+    """
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         try:
@@ -27,6 +61,43 @@ def wait_for_port(host: str, port: int, *, timeout: int = 1800, interval: int = 
         except OSError:
             time.sleep(interval)
     raise TimeoutError(f"timed out waiting for {host}:{port}")
+
+
+def wait_for_ssh(
+    host: str,
+    port: int,
+    *,
+    user: str,
+    identity_file: Path,
+    timeout: int = 1800,
+    interval: int = 20,
+) -> None:
+    """Poll until we can SSH in as `user` with `identity_file` and run a command.
+
+    Stricter than a banner-only probe: the Ubuntu live installer also runs
+    sshd on the target during install (identical banner!), so the only
+    reliable signal that the install has finished and our lab user is real
+    is a successful key-based authentication.
+    """
+    deadline = time.monotonic() + timeout
+    last_err: str = "(never tried)"
+    while time.monotonic() < deadline:
+        try:
+            result = subprocess.run(
+                ssh_args(user, host, port, identity_file=identity_file) + ["true"],
+                capture_output=True, text=True, timeout=15,
+            )
+            if result.returncode == 0:
+                log.info("SSH authenticated as %s@%s:%d", user, host, port)
+                return
+            err = (result.stderr or result.stdout or "").strip()
+            last_err = err.splitlines()[-1] if err else f"rc={result.returncode}"
+        except subprocess.TimeoutExpired:
+            last_err = "ssh exec timeout"
+        except OSError as e:
+            last_err = f"ssh spawn: {e}"
+        time.sleep(interval)
+    raise TimeoutError(f"timed out waiting for SSH on {host}:{port} (last error: {last_err})")
 
 
 def ssh_args(
