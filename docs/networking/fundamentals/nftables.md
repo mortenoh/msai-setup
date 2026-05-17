@@ -12,7 +12,7 @@ nftables is the modern replacement for iptables, ip6tables, arptables, and ebtab
 
 ## Current State
 
-As of Ubuntu 22.04/24.04:
+On Ubuntu Server 26.04:
 
 - nftables is the default backend
 - iptables commands use `iptables-nft` (translation layer)

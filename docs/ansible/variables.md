@@ -94,8 +94,8 @@ When a play starts, the `setup` module runs against every host and gathers a lar
 | `ansible_hostname` | `ms-s1-max-lab` |
 | `ansible_fqdn` | `ms-s1-max-lab.local` |
 | `ansible_distribution` | `Ubuntu` |
-| `ansible_distribution_version` | `24.04` |
-| `ansible_distribution_release` | `noble` |
+| `ansible_distribution_version` | `26.04` |
+| `ansible_distribution_release` | `resolute` |
 | `ansible_os_family` | `Debian` |
 | `ansible_architecture` | `aarch64` |
 | `ansible_processor_cores` | `4` |
@@ -104,7 +104,7 @@ When a play starts, the `setup` module runs against every host and gathers a lar
 | `ansible_all_ipv4_addresses` | `[...]` |
 | `ansible_interfaces` | `[...]` |
 | `ansible_mounts` | `[...]` |
-| `ansible_kernel` | `6.8.0-31-generic` |
+| `ansible_kernel` | `7.0.0-15-generic` |
 
 See them all:
 

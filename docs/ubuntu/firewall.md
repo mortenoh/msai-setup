@@ -609,7 +609,7 @@ lxc profile device add bridged eth0 nic \
   parent=br0
 
 # Launch container with profile
-lxc launch ubuntu:22.04 mycontainer -p bridged
+lxc launch ubuntu:26.04 mycontainer -p bridged
 ```
 
 Container gets IP from your network's DHCP. Host UFW doesn't filter its traffic.

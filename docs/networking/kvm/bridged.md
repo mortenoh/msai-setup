@@ -112,7 +112,7 @@ virt-install \
     --vcpus 2 \
     --disk path=/var/lib/libvirt/images/myvm.qcow2,size=50 \
     --network network=bridged \
-    --os-variant ubuntu22.04 \
+    --os-variant ubuntu26.04 \
     --cdrom /path/to/ubuntu.iso
 ```
 

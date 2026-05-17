@@ -167,7 +167,7 @@ lxc network set lxdbr0 ipv4.firewall false
 
 ```bash
 # At creation
-lxc launch ubuntu:22.04 mycontainer --network lxdbr0
+lxc launch ubuntu:26.04 mycontainer --network lxdbr0
 
 # Or add device
 lxc network attach lxdbr0 mycontainer eth0

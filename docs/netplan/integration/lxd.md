@@ -151,7 +151,7 @@ name: default
 
 ```bash
 # Create container using bridged network
-lxc launch ubuntu:22.04 mycontainer
+lxc launch ubuntu:26.04 mycontainer
 
 # Container gets IP from network DHCP
 lxc exec mycontainer -- ip addr

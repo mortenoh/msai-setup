@@ -97,7 +97,7 @@ def create_vm(name: str, *, ostype: str = "Ubuntu_64", platform: str = "x86") ->
     """Create + register a VM. No-op if it already exists.
 
     `platform` is 'x86' (default) or 'arm'. On Apple Silicon you want 'arm'
-    AND a matching ostype (e.g. Ubuntu24_LTS_arm64). This is set at createvm
+    AND a matching ostype (e.g. Ubuntu_arm64 for current 26.04 ARM media). This is set at createvm
     time only — `modifyvm` can't change it later.
     """
     if vm_exists(name):

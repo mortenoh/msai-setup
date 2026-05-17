@@ -365,6 +365,21 @@ nav:
     - Integration: ansible/integration.md
     - Troubleshooting: ansible/troubleshooting.md
 
+  - VirtualBox:
+    - virtualbox/index.md
+    - Concepts: virtualbox/concepts.md
+    - Installation: virtualbox/installation.md
+    - VBoxManage CLI: virtualbox/vboxmanage.md
+    - VMs: virtualbox/vms.md
+    - Storage: virtualbox/storage.md
+    - Networking: virtualbox/networking.md
+    - Snapshots: virtualbox/snapshots.md
+    - Headless operation: virtualbox/headless.md
+    - Unattended install: virtualbox/unattended.md
+    - Apple Silicon: virtualbox/apple-silicon.md
+    - Automation: virtualbox/automation.md
+    - Troubleshooting: virtualbox/troubleshooting.md
+
   - Bash:
     - bash/index.md
     - Fundamentals:

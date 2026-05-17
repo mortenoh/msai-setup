@@ -302,7 +302,7 @@ stringData:
 
 ```bash
 # Create container
-lxc launch ubuntu:22.04 tailscale-container
+lxc launch ubuntu:26.04 tailscale-container
 
 # Install Tailscale
 lxc exec tailscale-container -- bash -c "curl -fsSL https://tailscale.com/install.sh | sh"
@@ -343,7 +343,7 @@ lxc profile create tailscale
 lxc profile edit tailscale < tailscale-profile.yaml
 
 # Launch with profile
-lxc launch ubuntu:22.04 my-container --profile default --profile tailscale
+lxc launch ubuntu:26.04 my-container --profile default --profile tailscale
 ```
 
 ## Proxmox LXC

@@ -89,7 +89,7 @@ def register_check(category: Category, name: str) -> Callable[[CheckFunction], C
 
 @register_check(Category.SYSTEM, "Ubuntu version")
 def check_ubuntu_version() -> CheckResult:
-    """Check Ubuntu version is 24.04 LTS."""
+    """Check Ubuntu version is 26.04 LTS."""
     result = run_command("lsb_release -rs")
     if not result.success:
         return CheckResult(
@@ -101,7 +101,7 @@ def check_ubuntu_version() -> CheckResult:
         )
 
     version = result.output
-    if version.startswith("24.04"):
+    if version.startswith("26.04"):
         # Get full description
         desc_result = run_command("lsb_release -ds")
         desc = desc_result.output if desc_result.success else f"Ubuntu {version}"
@@ -115,7 +115,7 @@ def check_ubuntu_version() -> CheckResult:
     return CheckResult(
         name="Ubuntu version",
         status=CheckStatus.WARN,
-        message=f"Ubuntu {version} (expected 24.04 LTS)",
+        message=f"Ubuntu {version} (expected 26.04 LTS)",
         category=Category.SYSTEM,
     )
 

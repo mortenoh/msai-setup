@@ -206,13 +206,13 @@ COMMIT
 
 ```bash
 # Web server (public facing)
-lxc launch ubuntu:22.04 webserver
+lxc launch ubuntu:26.04 webserver
 lxc network attach lxdbr0 webserver eth0
 lxc config device add webserver http proxy \
     listen=tcp:0.0.0.0:80 connect=tcp:127.0.0.1:80 bind=host
 
 # Database (internal only)
-lxc launch ubuntu:22.04 database
+lxc launch ubuntu:26.04 database
 lxc network attach backend database eth0
 # No proxy = not accessible from outside
 ```
