@@ -513,6 +513,11 @@ nav:
       - Ollama: ai/inference-engines/ollama.md
       - MLX: ai/inference-engines/mlx.md
       - vLLM: ai/inference-engines/vllm.md
+    - ML Frameworks:
+      - ai/frameworks/index.md
+      - PyTorch: ai/frameworks/pytorch.md
+      - TensorFlow: ai/frameworks/tensorflow.md
+      - JAX: ai/frameworks/jax.md
     - GUI Tools:
       - ai/gui-tools/index.md
       - LM Studio: ai/gui-tools/lm-studio.md
