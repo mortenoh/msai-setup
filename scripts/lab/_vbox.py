@@ -130,6 +130,22 @@ def configure_vm(
     ])
 
 
+def enable_vrde(name: str, *, port: int = 3389) -> None:
+    """Enable VRDE (VirtualBox Remote Desktop) so a headless VM has a console.
+
+    Useful for the rare path where unattended install isn't supported and the
+    user needs to drive Subiquity interactively. Connect with any RDP client.
+    """
+    _run([
+        "modifyvm", name,
+        "--vrde", "on",
+        "--vrdeport", str(port),
+        "--vrdeaddress", "127.0.0.1",
+        "--vrdeauthtype", "null",
+    ])
+    log.info("enabled VRDE on 127.0.0.1:%d (no auth)", port)
+
+
 def add_ssh_port_forward(name: str, *, host_port: int, guest_port: int = 22) -> None:
     """Add an SSH port forward (host_port -> guest 22). No-op if already set."""
     info = showvminfo(name)
@@ -226,6 +242,26 @@ def attach_iso(name: str, *, controller: str, port: int, device: int, iso: Path)
 # --- Unattended install ------------------------------------------------------
 
 
+def unattended_install_supported(iso: Path) -> bool:
+    """Ask VBoxManage whether it can do an unattended install of this ISO.
+
+    Newer Ubuntu Server ISOs (with the modern Subiquity installer) require a
+    VBoxManage version that ships unattended-install templates for them.
+    Older releases / desktop ISOs / older VBox combinations may not be
+    supported, in which case VBoxManage's `unattended detect` returns
+    "Unattended installation supported = no" (and exit non-zero).
+    """
+    result = subprocess.run(
+        ["VBoxManage", "unattended", "detect", "--iso", str(iso)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    # The detect output contains "Unattended installation supported = yes/no".
+    # On unsupported ISOs the exit code is non-zero AND the text says "no".
+    return "Unattended installation supported = yes" in (result.stdout or "")
+
+
 def unattended_install(
     name: str,
     *,
@@ -235,9 +271,15 @@ def unattended_install(
     full_user_name: str,
     hostname: str,
     time_zone: str = "Europe/Oslo",
-    locale: str = "en_US.UTF-8",
+    locale: str = "en_US",
     install_guest_additions: bool = True,
 ) -> None:
+    """Configure an unattended install.
+
+    Note: VBoxManage's `--locale` wants `ll_CC` (e.g. `en_US`), NOT the full
+    Linux locale string (`en_US.UTF-8`). The full locale is applied via
+    cloud-init / debconf during the install itself.
+    """
     """Configure (but don't start) an unattended install on the VM."""
     args = [
         "unattended", "install", name,

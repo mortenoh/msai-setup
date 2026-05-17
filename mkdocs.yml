@@ -348,6 +348,23 @@ nav:
         - Quick Reference: tailscale/reference/quick-reference.md
         - Network Ports: tailscale/reference/ports.md
 
+  - Ansible:
+    - ansible/index.md
+    - Concepts: ansible/concepts.md
+    - Installation: ansible/installation.md
+    - Inventory: ansible/inventory.md
+    - Playbooks: ansible/playbooks.md
+    - Modules: ansible/modules.md
+    - Variables: ansible/variables.md
+    - Templates: ansible/templates.md
+    - Roles: ansible/roles.md
+    - Vault: ansible/vault.md
+    - Handlers: ansible/handlers.md
+    - Connection: ansible/connection.md
+    - Testing: ansible/testing.md
+    - Integration: ansible/integration.md
+    - Troubleshooting: ansible/troubleshooting.md
+
   - Bash:
     - bash/index.md
     - Fundamentals:

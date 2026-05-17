@@ -45,23 +45,42 @@
       ansible.builtin.command: modprobe zfs
       changed_when: false
 
-    - name: zfs — discover SATA lab disks (everything except sda, the OS disk)
+    - name: zfs — discover SATA lab disks (VirtualBox path)
       ansible.builtin.shell: |
         set -euo pipefail
         for d in /dev/disk/by-id/ata-VBOX_HARDDISK*; do
           [ -L "$d" ] || continue
-          # skip the OS disk (whoever is /dev/sda) and skip partitions
           case "$d" in *part*) continue;; esac
           target=$(readlink -f "$d")
           [ "$target" = "/dev/sda" ] && continue
           echo "$d"
         done
-      register: lab_disks_raw
+      register: vbox_disks_raw
       changed_when: false
 
-    - name: zfs — store the disk list
+    - name: zfs — fall back to loopback files when no VBox lab disks (Multipass path)
+      when: vbox_disks_raw.stdout_lines | length == 0
+      block:
+        - name: zfs — create directory for loopback files
+          ansible.builtin.file:
+            path: /var/lib/zfs-lab
+            state: directory
+            mode: "0755"
+
+        - name: zfs — create 6 sparse 4 GiB files
+          ansible.builtin.command: "truncate -s 4G /var/lib/zfs-lab/lab-{{ item }}.img"
+          args:
+            creates: "/var/lib/zfs-lab/lab-{{ item }}.img"
+          loop: "{{ range(1, 7) | list }}"
+
+        - name: zfs — collect loopback paths
+          ansible.builtin.set_fact:
+            lab_disks: "{{ range(1, 7) | map('regex_replace', '^(.+)$', '/var/lib/zfs-lab/lab-\\1.img') | list }}"
+
+    - name: zfs — use VBox disks when present
+      when: vbox_disks_raw.stdout_lines | length > 0
       ansible.builtin.set_fact:
-        lab_disks: "{{ lab_disks_raw.stdout_lines }}"
+        lab_disks: "{{ vbox_disks_raw.stdout_lines }}"
 
     - name: zfs — show the disks we'll use
       ansible.builtin.debug:
