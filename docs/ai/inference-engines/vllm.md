@@ -41,7 +41,7 @@ pip install vllm --extra-index-url https://download.pytorch.org/whl/cu121
 
 ```bash
 docker run --gpus all \
-  -v /tank/ai/models/huggingface:/root/.cache/huggingface \
+  -v /mnt/tank/ai/models/huggingface:/root/.cache/huggingface \
   -p 8000:8000 \
   vllm/vllm-openai:latest \
   --model meta-llama/Llama-3.3-70B-Instruct
@@ -284,7 +284,7 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - /tank/ai/models/huggingface:/root/.cache/huggingface
+      - /mnt/tank/ai/models/huggingface:/root/.cache/huggingface
     environment:
       - HUGGING_FACE_HUB_TOKEN=${HF_TOKEN}
     command: >
@@ -389,7 +389,7 @@ python -m vllm.entrypoints.openai.api_server_benchmark \
 export HUGGING_FACE_HUB_TOKEN=your_token
 
 # Or use local path
-vllm serve /tank/ai/models/huggingface/models--meta-llama--Llama-3.3-70B-Instruct/snapshots/...
+vllm serve /mnt/tank/ai/models/huggingface/models--meta-llama--Llama-3.3-70B-Instruct/snapshots/...
 ```
 
 ### Slow Startup

@@ -109,7 +109,7 @@ The OpenAI-compatible server for API access.
 
 ```bash
 ./llama-server \
-  -m /tank/ai/models/gguf/llama-3.3-70b-q4_k_m.gguf \
+  -m /mnt/tank/ai/models/gguf/llama-3.3-70b-q4_k_m.gguf \
   --host 0.0.0.0 \
   --port 8080 \
   -c 8192 \
@@ -194,7 +194,7 @@ Create a server config for complex setups:
 
 ```json
 {
-  "model": "/tank/ai/models/gguf/llama-3.3-70b-q4_k_m.gguf",
+  "model": "/mnt/tank/ai/models/gguf/llama-3.3-70b-q4_k_m.gguf",
   "host": "0.0.0.0",
   "port": 8080,
   "ctx_size": 8192,
@@ -276,7 +276,7 @@ After=network.target
 Type=simple
 User=llama
 ExecStart=/opt/llama.cpp/build/bin/llama-server \
-  -m /tank/ai/models/gguf/llama-3.3-70b-q4_k_m.gguf \
+  -m /mnt/tank/ai/models/gguf/llama-3.3-70b-q4_k_m.gguf \
   --host 0.0.0.0 \
   --port 8080 \
   -c 8192 \
@@ -301,7 +301,7 @@ Quick start:
 
 ```bash
 docker run -p 8080:8080 \
-  -v /tank/ai/models:/models \
+  -v /mnt/tank/ai/models:/models \
   ghcr.io/ggml-org/llama.cpp:server-cuda \
   -m /models/gguf/llama-3.3-70b-q4.gguf \
   -c 4096 -ngl 99

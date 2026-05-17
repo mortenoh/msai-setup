@@ -108,8 +108,8 @@ wg genkey | tee privatekey | wg pubkey > publickey
 Address = 10.200.200.1/24
 ListenPort = 51820
 PrivateKey = <server-private-key>
-PostUp = iptables -A FORWARD -i wg0 -j ACCEPT; iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
-PostDown = iptables -D FORWARD -i wg0 -j ACCEPT; iptables -t nat -D POSTROUTING -o eth0 -j MASQUERADE
+PostUp = iptables -A FORWARD -i wg0 -j ACCEPT; iptables -t nat -A POSTROUTING -o enp5s0 -j MASQUERADE
+PostDown = iptables -D FORWARD -i wg0 -j ACCEPT; iptables -t nat -D POSTROUTING -o enp5s0 -j MASQUERADE
 
 [Peer]
 PublicKey = <client-public-key>

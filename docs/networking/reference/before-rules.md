@@ -11,6 +11,13 @@ This is a complete `/etc/ufw/before.rules` file that handles Docker, KVM/libvirt
 # Production UFW configuration for multi-technology home server
 # Supports: Docker, KVM/libvirt, LXD
 #
+# !!! REPLACE INTERFACE NAMES BEFORE DEPLOYING !!!
+# The rules below use 'enp5s0' as the external interface — this matches
+# the canonical MS-S1 MAX naming for the primary 10GbE port, but verify
+# with `ip -br link` and substitute if yours differs (enp4s0, eno1, etc.).
+# Example one-shot rename:
+#     sudo sed -i 's/enp5s0/<your-iface>/g' /etc/ufw/before.rules
+#
 
 # ============================================================
 # NAT TABLE
@@ -30,29 +37,29 @@ This is a complete `/etc/ufw/before.rules` file that handles Docker, KVM/libvirt
 # -A POSTROUTING -s 172.18.0.0/16 ! -o br-xxx -j MASQUERADE
 
 # libvirt default network
--A POSTROUTING -s 192.168.122.0/24 ! -d 192.168.122.0/24 -o eth0 -j MASQUERADE
+-A POSTROUTING -s 192.168.122.0/24 ! -d 192.168.122.0/24 -o enp5s0 -j MASQUERADE
 
 # libvirt additional networks (uncomment as needed)
-# -A POSTROUTING -s 192.168.123.0/24 ! -d 192.168.123.0/24 -o eth0 -j MASQUERADE
+# -A POSTROUTING -s 192.168.123.0/24 ! -d 192.168.123.0/24 -o enp5s0 -j MASQUERADE
 
 # LXD default network
--A POSTROUTING -s 10.10.10.0/24 ! -d 10.10.10.0/24 -o eth0 -j MASQUERADE
+-A POSTROUTING -s 10.10.10.0/24 ! -d 10.10.10.0/24 -o enp5s0 -j MASQUERADE
 
 # ------------------------------------------------------------
 # Port forwarding examples
 # ------------------------------------------------------------
 
 # Forward host:2222 to VM SSH
-# -A PREROUTING -i eth0 -p tcp --dport 2222 -j DNAT --to-destination 192.168.122.10:22
+# -A PREROUTING -i enp5s0 -p tcp --dport 2222 -j DNAT --to-destination 192.168.122.10:22
 
 # Forward host:8080 to VM web server
-# -A PREROUTING -i eth0 -p tcp --dport 8080 -j DNAT --to-destination 192.168.122.10:80
+# -A PREROUTING -i enp5s0 -p tcp --dport 8080 -j DNAT --to-destination 192.168.122.10:80
 
 # Forward host:3389 to Windows VM RDP
-# -A PREROUTING -i eth0 -p tcp --dport 3389 -j DNAT --to-destination 192.168.122.20:3389
+# -A PREROUTING -i enp5s0 -p tcp --dport 3389 -j DNAT --to-destination 192.168.122.20:3389
 
 # Forward host:32400 to Plex (if in VM)
-# -A PREROUTING -i eth0 -p tcp --dport 32400 -j DNAT --to-destination 192.168.122.30:32400
+# -A PREROUTING -i enp5s0 -p tcp --dport 32400 -j DNAT --to-destination 192.168.122.30:32400
 
 # Hairpin NAT (for internal access via external IP)
 # -A POSTROUTING -s 192.168.122.0/24 -d 192.168.122.10 -p tcp --dport 80 -j MASQUERADE
@@ -192,8 +199,8 @@ COMMIT
 
 ### Replace Interface Names
 
-- `eth0` - Your external interface (check with `ip link`)
-- Adjust subnet ranges to match your configuration
+- `enp5s0` is the canonical example for the MS-S1 MAX primary 10GbE port — verify with `ip -br link` and substitute if yours differs.
+- Adjust subnet ranges to match your configuration.
 
 ### Uncomment as Needed
 

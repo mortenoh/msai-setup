@@ -20,7 +20,7 @@ Available from GitHub Container Registry:
 ```bash
 docker run -d \
   --gpus all \
-  -v /tank/ai/models/gguf:/models \
+  -v /mnt/tank/ai/models/gguf:/models \
   -p 8080:8080 \
   --name llama-server \
   ghcr.io/ggml-org/llama.cpp:server-cuda \
@@ -39,7 +39,7 @@ docker run -d \
   --device=/dev/dri \
   --group-add video \
   --group-add render \
-  -v /tank/ai/models/gguf:/models \
+  -v /mnt/tank/ai/models/gguf:/models \
   -p 8080:8080 \
   --name llama-server \
   ghcr.io/ggml-org/llama.cpp:server-rocm \
@@ -63,7 +63,7 @@ services:
     image: ghcr.io/ggml-org/llama.cpp:server-cuda
     container_name: llama-server
     volumes:
-      - /tank/ai/models/gguf:/models:ro
+      - /mnt/tank/ai/models/gguf:/models:ro
     ports:
       - "8080:8080"
     command: >
@@ -94,7 +94,7 @@ services:
     image: ghcr.io/ggml-org/llama.cpp:server-rocm
     container_name: llama-server
     volumes:
-      - /tank/ai/models/gguf:/models:ro
+      - /mnt/tank/ai/models/gguf:/models:ro
     ports:
       - "8080:8080"
     devices:
@@ -122,8 +122,8 @@ services:
     image: ghcr.io/ggml-org/llama.cpp:server-cuda
     container_name: llama-server
     volumes:
-      - /tank/ai/models/gguf:/models:ro
-      - /tank/ai/logs/llama:/logs
+      - /mnt/tank/ai/models/gguf:/models:ro
+      - /mnt/tank/ai/logs/llama:/logs
     ports:
       - "127.0.0.1:8080:8080"  # Local only, use reverse proxy
     command: >
@@ -204,7 +204,7 @@ services:
       -m /models/llama-3.3-70b-instruct-q4_k_m.gguf
       --host 0.0.0.0 -c 8192 -ngl 99
     volumes:
-      - /tank/ai/models/gguf:/models:ro
+      - /mnt/tank/ai/models/gguf:/models:ro
     deploy:
       resources:
         reservations:
@@ -221,7 +221,7 @@ services:
       -m /models/deepseek-coder-v2-16b-q5_k_m.gguf
       --host 0.0.0.0 -c 16384 -ngl 99
     volumes:
-      - /tank/ai/models/gguf:/models:ro
+      - /mnt/tank/ai/models/gguf:/models:ro
     deploy:
       resources:
         reservations:

@@ -107,7 +107,7 @@ GUI tools provide:
 ```bash
 docker run -d \
   -p 3000:8080 \
-  -v /tank/ai/data/open-webui:/app/backend/data \
+  -v /mnt/tank/ai/data/open-webui:/app/backend/data \
   -e OLLAMA_BASE_URL=http://host.docker.internal:11434 \
   --name open-webui \
   ghcr.io/open-webui/open-webui:main

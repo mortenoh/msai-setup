@@ -195,8 +195,8 @@ The default Compose file creates named volumes for all data. For custom paths:
 
 ```yaml
 volumes:
-  - /tank/ai/dify/storage:/app/api/storage
-  - /tank/ai/dify/db:/var/lib/postgresql/data
+  - /mnt/tank/ai/dify/storage:/app/api/storage
+  - /mnt/tank/ai/dify/db:/var/lib/postgresql/data
 ```
 
 ### Reverse Proxy

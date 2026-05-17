@@ -226,7 +226,7 @@ For full CLI usage, consider [Ollama](../inference-engines/ollama.md) instead.
 Change in Settings → Storage to use ZFS dataset:
 
 ```
-/tank/ai/models/lm-studio
+/mnt/tank/ai/models/lm-studio
 ```
 
 ## Comparison with Alternatives

@@ -17,7 +17,7 @@ Deploy Ollama in Docker with persistent model storage and GPU acceleration.
 ```bash
 docker run -d \
   --gpus all \
-  -v /tank/ai/models/ollama:/root/.ollama \
+  -v /mnt/tank/ai/models/ollama:/root/.ollama \
   -p 11434:11434 \
   --name ollama \
   ollama/ollama
@@ -37,7 +37,7 @@ docker run -d \
   --device=/dev/dri \
   --group-add video \
   --group-add render \
-  -v /tank/ai/models/ollama:/root/.ollama \
+  -v /mnt/tank/ai/models/ollama:/root/.ollama \
   -p 11434:11434 \
   --name ollama \
   ollama/ollama:rocm
@@ -47,7 +47,7 @@ docker run -d \
 
 ```bash
 docker run -d \
-  -v /tank/ai/models/ollama:/root/.ollama \
+  -v /mnt/tank/ai/models/ollama:/root/.ollama \
   -p 11434:11434 \
   --name ollama \
   ollama/ollama
@@ -66,7 +66,7 @@ services:
     image: ollama/ollama
     container_name: ollama
     volumes:
-      - /tank/ai/models/ollama:/root/.ollama
+      - /mnt/tank/ai/models/ollama:/root/.ollama
     ports:
       - "11434:11434"
     deploy:
@@ -89,7 +89,7 @@ services:
     image: ollama/ollama:rocm
     container_name: ollama
     volumes:
-      - /tank/ai/models/ollama:/root/.ollama
+      - /mnt/tank/ai/models/ollama:/root/.ollama
     ports:
       - "11434:11434"
     devices:
@@ -111,7 +111,7 @@ services:
     image: ollama/ollama
     container_name: ollama
     volumes:
-      - /tank/ai/models/ollama:/root/.ollama
+      - /mnt/tank/ai/models/ollama:/root/.ollama
     ports:
       - "127.0.0.1:11434:11434"  # Local only
     environment:
@@ -185,7 +185,7 @@ services:
   ollama:
     image: ollama/ollama
     volumes:
-      - /tank/ai/models/ollama:/root/.ollama
+      - /mnt/tank/ai/models/ollama:/root/.ollama
       - ./init-models.sh:/init-models.sh:ro
     entrypoint: ["/bin/bash", "-c"]
     command:
@@ -207,7 +207,7 @@ ollama pull deepseek-coder-v2:16b
 
 ```bash
 # Create Modelfile
-cat > /tank/ai/models/ollama/Modelfile << 'EOF'
+cat > /mnt/tank/ai/models/ollama/Modelfile << 'EOF'
 FROM /models/gguf/custom-model.gguf
 
 TEMPLATE """{{ if .System }}<|start_header_id|>system<|end_header_id|>
@@ -220,8 +220,8 @@ EOF
 
 # Mount GGUF volume and create model
 docker run --rm \
-  -v /tank/ai/models/ollama:/root/.ollama \
-  -v /tank/ai/models/gguf:/models/gguf:ro \
+  -v /mnt/tank/ai/models/ollama:/root/.ollama \
+  -v /mnt/tank/ai/models/gguf:/models/gguf:ro \
   ollama/ollama create custom-model -f /root/.ollama/Modelfile
 ```
 
@@ -237,7 +237,7 @@ services:
     image: ollama/ollama
     container_name: ollama
     volumes:
-      - /tank/ai/models/ollama:/root/.ollama
+      - /mnt/tank/ai/models/ollama:/root/.ollama
     deploy:
       resources:
         reservations:
@@ -251,7 +251,7 @@ services:
     image: ghcr.io/open-webui/open-webui:main
     container_name: open-webui
     volumes:
-      - /tank/ai/data/open-webui:/app/backend/data
+      - /mnt/tank/ai/data/open-webui:/app/backend/data
     ports:
       - "3000:8080"
     environment:
@@ -328,7 +328,7 @@ services:
     image: ollama/ollama
     container_name: ollama-chat
     volumes:
-      - /tank/ai/models/ollama-chat:/root/.ollama
+      - /mnt/tank/ai/models/ollama-chat:/root/.ollama
     ports:
       - "11434:11434"
     environment:
@@ -345,7 +345,7 @@ services:
     image: ollama/ollama
     container_name: ollama-code
     volumes:
-      - /tank/ai/models/ollama-code:/root/.ollama
+      - /mnt/tank/ai/models/ollama-code:/root/.ollama
     ports:
       - "11435:11434"
     environment:
@@ -399,7 +399,7 @@ docker run -e OLLAMA_DEBUG=1 ollama/ollama
 ### Volume Structure
 
 ```
-/tank/ai/models/ollama/
+/mnt/tank/ai/models/ollama/
 ├── models/
 │   ├── blobs/        # Model weights (large files)
 │   │   └── sha256-xxx
@@ -415,7 +415,7 @@ docker run -e OLLAMA_DEBUG=1 ollama/ollama
 ```bash
 # Models are in the blobs directory
 # Backup manifests to remember which models
-tar czf ollama-manifests.tar.gz /tank/ai/models/ollama/models/manifests
+tar czf ollama-manifests.tar.gz /mnt/tank/ai/models/ollama/models/manifests
 
 # Full backup (large)
 zfs snapshot tank/ai/models/ollama@backup
@@ -430,7 +430,7 @@ zfs snapshot tank/ai/models/ollama@backup
 docker logs ollama
 
 # Verify volume permissions
-ls -la /tank/ai/models/ollama
+ls -la /mnt/tank/ai/models/ollama
 ```
 
 ### GPU Not Available
@@ -449,7 +449,7 @@ docker run --rm --device=/dev/kfd --device=/dev/dri rocm/rocm-terminal rocminfo
 
 ```bash
 # Check disk space
-df -h /tank/ai/models/ollama
+df -h /mnt/tank/ai/models/ollama
 
 # Clean incomplete downloads
 docker exec ollama rm -rf /root/.ollama/models/blobs/*.partial

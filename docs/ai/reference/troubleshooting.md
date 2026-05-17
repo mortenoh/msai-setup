@@ -264,10 +264,10 @@ groups  # Should include video, render
 docker exec ollama ls -la /root/.ollama
 
 # Fix permissions
-sudo chown -R 1000:1000 /tank/ai/models/ollama
+sudo chown -R 1000:1000 /mnt/tank/ai/models/ollama
 
 # SELinux (if applicable)
-chcon -Rt svirt_sandbox_file_t /tank/ai/models/ollama
+chcon -Rt svirt_sandbox_file_t /mnt/tank/ai/models/ollama
 ```
 
 ## Performance Issues
@@ -426,11 +426,11 @@ docker stop ollama
 docker rm ollama
 
 # Optional: clear data
-sudo rm -rf /tank/ai/models/ollama/*
+sudo rm -rf /mnt/tank/ai/models/ollama/*
 
 # Start fresh
 docker run -d --gpus all \
-  -v /tank/ai/models/ollama:/root/.ollama \
+  -v /mnt/tank/ai/models/ollama:/root/.ollama \
   -p 11434:11434 \
   --name ollama \
   ollama/ollama

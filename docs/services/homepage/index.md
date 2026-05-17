@@ -19,9 +19,11 @@ services:
     container_name: homepage
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      # Port 3000 is reserved for Grafana on this build; Homepage uses 3030.
+      # See /services/index.md for the canonical port map.
+      - "3030:3000"
     volumes:
-      - ./config:/app/config
+      - /mnt/tank/containers/homepage/config:/app/config
       - /var/run/docker.sock:/var/run/docker.sock:ro
     environment:
       PUID: 1000

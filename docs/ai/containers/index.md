@@ -29,7 +29,7 @@ Containerized LLM deployment provides:
 ├──────────────────────────┼──────────────────────────────────────┤
 │                    Volume Mounts                                │
 │  ┌───────────────────────────────────────────────────────────┐  │
-│  │                 /tank/ai/models                            │  │
+│  │                 /mnt/tank/ai/models                            │  │
 │  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────┐    │  │
 │  │  │   ollama/   │  │    gguf/    │  │  huggingface/   │    │  │
 │  │  └─────────────┘  └─────────────┘  └─────────────────┘    │  │
@@ -93,7 +93,7 @@ See [GPU Containers](gpu-containers.md) for detailed GPU setup.
 # Start Ollama container
 docker run -d \
   --gpus all \
-  -v /tank/ai/models/ollama:/root/.ollama \
+  -v /mnt/tank/ai/models/ollama:/root/.ollama \
   -p 11434:11434 \
   --name ollama \
   ollama/ollama
@@ -108,7 +108,7 @@ docker exec ollama ollama run llama3.3
 # Start llama.cpp server
 docker run -d \
   --gpus all \
-  -v /tank/ai/models/gguf:/models \
+  -v /mnt/tank/ai/models/gguf:/models \
   -p 8080:8080 \
   --name llama-server \
   ghcr.io/ggml-org/llama.cpp:server-cuda \
@@ -133,9 +133,9 @@ zfs create tank/ai/models/huggingface
 
 ```yaml
 volumes:
-  - /tank/ai/models/ollama:/root/.ollama
-  - /tank/ai/models/gguf:/models:ro
-  - /tank/ai/models/huggingface:/root/.cache/huggingface:ro
+  - /mnt/tank/ai/models/ollama:/root/.ollama
+  - /mnt/tank/ai/models/gguf:/models:ro
+  - /mnt/tank/ai/models/huggingface:/root/.cache/huggingface:ro
 ```
 
 ## Network Configuration
@@ -221,7 +221,7 @@ services:
   ollama:
     image: ollama/ollama
     volumes:
-      - /tank/ai/models/ollama:/root/.ollama
+      - /mnt/tank/ai/models/ollama:/root/.ollama
     ports:
       - "11434:11434"
     deploy:
@@ -235,7 +235,7 @@ services:
   webui:
     image: ghcr.io/open-webui/open-webui:main
     volumes:
-      - /tank/ai/data/webui:/app/backend/data
+      - /mnt/tank/ai/data/webui:/app/backend/data
     ports:
       - "3000:8080"
     environment:

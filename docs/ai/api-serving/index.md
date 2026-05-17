@@ -203,7 +203,7 @@ services:
     ports:
       - "11434:11434"
     volumes:
-      - /tank/ai/models/ollama:/root/.ollama
+      - /mnt/tank/ai/models/ollama:/root/.ollama
 ```
 
 ### Multi-Backend with Gateway

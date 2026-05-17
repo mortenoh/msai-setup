@@ -47,16 +47,11 @@ Tailscale is a zero-config mesh VPN built on WireGuard that creates secure netwo
 ### 1. Install Tailscale
 
 ```bash
-# Ubuntu/Debian
+# Easiest: one-line installer (auto-detects distro/codename)
 curl -fsSL https://tailscale.com/install.sh | sh
-
-# Or via package manager
-curl -fsSL https://pkgs.tailscale.com/stable/ubuntu/jammy.noarmor.gpg | \
-  sudo tee /usr/share/keyrings/tailscale-archive-keyring.gpg >/dev/null
-curl -fsSL https://pkgs.tailscale.com/stable/ubuntu/jammy.tailscale-keyring.list | \
-  sudo tee /etc/apt/sources.list.d/tailscale.list
-sudo apt update && sudo apt install tailscale
 ```
+
+For a manual install pinned to the right Ubuntu codename, see [Linux Installation](installation/linux.md) — the snippet there handles 26.04 "resolute" with a `noble` fallback if upstream hasn't published the suite yet.
 
 ### 2. Authenticate
 

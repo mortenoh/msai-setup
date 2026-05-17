@@ -291,7 +291,7 @@ services:
     image: ollama/ollama
     container_name: ollama
     volumes:
-      - /tank/ai/models/ollama:/root/.ollama
+      - /mnt/tank/ai/models/ollama:/root/.ollama
     deploy:
       resources:
         reservations:

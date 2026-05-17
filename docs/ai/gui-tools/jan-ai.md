@@ -79,7 +79,7 @@ Place GGUF files in Jan's models directory:
 # Windows: %APPDATA%\Jan
 
 # Copy model
-cp /tank/ai/models/gguf/model.gguf ~/.jan/models/
+cp /mnt/tank/ai/models/gguf/model.gguf ~/.jan/models/
 ```
 
 Create model configuration:
@@ -181,7 +181,7 @@ Change storage location:
 For ZFS:
 
 ```
-/tank/ai/jan
+/mnt/tank/ai/jan
 ```
 
 ### Model Settings

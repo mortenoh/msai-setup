@@ -335,7 +335,7 @@ Model loading includes compilation. Subsequent runs are faster:
 huggingface-cli login
 
 # Set cache directory
-export HF_HOME=/tank/ai/models/huggingface
+export HF_HOME=/mnt/tank/ai/models/huggingface
 ```
 
 ### GPU Not Used

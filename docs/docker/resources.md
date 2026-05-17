@@ -152,7 +152,7 @@ services:
     environment:
       POSTGRES_PASSWORD_FILE: /run/secrets/db_password
     volumes:
-      - /tank/docker/postgres/data:/var/lib/postgresql/data
+      - /mnt/tank/docker/postgres/data:/var/lib/postgresql/data
     secrets:
       - db_password
 
@@ -199,7 +199,7 @@ services:
       - video
       - render
     volumes:
-      - /tank/ai/ollama:/root/.ollama
+      - /mnt/tank/ai/ollama:/root/.ollama
     environment:
       - OLLAMA_NUM_PARALLEL=2
 ```

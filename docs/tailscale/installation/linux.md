@@ -14,13 +14,22 @@ This script detects your distribution and installs appropriately.
 
 ### Package Repository
 
+The snippet below auto-detects your Ubuntu codename. On the MS-S1 MAX (Ubuntu 26.04 "resolute") it will use `resolute` if Tailscale has published that suite, otherwise fall back to `noble` (24.04) which is consistently maintained.
+
 ```bash
+# Determine the right Tailscale suite for this Ubuntu release
+CODENAME=$(. /etc/os-release && echo "$VERSION_CODENAME")
+if ! curl -sfI "https://pkgs.tailscale.com/stable/ubuntu/${CODENAME}.noarmor.gpg" >/dev/null; then
+    echo "Tailscale suite for '$CODENAME' not published; falling back to noble"
+    CODENAME=noble
+fi
+
 # Add Tailscale's GPG key
-curl -fsSL https://pkgs.tailscale.com/stable/ubuntu/jammy.noarmor.gpg | \
+curl -fsSL "https://pkgs.tailscale.com/stable/ubuntu/${CODENAME}.noarmor.gpg" | \
   sudo tee /usr/share/keyrings/tailscale-archive-keyring.gpg >/dev/null
 
-# Add repository (Ubuntu 22.04 Jammy example)
-curl -fsSL https://pkgs.tailscale.com/stable/ubuntu/jammy.tailscale-keyring.list | \
+# Add the matching apt source
+curl -fsSL "https://pkgs.tailscale.com/stable/ubuntu/${CODENAME}.tailscale-keyring.list" | \
   sudo tee /etc/apt/sources.list.d/tailscale.list
 
 # Install

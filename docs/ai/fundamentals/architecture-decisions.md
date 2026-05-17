@@ -99,7 +99,7 @@ services:
   ollama:
     image: ollama/ollama:latest
     volumes:
-      - /tank/ai/models/ollama:/root/.ollama
+      - /mnt/tank/ai/models/ollama:/root/.ollama
     ports:
       - "11434:11434"
     deploy:
@@ -248,7 +248,7 @@ docker exec ollama ollama pull <model>
 # Models stored on ZFS volume are portable
 # Just mount the same volume in new container
 volumes:
-  - /tank/ai/models/ollama:/root/.ollama
+  - /mnt/tank/ai/models/ollama:/root/.ollama
 ```
 
 ## See Also

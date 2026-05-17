@@ -87,9 +87,9 @@ services:
       - video
       - render
     volumes:
-      - /tank/ai/comfyui/models:/app/models
-      - /tank/ai/comfyui/output:/app/output
-      - /tank/ai/comfyui/custom_nodes:/app/custom_nodes
+      - /mnt/tank/ai/comfyui/models:/app/models
+      - /mnt/tank/ai/comfyui/output:/app/output
+      - /mnt/tank/ai/comfyui/custom_nodes:/app/custom_nodes
     environment:
       - HIP_VISIBLE_DEVICES=0
     restart: unless-stopped
@@ -109,9 +109,9 @@ services:
     ports:
       - "8188:8188"
     volumes:
-      - /tank/ai/comfyui/models:/app/models
-      - /tank/ai/comfyui/output:/app/output
-      - /tank/ai/comfyui/custom_nodes:/app/custom_nodes
+      - /mnt/tank/ai/comfyui/models:/app/models
+      - /mnt/tank/ai/comfyui/output:/app/output
+      - /mnt/tank/ai/comfyui/custom_nodes:/app/custom_nodes
     deploy:
       resources:
         reservations:
@@ -170,7 +170,7 @@ To share models across tools, create symlinks or use ComfyUI's `extra_model_path
 ```yaml
 # ComfyUI/extra_model_paths.yaml
 shared:
-  base_path: /tank/ai/models/
+  base_path: /mnt/tank/ai/models/
   checkpoints: checkpoints/
   loras: loras/
   vae: vae/

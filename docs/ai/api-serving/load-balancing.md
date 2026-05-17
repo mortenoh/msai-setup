@@ -71,7 +71,7 @@ services:
       - "traefik.http.routers.ollama.entrypoints=web"
       - "traefik.http.services.ollama.loadbalancer.server.port=11434"
     volumes:
-      - /tank/ai/models/ollama:/root/.ollama
+      - /mnt/tank/ai/models/ollama:/root/.ollama
     deploy:
       resources:
         reservations:
@@ -321,7 +321,7 @@ services:
     environment:
       - OLLAMA_KEEP_ALIVE=1h
     volumes:
-      - /tank/ai/models/ollama-chat:/root/.ollama
+      - /mnt/tank/ai/models/ollama-chat:/root/.ollama
 
   # Code assistance - DeepSeek
   ollama-code:
@@ -333,7 +333,7 @@ services:
     environment:
       - OLLAMA_KEEP_ALIVE=1h
     volumes:
-      - /tank/ai/models/ollama-code:/root/.ollama
+      - /mnt/tank/ai/models/ollama-code:/root/.ollama
 
   # Fast responses - small model
   ollama-fast:
@@ -343,7 +343,7 @@ services:
       - "traefik.http.routers.fast.rule=PathPrefix(`/v1`) && Query(`fast=true`)"
       - "traefik.http.services.fast.loadbalancer.server.port=11434"
     volumes:
-      - /tank/ai/models/ollama-fast:/root/.ollama
+      - /mnt/tank/ai/models/ollama-fast:/root/.ollama
 ```
 
 ## Monitoring
@@ -402,7 +402,7 @@ services:
       - "traefik.http.services.llm.loadbalancer.healthcheck.path=/"
       - "traefik.http.services.llm.loadbalancer.healthcheck.interval=30s"
     volumes:
-      - /tank/ai/models/ollama:/root/.ollama
+      - /mnt/tank/ai/models/ollama:/root/.ollama
     environment:
       - OLLAMA_NUM_PARALLEL=4
       - OLLAMA_KEEP_ALIVE=1h

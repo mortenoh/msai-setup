@@ -258,7 +258,7 @@ services:
     image: ollama/ollama
     network_mode: service:tailscale
     volumes:
-      - /tank/ai/models/ollama:/root/.ollama
+      - /mnt/tank/ai/models/ollama:/root/.ollama
     depends_on:
       - tailscale
 ```

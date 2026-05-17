@@ -19,7 +19,7 @@ Open WebUI provides:
 ```bash
 docker run -d \
   -p 3000:8080 \
-  -v /tank/ai/data/open-webui:/app/backend/data \
+  -v /mnt/tank/ai/data/open-webui:/app/backend/data \
   -e OLLAMA_BASE_URL=http://host.docker.internal:11434 \
   --add-host=host.docker.internal:host-gateway \
   --name open-webui \
@@ -33,7 +33,7 @@ Access at `http://localhost:3000`
 ```bash
 docker run -d \
   -p 3000:8080 \
-  -v /tank/ai/data/open-webui:/app/backend/data \
+  -v /mnt/tank/ai/data/open-webui:/app/backend/data \
   --name open-webui \
   ghcr.io/open-webui/open-webui:main
 ```
@@ -50,7 +50,7 @@ services:
     image: ollama/ollama
     container_name: ollama
     volumes:
-      - /tank/ai/models/ollama:/root/.ollama
+      - /mnt/tank/ai/models/ollama:/root/.ollama
     deploy:
       resources:
         reservations:
@@ -66,7 +66,7 @@ services:
     ports:
       - "3000:8080"
     volumes:
-      - /tank/ai/data/open-webui:/app/backend/data
+      - /mnt/tank/ai/data/open-webui:/app/backend/data
     environment:
       - OLLAMA_BASE_URL=http://ollama:11434
     depends_on:
@@ -91,14 +91,14 @@ services:
       - video
       - render
     volumes:
-      - /tank/ai/models/ollama:/root/.ollama
+      - /mnt/tank/ai/models/ollama:/root/.ollama
 
   open-webui:
     image: ghcr.io/open-webui/open-webui:main
     ports:
       - "3000:8080"
     volumes:
-      - /tank/ai/data/open-webui:/app/backend/data
+      - /mnt/tank/ai/data/open-webui:/app/backend/data
     environment:
       - OLLAMA_BASE_URL=http://ollama:11434
     depends_on:
@@ -142,7 +142,7 @@ services:
     ports:
       - "127.0.0.1:3000:8080"  # Local only, use reverse proxy
     volumes:
-      - /tank/ai/data/open-webui:/app/backend/data
+      - /mnt/tank/ai/data/open-webui:/app/backend/data
     environment:
       - OLLAMA_BASE_URL=http://ollama:11434
       - WEBUI_AUTH=True
@@ -307,7 +307,7 @@ server {
 ### Volume Structure
 
 ```
-/tank/ai/data/open-webui/
+/mnt/tank/ai/data/open-webui/
 ├── webui.db          # SQLite database
 ├── uploads/          # Uploaded files
 ├── cache/            # Temporary cache
@@ -321,7 +321,7 @@ server {
 zfs snapshot tank/ai/data/open-webui@backup
 
 # Or copy files
-cp -r /tank/ai/data/open-webui /backup/
+cp -r /mnt/tank/ai/data/open-webui /backup/
 ```
 
 ## Troubleshooting

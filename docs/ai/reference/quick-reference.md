@@ -59,7 +59,7 @@ curl http://localhost:11434/v1/models
 
 ```bash
 export OLLAMA_HOST=0.0.0.0:11434
-export OLLAMA_MODELS=/tank/ai/models/ollama
+export OLLAMA_MODELS=/mnt/tank/ai/models/ollama
 export OLLAMA_NUM_PARALLEL=4
 export OLLAMA_MAX_LOADED_MODELS=2
 export OLLAMA_KEEP_ALIVE=30m
@@ -138,7 +138,7 @@ cmake --build build --config Release
 # Start Ollama (NVIDIA)
 docker run -d \
   --gpus all \
-  -v /tank/ai/models/ollama:/root/.ollama \
+  -v /mnt/tank/ai/models/ollama:/root/.ollama \
   -p 11434:11434 \
   --name ollama \
   ollama/ollama
@@ -147,7 +147,7 @@ docker run -d \
 docker run -d \
   --device=/dev/kfd --device=/dev/dri \
   --group-add video --group-add render \
-  -v /tank/ai/models/ollama:/root/.ollama \
+  -v /mnt/tank/ai/models/ollama:/root/.ollama \
   -p 11434:11434 \
   --name ollama \
   ollama/ollama:rocm
@@ -163,7 +163,7 @@ docker exec -it ollama ollama run llama3.3:70b
 # Start server (NVIDIA)
 docker run -d \
   --gpus all \
-  -v /tank/ai/models/gguf:/models \
+  -v /mnt/tank/ai/models/gguf:/models \
   -p 8080:8080 \
   --name llama-server \
   ghcr.io/ggml-org/llama.cpp:server-cuda \
@@ -174,7 +174,7 @@ docker run -d \
 docker run -d \
   --device=/dev/kfd --device=/dev/dri \
   --group-add video --group-add render \
-  -v /tank/ai/models/gguf:/models \
+  -v /mnt/tank/ai/models/gguf:/models \
   -p 8080:8080 \
   ghcr.io/ggml-org/llama.cpp:server-rocm \
   -m /models/llama-3.3-70b-q4_k_m.gguf \
@@ -186,7 +186,7 @@ docker run -d \
 ```bash
 docker run -d \
   -p 3000:8080 \
-  -v /tank/ai/data/open-webui:/app/backend/data \
+  -v /mnt/tank/ai/data/open-webui:/app/backend/data \
   -e OLLAMA_BASE_URL=http://host.docker.internal:11434 \
   --add-host=host.docker.internal:host-gateway \
   --name open-webui \
@@ -205,13 +205,13 @@ huggingface-cli download meta-llama/Llama-3.3-70B-Instruct
 # Download GGUF
 huggingface-cli download bartowski/Llama-3.3-70B-Instruct-GGUF \
   --include "*.Q4_K_M.gguf" \
-  --local-dir /tank/ai/models/gguf/
+  --local-dir /mnt/tank/ai/models/gguf/
 
 # Scan cache
 huggingface-cli scan-cache
 
 # Set cache location
-export HF_HOME=/tank/ai/models/huggingface
+export HF_HOME=/mnt/tank/ai/models/huggingface
 ```
 
 ## GPU Monitoring

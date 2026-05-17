@@ -257,7 +257,7 @@ ls -lh *.gguf
 
 ```dockerfile
 # Modelfile
-FROM /tank/ai/models/gguf/llama-3.3-70b-q4_k_m.gguf
+FROM /mnt/tank/ai/models/gguf/llama-3.3-70b-q4_k_m.gguf
 
 # Set chat template
 TEMPLATE """{{ if .System }}<|start_header_id|>system<|end_header_id|>
@@ -296,7 +296,7 @@ zfs create -o recordsize=1M -o compression=off tank/ai/models/gguf
 ### Organization
 
 ```
-/tank/ai/models/gguf/
+/mnt/tank/ai/models/gguf/
 ├── llama/
 │   ├── llama-3.3-70b-instruct-q4_k_m.gguf
 │   └── llama-3.2-8b-instruct-q8_0.gguf

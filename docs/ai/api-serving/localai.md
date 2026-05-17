@@ -19,13 +19,13 @@ LocalAI provides:
 ```bash
 # CPU only
 docker run -p 8080:8080 \
-  -v /tank/ai/models/localai:/models \
+  -v /mnt/tank/ai/models/localai:/models \
   --name localai \
   localai/localai:latest
 
 # With NVIDIA GPU
 docker run --gpus all -p 8080:8080 \
-  -v /tank/ai/models/localai:/models \
+  -v /mnt/tank/ai/models/localai:/models \
   --name localai \
   localai/localai:latest-gpu-nvidia-cuda-12
 ```
@@ -42,7 +42,7 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      - /tank/ai/models/localai:/models
+      - /mnt/tank/ai/models/localai:/models
     environment:
       - THREADS=8
       - CONTEXT_SIZE=8192
@@ -90,7 +90,7 @@ curl http://localhost:8080/models/apply \
 Create model configuration:
 
 ```yaml
-# /tank/ai/models/localai/llama-3.3-70b.yaml
+# /mnt/tank/ai/models/localai/llama-3.3-70b.yaml
 name: llama-3.3-70b
 backend: llama-cpp
 parameters:
@@ -112,8 +112,8 @@ Mount GGUF files:
 
 ```yaml
 volumes:
-  - /tank/ai/models/localai:/models
-  - /tank/ai/models/gguf:/models/gguf:ro
+  - /mnt/tank/ai/models/localai:/models
+  - /mnt/tank/ai/models/gguf:/models/gguf:ro
 ```
 
 ### Multiple Models
@@ -279,8 +279,8 @@ services:
     ports:
       - "127.0.0.1:8080:8080"
     volumes:
-      - /tank/ai/models/localai:/models
-      - /tank/ai/models/gguf:/models/gguf:ro
+      - /mnt/tank/ai/models/localai:/models
+      - /mnt/tank/ai/models/gguf:/models/gguf:ro
     environment:
       - THREADS=8
       - CONTEXT_SIZE=8192
@@ -366,7 +366,7 @@ environment:
 docker logs localai
 
 # Verify config
-cat /tank/ai/models/localai/my-model.yaml
+cat /mnt/tank/ai/models/localai/my-model.yaml
 
 # Test model path
 docker exec localai ls -la /models/gguf/

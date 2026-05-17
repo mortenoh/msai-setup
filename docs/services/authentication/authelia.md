@@ -2,6 +2,9 @@
 
 Authelia is a lightweight authentication server providing two-factor authentication and single sign-on for applications via forward authentication.
 
+!!! note "Maintenance mode upstream"
+    Authelia v4 is feature-frozen — it still receives security updates but new development has slowed. For new deployments on this build, [Authentik](authentik.md) is the recommended choice. This page is kept for reference and for users with an existing Authelia install.
+
 ## Docker Compose Setup
 
 ### docker-compose.yml
@@ -13,11 +16,13 @@ services:
     container_name: authelia
     restart: unless-stopped
     volumes:
-      - ./config:/config
+      - /mnt/tank/containers/authelia/config:/config
     environment:
       TZ: Europe/Oslo
+    # Authelia is accessed through the reverse proxy via labels/forward-auth.
+    # Bind to localhost so it doesn't clash with Transmission/9091 on the LAN.
     ports:
-      - "9091:9091"
+      - "127.0.0.1:9091:9091"
     networks:
       - proxy
 

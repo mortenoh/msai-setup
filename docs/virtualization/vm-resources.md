@@ -152,6 +152,33 @@ lscpu --extended
 virsh capabilities | grep -A20 '<topology>'
 ```
 
+!!! note "Strix Halo CCX pinning"
+    The Ryzen AI Max+ 395 has **2 × CCX of 8 Zen 5 cores each**, each CCX with its own L3 cache. Crossing the CCX boundary inside a single VM incurs a noticeable L3-miss penalty. For latency-sensitive guests (Windows VM for interactive use, gaming VM if you ever go that route), **pin all vCPUs of one VM to a single CCX**.
+
+    Check the CCX layout with `lscpu --extended` — look at the `L3` column; cores sharing an L3 cache value are on the same CCX. Typical layout:
+
+    - CCX 0: cores 0-7 (siblings 16-23 with SMT)
+    - CCX 1: cores 8-15 (siblings 24-31 with SMT)
+
+    Example: pin an 8-vCPU Windows VM entirely to CCX 1:
+
+    ```xml
+    <vcpu placement='static'>8</vcpu>
+    <cputune>
+      <vcpupin vcpu='0' cpuset='8'/>
+      <vcpupin vcpu='1' cpuset='24'/>  <!-- SMT sibling -->
+      <vcpupin vcpu='2' cpuset='9'/>
+      <vcpupin vcpu='3' cpuset='25'/>
+      <vcpupin vcpu='4' cpuset='10'/>
+      <vcpupin vcpu='5' cpuset='26'/>
+      <vcpupin vcpu='6' cpuset='11'/>
+      <vcpupin vcpu='7' cpuset='27'/>
+      <emulatorpin cpuset='0-1'/>     <!-- emulator threads on the OTHER CCX -->
+    </cputune>
+    ```
+
+    This pattern leaves CCX 0 (cores 0-7 + siblings 16-23) for the host, Docker services, and Ollama/llama.cpp — which is roughly the right split given the workload mix.
+
 ### Emulator Pinning
 
 Pin QEMU emulator threads separately:
@@ -195,7 +222,7 @@ virsh capabilities | grep -A50 '<numa>'
 ```xml
 <disk type='file' device='disk'>
   <driver name='qemu' type='qcow2'/>
-  <source file='/tank/vms/myvm/disk.qcow2'/>
+  <source file='/mnt/tank/vm/myvm/disk.qcow2'/>
   <target dev='vda' bus='virtio'/>
   <iotune>
     <read_bytes_sec>104857600</read_bytes_sec>   <!-- 100 MB/s -->

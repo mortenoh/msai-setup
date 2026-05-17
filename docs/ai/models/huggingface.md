@@ -53,7 +53,7 @@ huggingface-cli download meta-llama/Llama-3.3-70B-Instruct
 
 # Download to specific directory
 huggingface-cli download meta-llama/Llama-3.3-70B-Instruct \
-  --local-dir /tank/ai/models/huggingface/Llama-3.3-70B-Instruct
+  --local-dir /mnt/tank/ai/models/huggingface/Llama-3.3-70B-Instruct
 ```
 
 ### Download GGUF Files
@@ -62,12 +62,12 @@ huggingface-cli download meta-llama/Llama-3.3-70B-Instruct \
 # Download specific GGUF file
 huggingface-cli download bartowski/Llama-3.3-70B-Instruct-GGUF \
   --include "Llama-3.3-70B-Instruct-Q4_K_M.gguf" \
-  --local-dir /tank/ai/models/gguf/
+  --local-dir /mnt/tank/ai/models/gguf/
 
 # Download multiple quants
 huggingface-cli download bartowski/Llama-3.3-70B-Instruct-GGUF \
   --include "*.Q4_K_M.gguf" "*.Q5_K_M.gguf" \
-  --local-dir /tank/ai/models/gguf/
+  --local-dir /mnt/tank/ai/models/gguf/
 ```
 
 ### Split Files
@@ -78,7 +78,7 @@ Large models are often split:
 # Download split GGUF (auto-combines in llama.cpp)
 huggingface-cli download bartowski/Llama-3.1-405B-Instruct-GGUF \
   --include "*Q4_K_M*" \
-  --local-dir /tank/ai/models/gguf/
+  --local-dir /mnt/tank/ai/models/gguf/
 
 # Results in:
 # Llama-3.1-405B-Instruct-Q4_K_M-00001-of-00004.gguf
@@ -112,10 +112,10 @@ huggingface-cli scan-cache
 
 ```bash
 # Set custom cache (ZFS dataset)
-export HF_HOME=/tank/ai/models/huggingface
+export HF_HOME=/mnt/tank/ai/models/huggingface
 
 # Add to shell profile
-echo 'export HF_HOME=/tank/ai/models/huggingface' >> ~/.bashrc
+echo 'export HF_HOME=/mnt/tank/ai/models/huggingface' >> ~/.bashrc
 ```
 
 ### Cache Structure
@@ -229,13 +229,13 @@ from huggingface_hub import hf_hub_download, snapshot_download
 model_path = hf_hub_download(
     repo_id="bartowski/Llama-3.3-70B-Instruct-GGUF",
     filename="Llama-3.3-70B-Instruct-Q4_K_M.gguf",
-    local_dir="/tank/ai/models/gguf"
+    local_dir="/mnt/tank/ai/models/gguf"
 )
 
 # Download entire repo
 snapshot_download(
     repo_id="meta-llama/Llama-3.3-70B-Instruct",
-    local_dir="/tank/ai/models/huggingface/Llama-3.3-70B"
+    local_dir="/mnt/tank/ai/models/huggingface/Llama-3.3-70B"
 )
 ```
 
@@ -262,8 +262,8 @@ services:
   ollama:
     image: ollama/ollama
     volumes:
-      - /tank/ai/models/huggingface:/root/.cache/huggingface:ro
-      - /tank/ai/models/ollama:/root/.ollama
+      - /mnt/tank/ai/models/huggingface:/root/.cache/huggingface:ro
+      - /mnt/tank/ai/models/ollama:/root/.ollama
 ```
 
 ### Pass Token to Container
@@ -275,7 +275,7 @@ services:
     environment:
       - HUGGING_FACE_HUB_TOKEN=${HF_TOKEN}
     volumes:
-      - /tank/ai/models/huggingface:/root/.cache/huggingface
+      - /mnt/tank/ai/models/huggingface:/root/.cache/huggingface
 ```
 
 ## Troubleshooting
@@ -316,7 +316,7 @@ huggingface-cli scan-cache
 zfs create -o recordsize=1M tank/ai/models/huggingface
 
 # Point HF_HOME there
-export HF_HOME=/tank/ai/models/huggingface
+export HF_HOME=/mnt/tank/ai/models/huggingface
 ```
 
 ## See Also

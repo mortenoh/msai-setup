@@ -136,7 +136,7 @@ services:
       - video
       - render
     volumes:
-      - /tank/ai/models/ollama:/root/.ollama
+      - /mnt/tank/ai/models/ollama:/root/.ollama
 ```
 
 ### docker run Syntax
@@ -147,7 +147,7 @@ docker run -d \
   --device=/dev/dri \
   --group-add video \
   --group-add render \
-  -v /tank/ai/models/ollama:/root/.ollama \
+  -v /mnt/tank/ai/models/ollama:/root/.ollama \
   ollama/ollama:rocm
 ```
 

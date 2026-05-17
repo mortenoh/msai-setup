@@ -54,7 +54,7 @@ Group=ollama
 Restart=always
 RestartSec=3
 Environment="OLLAMA_HOST=0.0.0.0"
-Environment="OLLAMA_MODELS=/tank/ai/models/ollama"
+Environment="OLLAMA_MODELS=/mnt/tank/ai/models/ollama"
 
 [Install]
 WantedBy=default.target
@@ -182,7 +182,7 @@ Example configuration:
 # In /etc/systemd/system/ollama.service.d/override.conf
 [Service]
 Environment="OLLAMA_HOST=0.0.0.0"
-Environment="OLLAMA_MODELS=/tank/ai/models/ollama"
+Environment="OLLAMA_MODELS=/mnt/tank/ai/models/ollama"
 Environment="OLLAMA_NUM_PARALLEL=2"
 Environment="OLLAMA_KEEP_ALIVE=30m"
 ```
@@ -228,7 +228,7 @@ ollama run coding-assistant
 
 ```dockerfile
 # Modelfile for GGUF import
-FROM /tank/ai/models/gguf/custom-model.gguf
+FROM /mnt/tank/ai/models/gguf/custom-model.gguf
 
 TEMPLATE """{{ if .System }}{{ .System }}
 

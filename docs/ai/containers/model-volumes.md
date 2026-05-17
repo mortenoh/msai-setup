@@ -121,7 +121,7 @@ For containers that only read models:
 services:
   llama-server:
     volumes:
-      - /tank/ai/models/gguf:/models:ro  # Read-only
+      - /mnt/tank/ai/models/gguf:/models:ro  # Read-only
 ```
 
 ### Read-Write for Ollama
@@ -132,7 +132,7 @@ Ollama needs write access to download/manage models:
 services:
   ollama:
     volumes:
-      - /tank/ai/models/ollama:/root/.ollama  # Read-write
+      - /mnt/tank/ai/models/ollama:/root/.ollama  # Read-write
 ```
 
 ### Shared Access Pattern
@@ -143,17 +143,17 @@ version: '3.8'
 services:
   ollama:
     volumes:
-      - /tank/ai/models/ollama:/root/.ollama
+      - /mnt/tank/ai/models/ollama:/root/.ollama
 
   llama-server:
     volumes:
-      - /tank/ai/models/gguf:/models:ro
+      - /mnt/tank/ai/models/gguf:/models:ro
       # Or share Ollama's blobs
-      - /tank/ai/models/ollama/models/blobs:/blobs:ro
+      - /mnt/tank/ai/models/ollama/models/blobs:/blobs:ro
 
   open-webui:
     volumes:
-      - /tank/ai/data/open-webui:/app/backend/data
+      - /mnt/tank/ai/data/open-webui:/app/backend/data
 ```
 
 ## Directory Organization
@@ -161,7 +161,7 @@ services:
 ### GGUF Models
 
 ```
-/tank/ai/models/gguf/
+/mnt/tank/ai/models/gguf/
 ├── llama/
 │   ├── llama-3.3-70b-instruct-q4_k_m.gguf
 │   ├── llama-3.3-70b-instruct-q5_k_m.gguf
@@ -178,7 +178,7 @@ services:
 ### Hugging Face Cache
 
 ```
-/tank/ai/models/huggingface/
+/mnt/tank/ai/models/huggingface/
 └── hub/
     ├── models--meta-llama--Llama-3.3-70B-Instruct/
     │   ├── refs/
@@ -190,7 +190,7 @@ services:
 ### Ollama Storage
 
 ```
-/tank/ai/models/ollama/
+/mnt/tank/ai/models/ollama/
 └── models/
     ├── blobs/
     │   └── sha256-xxxxx  # Actual model files
@@ -211,14 +211,14 @@ services:
     environment:
       - OLLAMA_MODELS=/root/.ollama
     volumes:
-      - /tank/ai/models/ollama:/root/.ollama
+      - /mnt/tank/ai/models/ollama:/root/.ollama
 
   vllm:
     environment:
       - HF_HOME=/root/.cache/huggingface
       - HUGGING_FACE_HUB_TOKEN=${HF_TOKEN}
     volumes:
-      - /tank/ai/models/huggingface:/root/.cache/huggingface
+      - /mnt/tank/ai/models/huggingface:/root/.cache/huggingface
 ```
 
 ## Snapshots and Backup
@@ -299,7 +299,7 @@ echo 67108864 > /sys/module/zfs/parameters/zfs_read_chunk_size
 zfs list -o name,used,avail,refer tank/ai/models
 
 # Directory sizes
-du -sh /tank/ai/models/*/
+du -sh /mnt/tank/ai/models/*/
 ```
 
 ### I/O Statistics
@@ -321,7 +321,7 @@ iostat -x 1
 docker exec container ls -la /models
 
 # Verify permissions
-ls -la /tank/ai/models/gguf/
+ls -la /mnt/tank/ai/models/gguf/
 
 # Check SELinux/AppArmor if applicable
 ```
@@ -344,10 +344,10 @@ arc_summary | grep -A5 "ARC Size"
 
 ```bash
 # Find large files
-du -sh /tank/ai/models/*/* | sort -h
+du -sh /mnt/tank/ai/models/*/* | sort -h
 
 # Remove old models
-rm /tank/ai/models/gguf/old-model.gguf
+rm /mnt/tank/ai/models/gguf/old-model.gguf
 
 # Or through Ollama
 docker exec ollama ollama rm old-model
