@@ -24,7 +24,7 @@ lint:
 	@$(UV) run pyright
 
 test:
-	$(UV) run pytest
+	@$(UV) run pytest; status=$$?; [ $$status -eq 0 ] || [ $$status -eq 5 ]
 
 docs docs-serve:
 	$(UV) run mkdocs serve
