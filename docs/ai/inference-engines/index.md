@@ -1,75 +1,69 @@
 # Inference Engines
 
-Compare and choose the right inference engine for your local LLM deployment.
+Compare and choose the right inference engine for your local LLM deployment on the MS-S1 MAX.
+
+## Recommendation for this hardware
+
+For Strix Halo (AMD `gfx1151`) the practical choices are **llama.cpp built with HIP** and **Ollama** (which uses llama.cpp under the hood). Everything else either doesn't run on this GPU or doesn't run on Linux:
+
+| Engine | Strix Halo / gfx1151 | Notes |
+|---|---|---|
+| **[llama.cpp (HIP)](llama-cpp.md)** | **Yes — recommended** | Build with `cmake -DGGML_HIP=ON -DAMDGPU_TARGETS=gfx1151`. Best perf and most flexibility. |
+| **[Ollama](ollama.md)** | **Yes — recommended** | Auto-detects ROCm on install. Easiest UX. |
+| [MLX](mlx.md) | No — Apple Silicon only | Reference for Mac clients only. |
+| [vLLM](vllm.md) | No — `gfx1151` not in supported targets | Re-evaluate when AMD ships official kernels. |
 
 ## Engine Comparison
 
 | Engine | Best For | GPU Support | API | Speed |
 |--------|----------|-------------|-----|-------|
-| [llama.cpp](llama-cpp.md) | Flexibility, wide model support | Metal, CUDA, Vulkan | OpenAI-compat | Good |
-| [Ollama](ollama.md) | Ease of use, container deployment | Metal, CUDA | OpenAI-compat | Good |
-| [MLX](mlx.md) | Apple Silicon maximum performance | Metal only | Python/REST | Excellent |
-| [vLLM](vllm.md) | High-throughput serving | CUDA (NVIDIA) | OpenAI-compat | Excellent |
-
-## Quick Selection Guide
-
-```
-┌────────────────────────────────────────────────────────────┐
-│                    Choose Your Engine                       │
-└────────────────────────────────────────────────────────────┘
-                              │
-          ┌───────────────────┼───────────────────┐
-          ▼                   ▼                   ▼
-   ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-   │Apple Silicon│     │   NVIDIA    │     │   Server    │
-   │   Desktop   │     │     GPU     │     │  (Multi-GPU)│
-   └──────┬──────┘     └──────┬──────┘     └──────┬──────┘
-          │                   │                   │
-          ▼                   ▼                   ▼
-   ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-   │    MLX      │     │ llama.cpp   │     │    vLLM     │
-   │  (fastest)  │     │   or Ollama │     │  (batched)  │
-   └─────────────┘     └─────────────┘     └─────────────┘
-          │                   │
-          ▼                   ▼
-   ┌─────────────┐
-   │   Ollama    │     Want Docker-like UX? → Ollama
-   │  (easy UX)  │     Need max flexibility? → llama.cpp
-   └─────────────┘
-```
+| [llama.cpp](llama-cpp.md) | Flexibility, max perf on Strix Halo | HIP/ROCm, CUDA, Vulkan, Metal | OpenAI-compat | Good |
+| [Ollama](ollama.md) | Ease of use, model library | ROCm, CUDA, Metal | OpenAI-compat | Good |
+| [MLX](mlx.md) | Apple Silicon only | Metal only | Python/REST | Excellent (on Mac) |
+| [vLLM](vllm.md) | High-throughput on supported AMD/NVIDIA | CUDA + ROCm CDNA/`gfx1100` | OpenAI-compat | Excellent (when supported) |
 
 ## Feature Matrix
 
 | Feature | llama.cpp | Ollama | MLX | vLLM |
 |---------|-----------|--------|-----|------|
+| Runs on MS-S1 MAX | Yes | Yes | No | No |
 | OpenAI API | Yes | Yes | Via wrapper | Yes |
 | Streaming | Yes | Yes | Yes | Yes |
-| Batching | Basic | Basic | Basic | Advanced |
+| Batching | Basic / `--parallel` | Basic | Basic | Advanced |
 | GGUF support | Native | Native | Via convert | No |
 | Safetensors | Via convert | Via convert | Native | Native |
-| Model discovery | Manual | Built-in | Manual | Manual |
+| Model library / pull | Manual | Built-in | Manual | Manual |
 | GPU memory mgmt | Manual | Auto | Auto | Auto |
-| Multi-model | Yes | Yes | Yes | Yes |
+| Multi-model | Yes (multiple server instances) | Yes (LRU swap) | Yes | Yes |
 | Speculative decode | Yes | No | Yes | Yes |
 | Continuous batching | No | No | No | Yes |
 
-## Performance Comparison
+## Performance — Strix Halo (single-stream, ROCm/HIP)
 
-Benchmark on Apple Silicon M4 Max (128GB), Llama 3.3 70B Q4:
+Approximate tokens/sec on the MS-S1 MAX after `amd-ttm --set 108`:
 
-| Engine | Tokens/sec | Time to First Token | Notes |
-|--------|------------|---------------------|-------|
-| MLX | ~45 | ~100ms | Apple Silicon optimized |
-| llama.cpp (Metal) | ~35 | ~150ms | Good all-rounder |
-| Ollama | ~35 | ~200ms | Overhead for convenience |
+| Model / quant | llama-server | Ollama |
+|---|---|---|
+| 8B Q4_K_M | ~55-70 | ~50-65 |
+| 32B Q4_K_M | ~16-22 | ~15-20 |
+| 70B Q4_K_M | ~7-9 | ~6-8 |
+| 70B Q6_K | ~4-6 | ~4-5 |
+| 70B Q8_0 | ~3-5 | ~3-4 |
+| 405B IQ2 | ~1-2 | ~1-2 |
 
-Benchmark on NVIDIA RTX 4090, Llama 3.3 70B Q4:
+Ollama runs ~5-15% slower than a direct `llama-server` build because it ships its own llama.cpp binary and adds a small abstraction layer. Worth it for the model-pull/swap UX unless you're squeezing every token.
 
-| Engine | Tokens/sec | Notes |
-|--------|------------|-------|
-| vLLM | ~80+ | Batched requests |
-| llama.cpp (CUDA) | ~50 | Single request |
-| Ollama | ~48 | Single request |
+## Reference numbers from other platforms
+
+| Platform | Engine | Llama 3.3 70B Q4 |
+|---|---|---|
+| Apple M4 Max 128GB | MLX | ~30-45 tok/s |
+| Apple M4 Max 128GB | llama.cpp (Metal) | ~25-35 tok/s |
+| NVIDIA RTX 4090 | vLLM (single request) | ~50 tok/s |
+| NVIDIA RTX 4090 | llama.cpp (CUDA) | ~45 tok/s |
+| **MS-S1 MAX (gfx1151)** | **llama.cpp (HIP)** | **~7-9 tok/s** |
+
+The MS-S1 MAX is slower per token on small models but can run far larger models without offloading.
 
 ## API Compatibility
 

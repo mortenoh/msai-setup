@@ -1,5 +1,8 @@
 # vLLM
 
+!!! danger "Not currently usable on the MS-S1 MAX"
+    vLLM's ROCm support targets CDNA/Instinct (`gfx9xx`) and a small set of RDNA3 dGPUs (`gfx1100`). The Strix Halo iGPU (`gfx1151`) is **not on the supported target list** as of ROCm 7.x — vLLM will either fail to build kernels for it or crash at model load. This page is kept as reference; on this hardware use [llama.cpp HIP](llama-cpp.md#linux-rocmhip--recommended-for-ms-s1-max) or [Ollama](ollama.md). Re-evaluate vLLM if and when AMD ships official `gfx1151` kernels upstream.
+
 High-throughput LLM serving engine with PagedAttention and continuous batching for production deployments.
 
 ## Overview
