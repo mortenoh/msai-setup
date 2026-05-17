@@ -1,0 +1,118 @@
+"""SSH helpers for talking to the lab VM.
+
+We shell out to the system `ssh`/`scp` rather than using paramiko — keeps
+dependencies to stdlib only and lets users reuse their existing
+~/.ssh/config / known_hosts setup.
+"""
+
+from __future__ import annotations
+
+import logging
+import socket
+import subprocess
+import time
+from pathlib import Path
+
+log = logging.getLogger(__name__)
+
+
+def wait_for_port(host: str, port: int, *, timeout: int = 1800, interval: int = 5) -> None:
+    """Poll a TCP port until it accepts connections or `timeout` seconds pass."""
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        try:
+            with socket.create_connection((host, port), timeout=2):
+                log.info("port %s:%d is reachable", host, port)
+                return
+        except OSError:
+            time.sleep(interval)
+    raise TimeoutError(f"timed out waiting for {host}:{port}")
+
+
+def ssh_args(
+    user: str,
+    host: str,
+    port: int,
+    *,
+    extra_options: list[str] | None = None,
+    identity_file: Path | None = None,
+) -> list[str]:
+    """Build a baseline `ssh` argument list with sane defaults for lab use."""
+    args = [
+        "ssh",
+        "-p", str(port),
+        "-o", "StrictHostKeyChecking=accept-new",
+        "-o", "UserKnownHostsFile=/dev/null",
+        "-o", "LogLevel=ERROR",
+        "-o", "BatchMode=yes",
+        "-o", "ConnectTimeout=10",
+    ]
+    if identity_file is not None:
+        args.extend(["-i", str(identity_file), "-o", "IdentitiesOnly=yes"])
+    if extra_options:
+        args.extend(extra_options)
+    args.append(f"{user}@{host}")
+    return args
+
+
+def run_remote(
+    user: str,
+    host: str,
+    port: int,
+    command: str,
+    *,
+    identity_file: Path | None = None,
+    check: bool = True,
+    capture: bool = True,
+) -> subprocess.CompletedProcess[str]:
+    """Run a command on the remote host via ssh."""
+    cmd = ssh_args(user, host, port, identity_file=identity_file) + [command]
+    log.debug("running remote: %s", command)
+    return subprocess.run(
+        cmd,
+        capture_output=capture,
+        text=True,
+        check=check,
+    )
+
+
+def push_authorized_key(
+    user: str,
+    host: str,
+    port: int,
+    *,
+    password: str,
+    public_key_path: Path,
+) -> None:
+    """Copy a public key into the remote user's authorized_keys.
+
+    Uses sshpass + ssh-copy-id when available (cleanest), falls back to a manual
+    expect-style flow when sshpass isn't installed. Idempotent: ssh-copy-id
+    appends rather than duplicates.
+    """
+    if not public_key_path.exists():
+        raise FileNotFoundError(f"public key not found: {public_key_path}")
+
+    if _have("sshpass"):
+        cmd = [
+            "sshpass", "-p", password,
+            "ssh-copy-id",
+            "-i", str(public_key_path),
+            "-p", str(port),
+            "-o", "StrictHostKeyChecking=accept-new",
+            "-o", "UserKnownHostsFile=/dev/null",
+            f"{user}@{host}",
+        ]
+        subprocess.run(cmd, check=True)
+        log.info("pushed %s via ssh-copy-id+sshpass", public_key_path.name)
+        return
+
+    raise RuntimeError(
+        "sshpass not available. Install it (e.g. `brew install hudochenkov/sshpass/sshpass`) "
+        "or push the key manually:\n"
+        f"  ssh-copy-id -i {public_key_path} -p {port} {user}@{host}"
+    )
+
+
+def _have(cmd: str) -> bool:
+    return subprocess.run(["which", cmd], capture_output=True).returncode == 0

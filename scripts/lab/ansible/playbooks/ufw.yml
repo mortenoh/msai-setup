@@ -1,0 +1,32 @@
+---
+# Minimal UFW baseline: default deny incoming, allow OpenSSH, enable.
+# For the real install you'll also want ufw-docker and per-service rules
+# — those live in docs/networking/ufw/ and docs/docker/setup.md.
+
+- hosts: lab
+  become: true
+  gather_facts: false
+
+  tasks:
+    - name: apt — install ufw
+      ansible.builtin.apt:
+        name: ufw
+        state: present
+
+    - name: ufw — default policies
+      community.general.ufw:
+        direction: "{{ item.direction }}"
+        policy: "{{ item.policy }}"
+      loop:
+        - { direction: incoming, policy: deny }
+        - { direction: outgoing, policy: allow }
+        - { direction: routed,   policy: deny }
+
+    - name: ufw — allow OpenSSH from anywhere (port 22)
+      community.general.ufw:
+        rule: allow
+        name: OpenSSH
+
+    - name: ufw — enable
+      community.general.ufw:
+        state: enabled

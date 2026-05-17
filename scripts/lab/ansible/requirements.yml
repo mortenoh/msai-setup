@@ -1,0 +1,11 @@
+# Optional collections. Install with:
+#   ansible-galaxy install -r scripts/lab/ansible/requirements.yml
+#
+# devsec.hardening is a vetted hardening collection used by many teams.
+# We don't require it (the playbooks here implement a minimal baseline)
+# but install it if you want CIS-style hardening on top.
+
+collections:
+  - name: community.general
+  - name: ansible.posix
+  - name: devsec.hardening

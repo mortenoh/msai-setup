@@ -13,7 +13,159 @@ The lab progresses from "first pool" through "topology comparisons", "snapshots 
 
 VirtualBox is the easiest path on macOS/Windows hosts. If you have a Linux box, KVM/libvirt works equally well — substitute `virt-install` for the VirtualBox UI steps.
 
-## Lab VM setup
+## Two ways to set up the lab VM
+
+There's a one-shot automation script at the top level of this repo at `scripts/zfs-lab-vm.sh` (covered below). Use that if you just want a working lab in 10 minutes. Use the manual GUI flow further down if you want to see what each step looks like in the VirtualBox Manager.
+
+## Automated setup — `scripts/zfs-lab-vm.sh`
+
+This script does the full setup end-to-end:
+
+- Downloads Ubuntu 26.04 LTS server ISO and **verifies its SHA256** against the official `SHA256SUMS` file
+- Creates a VM named `ms-s1-max-lab` with EFI firmware (matches the real MS-S1 MAX install path)
+- Creates an 80 GB primary disk + **6 lab data disks** (8 GB each) for the ZFS exercises
+- Forwards host port 2222 → guest SSH for headless management
+- Kicks off an **unattended install** using `VBoxManage unattended install`
+- Starts the VM in headless mode
+
+```bash
+cd /path/to/this/repo
+
+# One-shot create — downloads ISO, builds VM, starts install
+./scripts/zfs-lab-vm.sh create
+
+# Wait for the install to finish and SSH to come up
+./scripts/zfs-lab-vm.sh wait-ssh
+
+# SSH in (password is what you set; default is in the script)
+ssh -p 2222 morten@127.0.0.1
+
+# After Ubuntu finishes installing and reboots, detach the install ISO
+# so subsequent boots go straight to disk
+./scripts/zfs-lab-vm.sh post-install
+
+# Snapshot the fresh install so you can return to it between exercises
+./scripts/zfs-lab-vm.sh snapshot fresh-install
+```
+
+Between lab exercises (you've created a pool, played with it, and want a clean slate):
+
+```bash
+./scripts/zfs-lab-vm.sh reset       # rollback to the most recent snapshot
+```
+
+When you're done with the lab entirely:
+
+```bash
+./scripts/zfs-lab-vm.sh destroy     # poweroff + unregister + delete all disks
+```
+
+All defaults are tunable via env vars — see `./scripts/zfs-lab-vm.sh help`. Common overrides:
+
+```bash
+VM_PASSWORD='something-better' \
+VM_MEMORY_MB=16384 \
+LAB_DISK_COUNT=8 LAB_DISK_SIZE_MB=16000 \
+./scripts/zfs-lab-vm.sh create
+```
+
+### What the script does, step by step
+
+For reference, here are the actual `VBoxManage` invocations the script runs. You can also paste these one at a time to learn the CLI:
+
+```bash
+# 1. Create the VM (UEFI, NAT networking, headless)
+VBoxManage createvm --name ms-s1-max-lab --ostype Ubuntu_64 --register
+VBoxManage modifyvm ms-s1-max-lab \
+    --memory 8192 --cpus 4 --vram 32 \
+    --firmware efi64 \
+    --nic1 nat \
+    --rtcuseutc on \
+    --audio-driver none
+VBoxManage modifyvm ms-s1-max-lab \
+    --natpf1 "ssh,tcp,127.0.0.1,2222,,22"
+
+# 2. Create disks (one primary + 6 lab disks)
+VBoxManage createmedium disk --filename target/ms-s1-max-lab-primary.vdi --size 80000 --format VDI
+for i in 01 02 03 04 05 06; do
+    VBoxManage createmedium disk --filename "target/ms-s1-max-lab-lab-${i}.vdi" --size 8000 --format VDI
+done
+
+# 3. Storage controllers (SATA for data; IDE for the install ISO)
+VBoxManage storagectl ms-s1-max-lab --name SATA --add sata --controller IntelAhci --portcount 30 --bootable on
+VBoxManage storagectl ms-s1-max-lab --name IDE  --add ide
+
+# 4. Attach disks
+VBoxManage storageattach ms-s1-max-lab --storagectl SATA --port 0 --device 0 \
+    --type hdd --medium target/ms-s1-max-lab-primary.vdi --nonrotational on --discard on
+for i in 1 2 3 4 5 6; do
+    pad=$(printf "%02d" $i)
+    VBoxManage storageattach ms-s1-max-lab --storagectl SATA --port $i --device 0 \
+        --type hdd --medium "target/ms-s1-max-lab-lab-${pad}.vdi" --nonrotational on --discard on
+done
+
+# 5. Attach install ISO
+VBoxManage storageattach ms-s1-max-lab --storagectl IDE --port 0 --device 0 \
+    --type dvddrive --medium target/ubuntu-26.04-live-server-amd64.iso
+
+# 6. Configure unattended install
+VBoxManage unattended install ms-s1-max-lab \
+    --iso target/ubuntu-26.04-live-server-amd64.iso \
+    --user morten --password 'changeme' \
+    --full-user-name 'Morten Hansen' \
+    --hostname ms-s1-max-lab.local \
+    --install-additions \
+    --time-zone Europe/Oslo \
+    --locale en_US.UTF-8
+
+# 7. Start headless
+VBoxManage startvm ms-s1-max-lab --type headless
+
+# 8. After install completes (a reboot or two), detach the ISO
+VBoxManage storageattach ms-s1-max-lab --storagectl IDE --port 0 --device 0 --medium none
+```
+
+### Other useful VBoxManage commands
+
+```bash
+# List VMs / show details
+VBoxManage list vms
+VBoxManage list runningvms
+VBoxManage showvminfo ms-s1-max-lab
+VBoxManage showvminfo ms-s1-max-lab --machinereadable    # parseable
+
+# Live VM control
+VBoxManage controlvm ms-s1-max-lab pause
+VBoxManage controlvm ms-s1-max-lab resume
+VBoxManage controlvm ms-s1-max-lab reset                  # hard reset (Ctrl+Alt+Del-style)
+VBoxManage controlvm ms-s1-max-lab acpipowerbutton        # graceful shutdown
+VBoxManage controlvm ms-s1-max-lab poweroff               # pull the plug
+
+# Snapshots (lifecycle of the VM image itself, not ZFS snapshots)
+VBoxManage snapshot ms-s1-max-lab take pre-experiment --pause
+VBoxManage snapshot ms-s1-max-lab list
+VBoxManage snapshot ms-s1-max-lab restorecurrent          # restore most recent
+VBoxManage snapshot ms-s1-max-lab restore pre-experiment  # restore by name
+VBoxManage snapshot ms-s1-max-lab delete pre-experiment
+
+# Hotplug a disk (e.g. to simulate adding a replacement drive)
+VBoxManage createmedium disk --filename target/extra.vdi --size 8000 --format VDI
+VBoxManage storageattach ms-s1-max-lab --storagectl SATA --port 7 --device 0 \
+    --type hdd --medium target/extra.vdi --hotpluggable on --nonrotational on
+
+# Detach a disk (simulate failure)
+VBoxManage storageattach ms-s1-max-lab --storagectl SATA --port 7 --device 0 --medium none
+
+# Resize a disk
+VBoxManage modifymedium disk target/extra.vdi --resize 16000
+
+# Unregister + delete everything
+VBoxManage unregistervm ms-s1-max-lab --delete
+```
+
+## Manual setup — VirtualBox Manager GUI
+
+Use this path if you want to see what's happening in the GUI rather than trusting a script.
 
 ### 1. Create the VM
 
@@ -22,7 +174,7 @@ In VirtualBox Manager:
 - **OS**: Linux → Ubuntu (64-bit)
 - **Memory**: 4 GB minimum (8 GB if you want ARC headroom)
 - **Boot**: EFI enabled (Settings → System → Motherboard → Enable EFI)
-- **Storage**: Initial disk **40 GB**, dynamically allocated, attached to the SATA controller. This is the "OS disk".
+- **Storage**: Initial disk **80 GB**, dynamically allocated, attached to the SATA controller. This is the "OS disk".
 
 ### 2. Install Ubuntu Server 26.04 LTS
 

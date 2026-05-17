@@ -1,0 +1,64 @@
+---
+# Baseline configuration: package list, sudo, timezone, journald sanity.
+# Runs first. Idempotent.
+
+- hosts: lab
+  become: true
+  gather_facts: true
+
+  tasks:
+    - name: apt — update cache + upgrade
+      ansible.builtin.apt:
+        update_cache: true
+        upgrade: dist
+        cache_valid_time: 3600
+
+    - name: apt — install baseline tools
+      ansible.builtin.apt:
+        name:
+          - vim
+          - htop
+          - btop
+          - tmux
+          - git
+          - curl
+          - wget
+          - rsync
+          - ca-certificates
+          - jq
+          - tree
+          - net-tools
+          - dnsutils
+          - unzip
+          - build-essential
+          - pkg-config
+          - python3-pip
+          - python3-venv
+          - lsb-release
+        state: present
+
+    - name: timezone — set to Europe/Oslo
+      community.general.timezone:
+        name: Europe/Oslo
+
+    - name: sudoers — passwordless for the lab user
+      ansible.builtin.copy:
+        dest: "/etc/sudoers.d/90-{{ ansible_user }}"
+        owner: root
+        group: root
+        mode: "0440"
+        content: |
+          {{ ansible_user }} ALL=(ALL) NOPASSWD:ALL
+
+    - name: journald — keep logs persistent across reboots
+      ansible.builtin.lineinfile:
+        path: /etc/systemd/journald.conf
+        regexp: '^#?\s*Storage='
+        line: 'Storage=persistent'
+      notify: restart journald
+
+  handlers:
+    - name: restart journald
+      ansible.builtin.systemd:
+        name: systemd-journald
+        state: restarted

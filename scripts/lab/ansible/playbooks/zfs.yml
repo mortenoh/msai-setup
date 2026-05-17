@@ -1,0 +1,147 @@
+---
+# Install ZFS, create the lab pool from the 6 SATA lab disks, and set up
+# the dataset hierarchy that mirrors the real MS-S1 MAX layout.
+#
+# By default the pool is a SIMPLE STRIPE across all lab disks (matches
+# the production no-redundancy plan). Override topology via -e topology=...:
+#
+#   ansible-playbook zfs.yml -e topology=stripe        # default
+#   ansible-playbook zfs.yml -e topology=mirror        # mirror pairs
+#   ansible-playbook zfs.yml -e topology=raidz1        # raidz1 across 3+ disks
+#   ansible-playbook zfs.yml -e topology=raidz2        # raidz2 across 4+ disks
+
+- hosts: lab
+  become: true
+  gather_facts: true
+
+  vars:
+    pool_name: tank
+    topology: stripe
+    arc_max_bytes: "{{ 2 * 1024 * 1024 * 1024 }}"   # 2 GiB on the lab VM
+    datasets:
+      - name: media
+        recordsize: 1M
+      - name: ai
+        recordsize: 1M
+        compression: "off"
+      - name: nextcloud-data
+      - name: nextcloud-app
+      - name: db
+        recordsize: 16K
+      - name: vm
+        recordsize: 64K
+      - name: containers
+      - name: backups
+        compression: zstd-3
+
+  tasks:
+    - name: zfs — install zfsutils-linux
+      ansible.builtin.apt:
+        name: zfsutils-linux
+        state: present
+        update_cache: true
+
+    - name: zfs — confirm module loads
+      ansible.builtin.command: modprobe zfs
+      changed_when: false
+
+    - name: zfs — discover SATA lab disks (everything except sda, the OS disk)
+      ansible.builtin.shell: |
+        set -euo pipefail
+        for d in /dev/disk/by-id/ata-VBOX_HARDDISK*; do
+          [ -L "$d" ] || continue
+          # skip the OS disk (whoever is /dev/sda) and skip partitions
+          case "$d" in *part*) continue;; esac
+          target=$(readlink -f "$d")
+          [ "$target" = "/dev/sda" ] && continue
+          echo "$d"
+        done
+      register: lab_disks_raw
+      changed_when: false
+
+    - name: zfs — store the disk list
+      ansible.builtin.set_fact:
+        lab_disks: "{{ lab_disks_raw.stdout_lines }}"
+
+    - name: zfs — show the disks we'll use
+      ansible.builtin.debug:
+        msg: "lab disks: {{ lab_disks }}"
+
+    - name: zfs — assert at least one lab disk
+      ansible.builtin.assert:
+        that: lab_disks | length > 0
+        fail_msg: "No VirtualBox lab disks found. Did you run 01_provision.py with LAB_DISK_COUNT>=1?"
+
+    - name: zfs — set ARC cap before importing/creating the pool
+      ansible.builtin.copy:
+        dest: /etc/modprobe.d/zfs.conf
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          options zfs zfs_arc_max={{ arc_max_bytes }}
+
+    - name: zfs — apply ARC cap live
+      ansible.builtin.copy:
+        dest: /sys/module/zfs/parameters/zfs_arc_max
+        content: "{{ arc_max_bytes }}"
+        mode: "0644"
+      changed_when: false
+
+    - name: zfs — check if pool already exists
+      ansible.builtin.command: "zpool list -H -o name {{ pool_name }}"
+      register: pool_check
+      failed_when: false
+      changed_when: false
+
+    - name: zfs — create pool ({{ topology }})
+      when: pool_check.rc != 0
+      ansible.builtin.command: >
+        zpool create
+        -o ashift=12
+        -o autotrim=on
+        -O compression=lz4
+        -O atime=off
+        -O xattr=sa
+        -O acltype=posixacl
+        -O dnodesize=auto
+        -O mountpoint=/mnt/{{ pool_name }}
+        {{ pool_name }}
+        {% if topology == 'stripe' %}
+        {{ lab_disks | join(' ') }}
+        {% elif topology == 'mirror' %}
+        mirror {{ lab_disks | join(' ') }}
+        {% elif topology == 'raidz1' %}
+        raidz1 {{ lab_disks | join(' ') }}
+        {% elif topology == 'raidz2' %}
+        raidz2 {{ lab_disks | join(' ') }}
+        {% else %}
+        {{ '' | mandatory("unknown topology: " ~ topology) }}
+        {% endif %}
+
+    - name: zfs — show pool status
+      ansible.builtin.command: "zpool status {{ pool_name }}"
+      register: zpool_status
+      changed_when: false
+
+    - name: zfs — pool status output
+      ansible.builtin.debug:
+        var: zpool_status.stdout_lines
+
+    - name: zfs — create datasets
+      community.general.zfs:
+        name: "{{ pool_name }}/{{ item.name }}"
+        state: present
+        extra_zfs_properties:
+          recordsize: "{{ item.recordsize | default(omit) }}"
+          compression: "{{ item.compression | default(omit) }}"
+      loop: "{{ datasets }}"
+
+    - name: zfs — list datasets
+      ansible.builtin.command: "zfs list -o name,used,available,mountpoint -r {{ pool_name }}"
+      register: zfs_list
+      changed_when: false
+
+    - name: zfs — dataset listing
+      ansible.builtin.debug:
+        var: zfs_list.stdout_lines

@@ -1,0 +1,63 @@
+---
+# SSH hardening — matches docs/ssh/server/hardening.md for the production build.
+# Idempotent.
+#
+# Order matters: PUSH YOUR PUBLIC KEY (bootstrap.yml prerequisite) before
+# disabling password auth, or you'll lock yourself out.
+
+- hosts: lab
+  become: true
+  gather_facts: false
+
+  vars:
+    sshd_directives:
+      Port: "22"
+      AddressFamily: "any"
+      PermitRootLogin: "no"
+      MaxAuthTries: "3"
+      LoginGraceTime: "60"
+      PubkeyAuthentication: "yes"
+      PasswordAuthentication: "no"
+      ChallengeResponseAuthentication: "no"
+      KbdInteractiveAuthentication: "no"
+      UsePAM: "yes"
+      PermitEmptyPasswords: "no"
+      X11Forwarding: "no"
+      AllowTcpForwarding: "no"
+      AllowAgentForwarding: "no"
+      AllowStreamLocalForwarding: "no"
+      PermitTunnel: "no"
+      ClientAliveInterval: "300"
+      ClientAliveCountMax: "2"
+      MaxSessions: "2"
+      MaxStartups: "10:30:60"
+      LogLevel: "VERBOSE"
+      KexAlgorithms: "sntrup761x25519-sha512@openssh.com,curve25519-sha256,curve25519-sha256@libssh.org,diffie-hellman-group16-sha512,diffie-hellman-group18-sha512"
+      Ciphers: "chacha20-poly1305@openssh.com,aes256-gcm@openssh.com,aes128-gcm@openssh.com"
+      MACs: "hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com"
+      HostKeyAlgorithms: "ssh-ed25519,ssh-ed25519-cert-v01@openssh.com,rsa-sha2-512,rsa-sha2-256"
+      PubkeyAcceptedAlgorithms: "ssh-ed25519,ssh-ed25519-cert-v01@openssh.com,rsa-sha2-512,rsa-sha2-256"
+
+  tasks:
+    - name: sshd_config — drop a hardened override
+      ansible.builtin.copy:
+        dest: /etc/ssh/sshd_config.d/00-hardening.conf
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          # Managed by Ansible: scripts/lab/ansible/playbooks/ssh-hardening.yml
+          {% for key, value in sshd_directives.items() %}
+          {{ key }} {{ value }}
+          {% endfor %}
+      notify: reload sshd
+
+    - name: sshd — confirm config validates before reload
+      ansible.builtin.command: sshd -t
+      changed_when: false
+
+  handlers:
+    - name: reload sshd
+      ansible.builtin.systemd:
+        name: ssh
+        state: reloaded
