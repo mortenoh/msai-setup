@@ -195,7 +195,9 @@ services:
 
 ## Hardware Transcoding
 
-### Intel Quick Sync
+The MS-S1 MAX uses the AMD Radeon iGPU on Strix Halo via VAAPI for Jellyfin transcoding. Only `/dev/dri` needs to be exposed — VAAPI does not require the full ROCm runtime (no `/dev/kfd`).
+
+### AMD VAAPI (MS-S1 MAX)
 
 ```yaml
 services:
@@ -207,22 +209,11 @@ services:
       - "render"
 ```
 
-### NVIDIA GPU
+Then in Jellyfin: **Dashboard -> Playback -> Hardware acceleration -> VAAPI**, VA-API device `/dev/dri/renderD128`.
 
-```yaml
-services:
-  jellyfin:
-    runtime: nvidia
-    environment:
-      - NVIDIA_VISIBLE_DEVICES=all
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
-```
+### Intel Quick Sync (reference)
+
+Same `/dev/dri` passthrough on Intel iGPUs; pick **VAAPI** or **QSV** in Jellyfin depending on driver support.
 
 ## See Also
 

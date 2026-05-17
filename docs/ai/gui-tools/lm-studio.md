@@ -160,11 +160,12 @@ For 128GB systems:
 Check GPU usage:
 
 ```bash
-# NVIDIA
-nvidia-smi -l 1
-
-# AMD
+# AMD (MS-S1 MAX iGPU)
 rocm-smi
+watch -n 1 rocm-smi
+
+# Apple Silicon (laptop)
+sudo powermetrics --samplers gpu_power -i 1000
 ```
 
 ### Model Loading

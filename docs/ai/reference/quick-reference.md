@@ -74,16 +74,16 @@ export OLLAMA_KEEP_ALIVE=30m
 git clone https://github.com/ggml-org/llama.cpp
 cd llama.cpp
 
-# Build (CUDA)
-cmake -B build -DGGML_CUDA=ON
+# Build (ROCm/HIP — MS-S1 MAX)
+cmake -B build -DGGML_HIP=ON -DAMDGPU_TARGETS=gfx1151
 cmake --build build --config Release
 
-# Build (ROCm)
-cmake -B build -DGGML_HIP=ON
-cmake --build build --config Release
-
-# Build (Metal - macOS)
+# Build (Metal — macOS / Apple Silicon)
 cmake -B build -DGGML_METAL=ON
+cmake --build build --config Release
+
+# Build (Vulkan — portable fallback)
+cmake -B build -DGGML_VULKAN=ON
 cmake --build build --config Release
 ```
 
@@ -135,18 +135,11 @@ cmake --build build --config Release
 ### Ollama
 
 ```bash
-# Start Ollama (NVIDIA)
-docker run -d \
-  --gpus all \
-  -v /mnt/tank/ai/models/ollama:/root/.ollama \
-  -p 11434:11434 \
-  --name ollama \
-  ollama/ollama
-
-# Start Ollama (AMD)
+# Start Ollama (AMD ROCm — MS-S1 MAX)
 docker run -d \
   --device=/dev/kfd --device=/dev/dri \
   --group-add video --group-add render \
+  -e HSA_OVERRIDE_GFX_VERSION=11.5.1 \
   -v /mnt/tank/ai/models/ollama:/root/.ollama \
   -p 11434:11434 \
   --name ollama \
@@ -160,22 +153,14 @@ docker exec -it ollama ollama run llama3.3:70b
 ### llama.cpp
 
 ```bash
-# Start server (NVIDIA)
-docker run -d \
-  --gpus all \
-  -v /mnt/tank/ai/models/gguf:/models \
-  -p 8080:8080 \
-  --name llama-server \
-  ghcr.io/ggml-org/llama.cpp:server-cuda \
-  -m /models/llama-3.3-70b-q4_k_m.gguf \
-  --host 0.0.0.0 -c 8192 -ngl 99
-
-# Start server (AMD)
+# Start server (AMD ROCm — MS-S1 MAX)
 docker run -d \
   --device=/dev/kfd --device=/dev/dri \
   --group-add video --group-add render \
+  -e HSA_OVERRIDE_GFX_VERSION=11.5.1 \
   -v /mnt/tank/ai/models/gguf:/models \
   -p 8080:8080 \
+  --name llama-server \
   ghcr.io/ggml-org/llama.cpp:server-rocm \
   -m /models/llama-3.3-70b-q4_k_m.gguf \
   --host 0.0.0.0 -c 8192 -ngl 99
@@ -216,33 +201,30 @@ export HF_HOME=/mnt/tank/ai/models/huggingface
 
 ## GPU Monitoring
 
-### NVIDIA
-
-```bash
-# Basic status
-nvidia-smi
-
-# Continuous monitoring
-nvidia-smi -l 1
-
-# Memory only
-nvidia-smi --query-gpu=memory.used,memory.total --format=csv
-
-# Watch utilization
-watch -n 1 nvidia-smi
-```
-
-### AMD
+### AMD ROCm (MS-S1 MAX)
 
 ```bash
 # Basic status
 rocm-smi
 
-# Memory info
+# Memory info (VRAM carved out of unified memory)
 rocm-smi --showmeminfo vram
 
-# Watch
+# Watch utilisation
 watch -n 1 rocm-smi
+
+# Temperatures and clocks
+rocm-smi --showtemp --showclocks
+```
+
+### Apple Silicon (laptop)
+
+```bash
+# GPU + ANE power, sampled every 1s
+sudo powermetrics --samplers gpu_power,ane_power -i 1000
+
+# Single shot
+sudo powermetrics --samplers gpu_power -n 1
 ```
 
 ## ZFS for Models

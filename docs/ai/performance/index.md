@@ -33,22 +33,23 @@ Key performance metrics:
 
 ## Quick Performance Reference
 
-### Expected Performance (NVIDIA RTX 4090)
-
-| Model | Quant | Tokens/sec | TTFT |
-|-------|-------|------------|------|
-| 7B | Q8_0 | 80-100 | <50ms |
-| 13B | Q4_K_M | 60-80 | <100ms |
-| 34B | Q4_K_M | 35-50 | <200ms |
-| 70B | Q4_K_M | 20-35 | <300ms |
-
-### Expected Performance (AMD GPU/128GB RAM)
+### Expected Performance (MS-S1 MAX — AMD Strix Halo iGPU, 128GB unified)
 
 | Model | Quant | Tokens/sec | Notes |
 |-------|-------|------------|-------|
-| 7B | Q8_0 | 50-70 | Vulkan or ROCm |
-| 34B | Q4_K_M | 25-40 | Good balance |
-| 70B | Q4_K_M | 15-25 | Memory bandwidth limited |
+| 7B | Q8_0 | 50-70 | ROCm/HIP, fits easily |
+| 8B | Q4_K_M | 50-70 | Sweet spot for chat |
+| 32B | Q4_K_M | 15-20 | Good balance |
+| 70B | Q4_K_M | 6-9 | Memory bandwidth limited |
+| 405B | Q2_K | 1-2 | Fits in 128GB, very slow |
+
+### Expected Performance (Apple Silicon — M-series unified memory)
+
+| Model | Quant | Tokens/sec | Notes |
+|-------|-------|------------|-------|
+| 7B | Q8_0 | 60-90 | Metal/MLX |
+| 32B | Q4_K_M | 20-30 | Memory bandwidth dependent |
+| 70B | Q4_K_M | 8-12 | Requires high-memory M-Max/M-Ultra |
 
 ## Topics
 
@@ -106,11 +107,12 @@ Key performance metrics:
 ### Real-Time Metrics
 
 ```bash
-# GPU utilization (NVIDIA)
-nvidia-smi -l 1
-
-# GPU utilization (AMD)
+# GPU utilization (AMD ROCm — MS-S1 MAX)
 rocm-smi
+watch -n 1 rocm-smi
+
+# GPU utilization (Apple Silicon, laptop)
+sudo powermetrics --samplers gpu_power -i 1000
 
 # Memory pressure
 watch -n 1 free -h

@@ -16,13 +16,15 @@ Engine, model format, and feature compatibility reference.
 
 ## GPU Backend Support
 
-| Engine | NVIDIA (CUDA) | AMD (ROCm) | Apple (Metal) | Vulkan |
-|--------|---------------|------------|---------------|--------|
-| llama.cpp | Yes | Yes | Yes | Yes |
-| Ollama | Yes | Yes | Yes | Via llama.cpp |
-| MLX | No | No | Yes (native) | No |
-| vLLM | Yes | Experimental | No | No |
-| LocalAI | Yes | Yes | Via llama.cpp | No |
+The MS-S1 MAX uses AMD ROCm on `gfx1151`. The NVIDIA column is shown for cross-reference but is not used on this build.
+
+| Engine | AMD (ROCm) | Apple (Metal) | Vulkan | NVIDIA (CUDA, not used) |
+|--------|------------|---------------|--------|--------------------------|
+| llama.cpp | Yes (gfx1151 via HIP) | Yes | Yes | Yes |
+| Ollama | Yes (`ollama/ollama:rocm`) | Yes | Via llama.cpp | Yes |
+| MLX | No | Yes (native) | No | No |
+| vLLM | CDNA / gfx1100 only — **not gfx1151** | No | No | Yes |
+| LocalAI | Yes (`-gpu-hipblas`) | Via llama.cpp | No | Yes |
 
 ## Model Family Support
 
@@ -88,13 +90,13 @@ Engine, model format, and feature compatibility reference.
 | IQ3_XS | Yes | Yes | Yes | Varies |
 | IQ2_XXS | Yes | Yes | Yes | Varies |
 
-### vLLM Quantizations
+### vLLM Quantizations (reference only — vLLM not used on the MS-S1 MAX)
 
 | Quantization | Supported | Notes |
 |--------------|-----------|-------|
 | FP16 | Yes | Default |
 | BF16 | Yes | Better for training |
-| FP8 | Yes | H100/RTX 40 series |
+| FP8 | Yes | Datacenter accelerators |
 | AWQ | Yes | Recommended |
 | GPTQ | Yes | Wide availability |
 | SqueezeLLM | Yes | |
@@ -187,16 +189,18 @@ All engines support Server-Sent Events (SSE) streaming.
 
 ## Docker Images
 
-| Image | GPU | Size |
-|-------|-----|------|
-| `ollama/ollama` | NVIDIA | ~2GB |
-| `ollama/ollama:rocm` | AMD | ~3GB |
-| `ghcr.io/ggml-org/llama.cpp:server` | CPU | ~200MB |
-| `ghcr.io/ggml-org/llama.cpp:server-cuda` | NVIDIA | ~3GB |
-| `ghcr.io/ggml-org/llama.cpp:server-rocm` | AMD | ~3GB |
-| `vllm/vllm-openai` | NVIDIA | ~5GB |
-| `localai/localai:latest-gpu-nvidia-cuda-12` | NVIDIA | ~4GB |
-| `ghcr.io/open-webui/open-webui` | N/A (UI) | ~500MB |
+The MS-S1 MAX uses the ROCm-variant images. NVIDIA-variant images are listed for cross-reference only.
+
+| Image | GPU | Used on MS-S1 MAX | Size |
+|-------|-----|-------------------|------|
+| `ollama/ollama:rocm` | AMD ROCm | Yes | ~3GB |
+| `ghcr.io/ggml-org/llama.cpp:server-rocm` | AMD ROCm | Yes | ~3GB |
+| `ghcr.io/ggml-org/llama.cpp:server` | CPU | Fallback only | ~200MB |
+| `localai/localai:latest-gpu-hipblas` | AMD ROCm | Yes | ~4GB |
+| `ghcr.io/open-webui/open-webui` | N/A (UI) | Yes | ~500MB |
+| `ollama/ollama` (default) | NVIDIA | No (reference) | ~2GB |
+| `ghcr.io/ggml-org/llama.cpp:server-cuda` | NVIDIA | No (reference) | ~3GB |
+| `vllm/vllm-openai` | NVIDIA | No (reference) | ~5GB |
 
 ## See Also
 

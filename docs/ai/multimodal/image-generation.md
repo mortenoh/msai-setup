@@ -2,6 +2,19 @@
 
 Generate images locally using Stable Diffusion and related models.
 
+> **PyTorch device naming on ROCm**: the snippets below use
+> `pipe.to("cuda")` because PyTorch's ROCm wheels expose HIP through the
+> `torch.cuda` namespace — the literal string `"cuda"` resolves to your
+> AMD GPU. For device-agnostic code on the MS-S1 MAX, you can use:
+>
+> ```python
+> device = "cuda" if torch.cuda.is_available() else "cpu"
+> pipe = pipe.to(device)
+> ```
+>
+> Install ROCm-backed PyTorch from the ROCm wheel index — see
+> [PyTorch on ROCm](../frameworks/pytorch.md).
+
 ## Overview
 
 Local image generation options:
@@ -70,23 +83,24 @@ image.save("cat_hat.png")
 ### Docker Setup
 
 ```yaml
-# docker-compose.yml
+# docker-compose.yml — AMD ROCm variant for MS-S1 MAX
 services:
   automatic1111:
-    image: ghcr.io/abetlen/automatic1111:latest
+    image: ghcr.io/abetlen/automatic1111:rocm
     container_name: automatic1111
     ports:
       - "7860:7860"
     volumes:
       - ./models:/app/models
       - ./outputs:/app/outputs
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
+    devices:
+      - /dev/kfd
+      - /dev/dri
+    group_add:
+      - video
+      - render
+    environment:
+      HSA_OVERRIDE_GFX_VERSION: "11.5.1"
     command: --listen --api
 ```
 
@@ -138,20 +152,21 @@ with open("sunset.png", "wb") as f:
 ```yaml
 services:
   comfyui:
-    image: ghcr.io/ai-dock/comfyui:latest
+    image: ghcr.io/ai-dock/comfyui:latest-rocm
     container_name: comfyui
     ports:
       - "8188:8188"
     volumes:
       - ./models:/workspace/ComfyUI/models
       - ./outputs:/workspace/ComfyUI/output
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
+    devices:
+      - /dev/kfd
+      - /dev/dri
+    group_add:
+      - video
+      - render
+    environment:
+      HSA_OVERRIDE_GFX_VERSION: "11.5.1"
 ```
 
 ### API Usage
@@ -203,13 +218,20 @@ def get_image(prompt_id: str) -> bytes:
 ```yaml
 services:
   localai:
-    image: localai/localai:latest-gpu-nvidia-cuda-12
+    image: localai/localai:latest-gpu-hipblas
     ports:
       - "8080:8080"
+    devices:
+      - /dev/kfd
+      - /dev/dri
+    group_add:
+      - video
+      - render
     volumes:
       - ./models:/build/models
     environment:
       - THREADS=4
+      - HSA_OVERRIDE_GFX_VERSION=11.5.1
 ```
 
 ### API Usage

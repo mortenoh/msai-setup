@@ -288,17 +288,18 @@ services:
     restart: unless-stopped
 
   ollama:
-    image: ollama/ollama
+    image: ollama/ollama:rocm
     container_name: ollama
+    devices:
+      - /dev/kfd
+      - /dev/dri
+    group_add:
+      - video
+      - render
     volumes:
       - /mnt/tank/ai/models/ollama:/root/.ollama
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
+    environment:
+      HSA_OVERRIDE_GFX_VERSION: "11.5.1"
     restart: unless-stopped
 
 volumes:

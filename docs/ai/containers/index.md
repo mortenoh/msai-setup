@@ -39,26 +39,10 @@ Containerized LLM deployment provides:
 
 ## GPU Access in Containers
 
-### NVIDIA GPUs
+### AMD GPUs (ROCm) — MS-S1 MAX
 
-Excellent container support via nvidia-container-toolkit:
-
-```yaml
-services:
-  ollama:
-    image: ollama/ollama
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
-```
-
-### AMD GPUs (ROCm)
-
-Good support on Linux with ROCm:
+The Strix Halo iGPU is exposed via `/dev/kfd` and `/dev/dri`. Use the
+`:rocm` variant of the engine image and pass those devices through:
 
 ```yaml
 services:
@@ -70,7 +54,13 @@ services:
     group_add:
       - video
       - render
+    environment:
+      HSA_OVERRIDE_GFX_VERSION: "11.5.1"  # only needed for older ROCm
 ```
+
+> **CUDA / NVIDIA**: not used on this build. CUDA images
+> (e.g. `*-cuda`, `nvidia/cuda:*`) and `nvidia-container-toolkit` are
+> not part of the MS-S1 MAX stack.
 
 See [GPU Containers](gpu-containers.md) for detailed GPU setup.
 
@@ -80,23 +70,25 @@ See [GPU Containers](gpu-containers.md) for detailed GPU setup.
 |---------|--------|-----------|---------|
 | Setup complexity | Easy | Medium | Medium |
 | Model management | Built-in | Manual | Manual |
-| GPU support | NVIDIA, AMD | NVIDIA, AMD, Vulkan | NVIDIA, AMD |
+| GPU image (this build) | `ollama/ollama:rocm` | `:server-rocm` / `:server-vulkan` | `:latest-gpu-hipblas` |
 | OpenAI API | Yes | Yes | Yes |
-| Multi-model | Yes | Per-instance | Yes |
+| Multi-model | Yes (LRU swap) | Per-instance | Yes |
 | Official image | Yes | Yes | Yes |
 
 ## Quick Start
 
-### Ollama (Recommended)
+### Ollama (recommended)
 
 ```bash
-# Start Ollama container
+# Start Ollama container (AMD ROCm — MS-S1 MAX)
 docker run -d \
-  --gpus all \
+  --device=/dev/kfd --device=/dev/dri \
+  --group-add video --group-add render \
+  -e HSA_OVERRIDE_GFX_VERSION=11.5.1 \
   -v /mnt/tank/ai/models/ollama:/root/.ollama \
   -p 11434:11434 \
   --name ollama \
-  ollama/ollama
+  ollama/ollama:rocm
 
 # Pull and run a model
 docker exec ollama ollama run llama3.3
@@ -105,13 +97,15 @@ docker exec ollama ollama run llama3.3
 ### llama.cpp
 
 ```bash
-# Start llama.cpp server
+# Start llama.cpp server (AMD ROCm — MS-S1 MAX)
 docker run -d \
-  --gpus all \
+  --device=/dev/kfd --device=/dev/dri \
+  --group-add video --group-add render \
+  -e HSA_OVERRIDE_GFX_VERSION=11.5.1 \
   -v /mnt/tank/ai/models/gguf:/models \
   -p 8080:8080 \
   --name llama-server \
-  ghcr.io/ggml-org/llama.cpp:server-cuda \
+  ghcr.io/ggml-org/llama.cpp:server-rocm \
   -m /models/llama-3.3-70b-q4_k_m.gguf \
   -c 8192 -ngl 99
 ```
@@ -204,7 +198,7 @@ services:
 
     ---
 
-    GPU passthrough for NVIDIA and AMD
+    GPU passthrough for AMD ROCm (MS-S1 MAX)
 
     [:octicons-arrow-right-24: GPU setup](gpu-containers.md)
 
@@ -219,18 +213,19 @@ version: '3.8'
 
 services:
   ollama:
-    image: ollama/ollama
+    image: ollama/ollama:rocm
     volumes:
       - /mnt/tank/ai/models/ollama:/root/.ollama
     ports:
       - "11434:11434"
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
+    devices:
+      - /dev/kfd
+      - /dev/dri
+    group_add:
+      - video
+      - render
+    environment:
+      HSA_OVERRIDE_GFX_VERSION: "11.5.1"
 
   webui:
     image: ghcr.io/open-webui/open-webui:main
@@ -250,12 +245,12 @@ services:
 services:
   ollama:
     # Fast model switching
-    image: ollama/ollama
-    # ...
+    image: ollama/ollama:rocm
+    # ...devices, group_add, env as above
 
   llama-server:
     # Specific model, fine-tuned config
-    image: ghcr.io/ggml-org/llama.cpp:server-cuda
+    image: ghcr.io/ggml-org/llama.cpp:server-rocm
     # ...
 
   traefik:

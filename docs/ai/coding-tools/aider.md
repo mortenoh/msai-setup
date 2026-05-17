@@ -656,8 +656,8 @@ aider --list-models ollama/
 ### Memory Issues
 
 ```bash
-# Monitor VRAM usage
-watch -n 1 nvidia-smi
+# Monitor VRAM / GPU usage (AMD ROCm)
+watch -n 1 rocm-smi
 
 # Use quantized models
 ollama pull deepseek-coder-v2:16b-q4_K_M

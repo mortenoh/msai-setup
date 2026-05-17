@@ -121,15 +121,15 @@ The MS-S1 MAX trades raw GPU bandwidth for capacity. A 70B model at Q6 (~52GB) r
 
 ## Platform Comparison
 
-| Aspect | MS-S1 MAX | Mac Studio M4 Max | GPU Workstation |
-|--------|-----------|-------------------|-----------------|
-| Memory | 128GB LPDDR5X-8000 | 128GB Unified | 64GB DDR5 + 24GB VRAM |
-| GPU Memory | Shared 128GB | Shared 128GB | 24GB dedicated |
-| Memory Bandwidth | ~256 GB/s | ~546 GB/s | ~90 GB/s system + ~1000 GB/s VRAM |
-| Max Model (Q4) | 200B+ | 200B+ | 45B (GPU only) |
-| Max Model (Q8) | 100B+ | 100B+ | 22B (GPU only) |
+| Aspect | MS-S1 MAX | Mac Studio M4 Max | Discrete-GPU Workstation |
+|--------|-----------|-------------------|--------------------------|
+| Memory | 128GB LPDDR5X-8000 | 128GB Unified | 64GB DDR5 + ~24GB VRAM |
+| GPU Memory | Shared 128GB | Shared 128GB | ~24GB dedicated |
+| Memory Bandwidth | ~256 GB/s | ~546 GB/s | ~90 GB/s system + ~1 TB/s VRAM |
+| Max Model (Q4) | 200B+ | 200B+ | ~45B (GPU-only) |
+| Max Model (Q8) | 100B+ | 100B+ | ~22B (GPU-only) |
 | System Power Draw | ~130W sustained | 40-120W | 400-700W |
-| OS | Linux (ROCm) | macOS (Metal) | Linux (CUDA) |
+| Compute stack | ROCm (AMD) | Metal (Apple) | Discrete GPU stack |
 
 ## Unified Memory Explained
 
@@ -174,7 +174,7 @@ For sustained AI workloads, ambient temperature matters and GPU-heavy inference 
 
 - **Speed**: ~6-9 tok/s on 70B Q4, ~15-20 on 32B Q4, ~50-70 on 8B Q4 with ROCm/HIP
 - **ROCm support**: Requires modern kernel (Ubuntu 26.04's 7.0 kernel is fine) and ROCm 7.x
-- **No tensor cores**: RDNA 3.5 lacks dedicated matrix-multiply units like NVIDIA's tensor cores
+- **No tensor cores**: RDNA 3.5 lacks dedicated matrix-multiply units (the AI Engine on Strix Halo is XDNA NPU, not in the iGPU path)
 - **Single GPU**: Cannot scale with additional GPUs
 
 ## Related Documentation

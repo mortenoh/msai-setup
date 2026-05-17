@@ -14,25 +14,7 @@ llama.cpp provides:
 
 ## Installation
 
-### macOS (Metal)
-
-Build from source for best performance:
-
-```bash
-# Clone repository
-git clone https://github.com/ggml-org/llama.cpp
-cd llama.cpp
-
-# Build with Metal support
-cmake -B build -DGGML_METAL=ON
-cmake --build build --config Release -j$(sysctl -n hw.ncpu)
-
-# Binaries in build/bin/
-ls build/bin/
-# llama-cli, llama-server, llama-bench, etc.
-```
-
-### Linux (ROCm/HIP) — recommended for MS-S1 MAX
+### Linux ROCm/HIP (recommended for MS-S1 MAX)
 
 For the Ryzen AI Max+ 395 (Strix Halo, `gfx1151`), build with HIP for the best prompt-processing throughput. Requires ROCm 7.x installed first — see [ROCm Installation](../gpu/rocm-installation.md).
 
@@ -49,6 +31,7 @@ cmake --build build --config Release -j$(nproc)
 
 # Binaries land in build/bin/
 ls build/bin/
+# llama-cli, llama-server, llama-bench, etc.
 ```
 
 Runtime environment hints (add to `~/.bashrc` or a service unit):
@@ -58,17 +41,19 @@ export HIP_VISIBLE_DEVICES=0
 export HSA_OVERRIDE_GFX_VERSION=11.5.1  # gfx1151 — only needed on older ROCm
 ```
 
-### Linux (CUDA)
+### macOS (Metal)
 
-For NVIDIA hardware (not the MS-S1 MAX):
+For Apple Silicon laptops in the fleet. Build from source for best performance:
 
 ```bash
 git clone https://github.com/ggml-org/llama.cpp
 cd llama.cpp
 
-# Build with CUDA
-cmake -B build -DGGML_CUDA=ON
-cmake --build build --config Release -j$(nproc)
+# Build with Metal support
+cmake -B build -DGGML_METAL=ON
+cmake --build build --config Release -j$(sysctl -n hw.ncpu)
+
+ls build/bin/
 ```
 
 ### Linux (Vulkan)
@@ -78,6 +63,15 @@ Cross-vendor fallback. On Strix Halo, prefer ROCm/HIP above — Vulkan works but
 ```bash
 cmake -B build -DGGML_VULKAN=ON
 cmake --build build --config Release
+```
+
+### Linux (CUDA) — reference only, not used on the MS-S1 MAX
+
+Documented for users on NVIDIA hardware; not applicable to this build.
+
+```bash
+cmake -B build -DGGML_CUDA=ON
+cmake --build build --config Release -j$(nproc)
 ```
 
 ### Pre-built Binaries
@@ -300,9 +294,12 @@ See [llama.cpp Docker](../containers/llama-cpp-docker.md) for containerized depl
 Quick start:
 
 ```bash
-docker run -p 8080:8080 \
+docker run --rm -p 8080:8080 \
+  --device /dev/kfd --device /dev/dri \
+  --group-add video --group-add render \
+  -e HSA_OVERRIDE_GFX_VERSION=11.5.1 \
   -v /mnt/tank/ai/models:/models \
-  ghcr.io/ggml-org/llama.cpp:server-cuda \
+  ghcr.io/ggml-org/llama.cpp:server-rocm \
   -m /models/gguf/llama-3.3-70b-q4.gguf \
   -c 4096 -ngl 99
 ```

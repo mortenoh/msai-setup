@@ -58,7 +58,40 @@ Access:
 
 ## GPU Passthrough
 
-### NVIDIA GPU
+### AMD ROCm (this build)
+
+```yaml
+services:
+  ollama:
+    image: ollama/ollama:rocm
+    container_name: ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - /mnt/tank/ai/ollama:/root/.ollama
+    devices:
+      - /dev/kfd
+      - /dev/dri
+    group_add:
+      - video
+      - render
+    # environment:
+    #   - HSA_OVERRIDE_GFX_VERSION=11.5.1  # Strix Halo (gfx1151) on older ROCm
+    restart: unless-stopped
+```
+
+Prerequisites: ROCm 7.x installed on the host (see [ROCm Installation](../ai/gpu/rocm-installation.md)). The user running Docker needs to be in the `render` and `video` groups so the container can use `/dev/kfd`/`/dev/dri`.
+
+Verify the GPU is visible inside the container:
+
+```bash
+docker exec ollama rocminfo | grep gfx
+# Should show gfx1151 on Strix Halo
+```
+
+### NVIDIA GPU (not used on the MS-S1 MAX — reference only)
+
+For users repurposing this guide on NVIDIA hardware:
 
 ```yaml
 services:
@@ -68,7 +101,7 @@ services:
     ports:
       - "11434:11434"
     volumes:
-      - ollama_data:/root/.ollama
+      - /mnt/tank/ai/ollama:/root/.ollama
     deploy:
       resources:
         reservations:
@@ -79,43 +112,18 @@ services:
     restart: unless-stopped
 ```
 
-Prerequisites:
+Needs the NVIDIA Container Toolkit installed on the host:
+
 ```bash
-# Install NVIDIA Container Toolkit
 distribution=$(. /etc/os-release;echo $ID$VERSION_ID)
-curl -s -L https://nvidia.github.io/libnvidia-container/gpgkey | sudo apt-key add -
-curl -s -L https://nvidia.github.io/libnvidia-container/$distribution/libnvidia-container.list | sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
+curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey \
+    | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit.gpg
+curl -s -L https://nvidia.github.io/libnvidia-container/${distribution}/libnvidia-container.list \
+    | sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
 
 sudo apt update
 sudo apt install -y nvidia-container-toolkit
 sudo systemctl restart docker
-```
-
-Verify:
-```bash
-docker run --rm --gpus all nvidia/cuda:12.0-base nvidia-smi
-```
-
-### AMD ROCm
-
-```yaml
-services:
-  ollama:
-    image: ollama/ollama:rocm
-    container_name: ollama
-    ports:
-      - "11434:11434"
-    volumes:
-      - ollama_data:/root/.ollama
-    devices:
-      - /dev/kfd
-      - /dev/dri
-    group_add:
-      - video
-      - render
-    # environment:
-    #   - HSA_OVERRIDE_GFX_VERSION=10.3.0  # Only for ROCm 6.x
-    restart: unless-stopped
 ```
 
 !!! note "HSA_OVERRIDE_GFX_VERSION"
@@ -335,9 +343,27 @@ server {
 
 ## Multi-Model Orchestration
 
-### Load Balancing Multiple Ollama Instances
+### Multiple Ollama Instances
+
+For single-GPU systems like the MS-S1 MAX, you don't shard across GPUs — instead let one Ollama instance hold multiple models and swap them in/out. Ollama's default behaviour does this; control retention via `OLLAMA_KEEP_ALIVE` and `OLLAMA_MAX_LOADED_MODELS`:
 
 ```yaml
+services:
+  ollama:
+    image: ollama/ollama:rocm
+    devices: [/dev/kfd, /dev/dri]
+    group_add: [video, render]
+    environment:
+      - OLLAMA_KEEP_ALIVE=24h           # keep loaded models around
+      - OLLAMA_MAX_LOADED_MODELS=2      # don't OOM the GPU
+    volumes:
+      - /mnt/tank/ai/ollama:/root/.ollama
+```
+
+For multi-GPU hosts (not the MS-S1 MAX — reference only), you can shard across cards with NVIDIA:
+
+```yaml
+# Reference: NOT used on MS-S1 MAX (single iGPU)
 services:
   ollama-1:
     image: ollama/ollama:latest
@@ -432,21 +458,22 @@ In VS Code settings:
 
 ## Complete Production Stack
 
+ROCm version for the MS-S1 MAX (this build's default):
+
 ```yaml
 # docker-compose.yml
 services:
   ollama:
-    image: ollama/ollama:latest
+    image: ollama/ollama:rocm
     container_name: ollama
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
+    devices:
+      - /dev/kfd
+      - /dev/dri
+    group_add:
+      - video
+      - render
     volumes:
-      - ollama_data:/root/.ollama
+      - /mnt/tank/ai/ollama:/root/.ollama
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:11434/"]
       interval: 30s
@@ -502,11 +529,13 @@ volumes:
 ### GPU Not Detected
 
 ```bash
-# Verify NVIDIA runtime
-docker info | grep -i runtime
+# Verify ROCm devices are present on the host
+ls -l /dev/kfd /dev/dri
 
-# Test GPU access
-docker run --rm --gpus all nvidia/cuda:12.0-base nvidia-smi
+# Test GPU access from a container
+docker run --rm --device=/dev/kfd --device=/dev/dri \
+  --group-add video --group-add render \
+  rocm/rocm-terminal:latest rocminfo | head
 
 # Check Ollama logs
 docker compose logs ollama
@@ -515,8 +544,8 @@ docker compose logs ollama
 ### Out of Memory
 
 ```bash
-# Check GPU memory
-nvidia-smi
+# Check GPU/VRAM usage
+rocm-smi
 
 # Use smaller model or quantized version
 ollama pull llama3.2:8b-q4_K_M
@@ -524,9 +553,10 @@ ollama pull llama3.2:8b-q4_K_M
 
 ### Slow Inference
 
-- Ensure GPU is being used (check nvidia-smi during inference)
+- Ensure the GPU is being used (`rocm-smi` should show utilization during inference)
+- Confirm `HSA_OVERRIDE_GFX_VERSION=11.5.1` is set for the Strix Halo iGPU (gfx1151)
 - Use quantized models for faster loading
-- Increase GPU memory allocation
+- Increase GPU memory allocation if running other ROCm workloads
 
 ### Connection Refused
 

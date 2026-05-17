@@ -1,35 +1,22 @@
 # Ollama Docker
 
-Deploy Ollama in Docker with persistent model storage and GPU acceleration.
+Deploy Ollama in Docker with persistent model storage and GPU
+acceleration on the MS-S1 MAX (AMD ROCm).
 
 ## Official Images
 
-| Image | GPU | Notes |
-|-------|-----|-------|
-| `ollama/ollama` | NVIDIA (default) | Most common |
-| `ollama/ollama:rocm` | AMD | ROCm support |
-| `ollama/ollama:latest` | NVIDIA | Same as default |
+| Image | Backend | Use case |
+|-------|---------|----------|
+| `ollama/ollama:rocm` | AMD ROCm | **MS-S1 MAX (primary)** |
+| `ollama/ollama` | CPU / NVIDIA default | Reference only — not used here |
+| `ollama/ollama:latest` | Same as default | Reference only |
 
-## Quick Start
+> The default `ollama/ollama` image ships with the CUDA backend, which the
+> MS-S1 MAX cannot use. Always pull the `:rocm` tag on this host.
 
-### NVIDIA GPU
+## Quick start
 
-```bash
-docker run -d \
-  --gpus all \
-  -v /mnt/tank/ai/models/ollama:/root/.ollama \
-  -p 11434:11434 \
-  --name ollama \
-  ollama/ollama
-
-# Pull a model
-docker exec ollama ollama pull llama3.3:70b
-
-# Run model
-docker exec -it ollama ollama run llama3.3:70b
-```
-
-### AMD GPU (ROCm)
+### AMD GPU (ROCm) — MS-S1 MAX
 
 ```bash
 docker run -d \
@@ -38,52 +25,33 @@ docker run -d \
   --group-add video \
   --group-add render \
   -v /mnt/tank/ai/models/ollama:/root/.ollama \
+  -e HSA_OVERRIDE_GFX_VERSION=11.5.1 \
   -p 11434:11434 \
   --name ollama \
   ollama/ollama:rocm
+
+# Pull a model
+docker exec ollama ollama pull llama3.3:70b
+
+# Run model
+docker exec -it ollama ollama run llama3.3:70b
 ```
 
-### CPU Only
+### CPU only (fallback / lightweight workloads)
 
 ```bash
 docker run -d \
   -v /mnt/tank/ai/models/ollama:/root/.ollama \
   -p 11434:11434 \
-  --name ollama \
+  --name ollama-cpu \
   ollama/ollama
 ```
 
 ## Docker Compose
 
-### Basic Setup (NVIDIA)
+### Basic AMD ROCm setup
 
 ```yaml
-# docker-compose.yml
-version: '3.8'
-
-services:
-  ollama:
-    image: ollama/ollama
-    container_name: ollama
-    volumes:
-      - /mnt/tank/ai/models/ollama:/root/.ollama
-    ports:
-      - "11434:11434"
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
-    restart: unless-stopped
-```
-
-### AMD ROCm Setup
-
-```yaml
-version: '3.8'
-
 services:
   ollama:
     image: ollama/ollama:rocm
@@ -98,34 +66,36 @@ services:
     group_add:
       - video
       - render
+    environment:
+      HSA_OVERRIDE_GFX_VERSION: "11.5.1"
     restart: unless-stopped
 ```
 
-### Production Configuration
+### Production configuration
 
 ```yaml
-version: '3.8'
-
 services:
   ollama:
-    image: ollama/ollama
+    image: ollama/ollama:rocm
     container_name: ollama
     volumes:
       - /mnt/tank/ai/models/ollama:/root/.ollama
     ports:
-      - "127.0.0.1:11434:11434"  # Local only
+      - "127.0.0.1:11434:11434"  # Local only — front with a reverse proxy
+    devices:
+      - /dev/kfd
+      - /dev/dri
+    group_add:
+      - video
+      - render
     environment:
-      - OLLAMA_HOST=0.0.0.0
-      - OLLAMA_NUM_PARALLEL=2
-      - OLLAMA_MAX_LOADED_MODELS=2
-      - OLLAMA_KEEP_ALIVE=30m
+      OLLAMA_HOST: "0.0.0.0"
+      OLLAMA_NUM_PARALLEL: "2"
+      OLLAMA_MAX_LOADED_MODELS: "2"
+      OLLAMA_KEEP_ALIVE: "30m"
+      HSA_OVERRIDE_GFX_VERSION: "11.5.1"
     deploy:
       resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
         limits:
           memory: 100G
     healthcheck:
@@ -141,7 +111,7 @@ services:
         max-file: "3"
 ```
 
-## Environment Variables
+## Environment variables
 
 Configure Ollama behavior via environment:
 
@@ -153,18 +123,20 @@ Configure Ollama behavior via environment:
 | `OLLAMA_MAX_LOADED_MODELS` | Models in memory | `1` |
 | `OLLAMA_KEEP_ALIVE` | Model unload timeout | `5m` |
 | `OLLAMA_DEBUG` | Debug logging | `false` |
+| `HSA_OVERRIDE_GFX_VERSION` | ROCm GPU arch override (`11.5.1` for gfx1151 on older ROCm) | unset |
 
 ```yaml
 environment:
-  - OLLAMA_HOST=0.0.0.0:11434
-  - OLLAMA_NUM_PARALLEL=4
-  - OLLAMA_MAX_LOADED_MODELS=2
-  - OLLAMA_KEEP_ALIVE=1h
+  OLLAMA_HOST: "0.0.0.0:11434"
+  OLLAMA_NUM_PARALLEL: "4"
+  OLLAMA_MAX_LOADED_MODELS: "2"
+  OLLAMA_KEEP_ALIVE: "1h"
+  HSA_OVERRIDE_GFX_VERSION: "11.5.1"
 ```
 
-## Model Management
+## Model management
 
-### Pull Models
+### Pull models
 
 ```bash
 # From host
@@ -176,14 +148,20 @@ docker exec ollama ollama pull nomic-embed-text
 docker exec ollama ollama list
 ```
 
-### Pre-Load on Startup
-
-Create a script to pull models on container start:
+### Pre-load on startup
 
 ```yaml
 services:
   ollama:
-    image: ollama/ollama
+    image: ollama/ollama:rocm
+    devices:
+      - /dev/kfd
+      - /dev/dri
+    group_add:
+      - video
+      - render
+    environment:
+      HSA_OVERRIDE_GFX_VERSION: "11.5.1"
     volumes:
       - /mnt/tank/ai/models/ollama:/root/.ollama
       - ./init-models.sh:/init-models.sh:ro
@@ -203,7 +181,7 @@ ollama pull llama3.3:70b-instruct-q4_K_M
 ollama pull deepseek-coder-v2:16b
 ```
 
-### Import GGUF Models
+### Import GGUF models
 
 ```bash
 # Create Modelfile
@@ -220,31 +198,30 @@ EOF
 
 # Mount GGUF volume and create model
 docker run --rm \
+  --device=/dev/kfd --device=/dev/dri \
+  --group-add video --group-add render \
   -v /mnt/tank/ai/models/ollama:/root/.ollama \
   -v /mnt/tank/ai/models/gguf:/models/gguf:ro \
-  ollama/ollama create custom-model -f /root/.ollama/Modelfile
+  ollama/ollama:rocm create custom-model -f /root/.ollama/Modelfile
 ```
 
 ## With Open WebUI
 
-### Combined Stack
-
 ```yaml
-version: '3.8'
-
 services:
   ollama:
-    image: ollama/ollama
+    image: ollama/ollama:rocm
     container_name: ollama
+    devices:
+      - /dev/kfd
+      - /dev/dri
+    group_add:
+      - video
+      - render
+    environment:
+      HSA_OVERRIDE_GFX_VERSION: "11.5.1"
     volumes:
       - /mnt/tank/ai/models/ollama:/root/.ollama
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
     restart: unless-stopped
 
   open-webui:
@@ -265,9 +242,9 @@ networks:
     name: ai-network
 ```
 
-## API Usage
+## API usage
 
-### Chat Completion (OpenAI Compatible)
+### Chat completion (OpenAI compatible)
 
 ```bash
 curl http://localhost:11434/v1/chat/completions \
@@ -300,7 +277,7 @@ curl http://localhost:11434/api/chat \
   }'
 ```
 
-### Model Management API
+### Model management API
 
 ```bash
 # List models
@@ -316,52 +293,41 @@ curl http://localhost:11434/api/pull -d '{"name": "llama3.3:70b"}'
 curl http://localhost:11434/api/delete -d '{"name": "old-model"}'
 ```
 
-## Multi-Instance Deployment
+## Single-instance pattern (MS-S1 MAX)
 
-### Different Models per Instance
+The MS-S1 MAX has one iGPU sharing the unified-memory pool, so the
+"two Ollama containers, one per GPU" pattern doesn't apply. Use a
+single Ollama instance and configure it to keep multiple models
+warm:
 
 ```yaml
-version: '3.8'
-
 services:
-  ollama-chat:
-    image: ollama/ollama
-    container_name: ollama-chat
+  ollama:
+    image: ollama/ollama:rocm
+    container_name: ollama
+    devices:
+      - /dev/kfd
+      - /dev/dri
+    group_add:
+      - video
+      - render
+    environment:
+      OLLAMA_MAX_LOADED_MODELS: "3"
+      OLLAMA_KEEP_ALIVE: "1h"
+      OLLAMA_NUM_PARALLEL: "2"
+      HSA_OVERRIDE_GFX_VERSION: "11.5.1"
     volumes:
-      - /mnt/tank/ai/models/ollama-chat:/root/.ollama
+      - /mnt/tank/ai/models/ollama:/root/.ollama
     ports:
       - "11434:11434"
-    environment:
-      - OLLAMA_KEEP_ALIVE=1h
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              device_ids: ['0']
-              capabilities: [gpu]
-
-  ollama-code:
-    image: ollama/ollama
-    container_name: ollama-code
-    volumes:
-      - /mnt/tank/ai/models/ollama-code:/root/.ollama
-    ports:
-      - "11435:11434"
-    environment:
-      - OLLAMA_KEEP_ALIVE=1h
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              device_ids: ['1']
-              capabilities: [gpu]
 ```
+
+Ollama will swap models in/out of GPU memory as requests come in, and
+`OLLAMA_KEEP_ALIVE` prevents the most-used ones from being unloaded.
 
 ## Monitoring
 
-### Health Checks
+### Health checks
 
 ```bash
 # Check if running
@@ -371,17 +337,15 @@ curl http://localhost:11434/
 docker exec ollama ollama ps
 ```
 
-### Resource Usage
+### Resource usage
 
 ```bash
 # Container stats
 docker stats ollama
 
-# GPU usage (NVIDIA)
-nvidia-smi
-
-# GPU usage (AMD)
+# GPU usage (AMD ROCm)
 rocm-smi
+watch -n 1 rocm-smi
 ```
 
 ### Logs
@@ -391,26 +355,26 @@ rocm-smi
 docker logs -f ollama
 
 # With debug
-docker run -e OLLAMA_DEBUG=1 ollama/ollama
+docker run -e OLLAMA_DEBUG=1 ollama/ollama:rocm
 ```
 
-## Storage Persistence
+## Storage persistence
 
-### Volume Structure
+### Volume structure
 
 ```
 /mnt/tank/ai/models/ollama/
-├── models/
-│   ├── blobs/        # Model weights (large files)
-│   │   └── sha256-xxx
-│   └── manifests/    # Model metadata
-│       └── registry.ollama.ai/
-│           └── library/
-│               └── llama3.3/
-└── history           # Chat history (optional)
+|-- models/
+|   |-- blobs/        # Model weights (large files)
+|   |   `-- sha256-xxx
+|   `-- manifests/    # Model metadata
+|       `-- registry.ollama.ai/
+|           `-- library/
+|               `-- llama3.3/
+`-- history           # Chat history (optional)
 ```
 
-### Backup Models
+### Backup models
 
 ```bash
 # Models are in the blobs directory
@@ -423,42 +387,39 @@ zfs snapshot tank/ai/models/ollama@backup
 
 ## Troubleshooting
 
-### Container Won't Start
+### Container won't start
 
 ```bash
-# Check logs
 docker logs ollama
-
-# Verify volume permissions
 ls -la /mnt/tank/ai/models/ollama
 ```
 
-### GPU Not Available
+### GPU not available
 
 ```bash
-# NVIDIA: Check toolkit
-nvidia-smi
-docker run --rm --gpus all nvidia/cuda:12.0-base nvidia-smi
-
-# AMD: Check ROCm
+# Host first
 rocm-smi
-docker run --rm --device=/dev/kfd --device=/dev/dri rocm/rocm-terminal rocminfo
+rocminfo | head
+
+# Then in a container
+docker run --rm \
+  --device=/dev/kfd --device=/dev/dri \
+  --group-add video --group-add render \
+  rocm/rocm-terminal rocminfo | head
 ```
 
-### Model Pull Fails
+If `rocminfo` works on the host but not in the container, the most
+common cause is missing `--device=` / `--group-add` flags.
+
+### Model pull fails
 
 ```bash
-# Check disk space
 df -h /mnt/tank/ai/models/ollama
-
-# Clean incomplete downloads
 docker exec ollama rm -rf /root/.ollama/models/blobs/*.partial
-
-# Retry
 docker exec ollama ollama pull llama3.3:70b
 ```
 
-### Out of Memory
+### Out of memory
 
 ```bash
 # Reduce concurrent models
@@ -471,21 +432,24 @@ ollama pull llama3.3:70b-instruct-q4_K_S
 docker exec ollama ollama ps
 ```
 
-### Slow Response
+### Slow response
 
 ```bash
 # Verify GPU is being used
 docker exec ollama ollama ps
-# Should show "GPU" in PROCESSOR column
+# Should show "GPU" in the PROCESSOR column, not "CPU"
+
+# Confirm the ROCm backend is active in logs
+docker logs ollama 2>&1 | grep -iE 'rocm|hip|gpu'
 
 # Increase parallel slots for concurrent requests
 OLLAMA_NUM_PARALLEL=4
 ```
 
-## See Also
+## See also
 
-- [Container Deployment](index.md) - Container overview
-- [GPU Containers](gpu-containers.md) - GPU setup details
-- [Model Volumes](model-volumes.md) - Storage configuration
-- [Ollama](../inference-engines/ollama.md) - Ollama reference
-- [Open WebUI](../gui-tools/open-webui.md) - Web interface
+- [Container Deployment](index.md) — container overview
+- [GPU Containers](gpu-containers.md) — GPU setup details
+- [Model Volumes](model-volumes.md) — storage configuration
+- [Ollama](../inference-engines/ollama.md) — Ollama reference
+- [Open WebUI](../gui-tools/open-webui.md) — web interface

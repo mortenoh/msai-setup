@@ -64,7 +64,7 @@ services:
     restart: unless-stopped
 
   ollama:
-    image: ollama/ollama
+    image: ollama/ollama:rocm
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.ollama.rule=PathPrefix(`/v1`)"
@@ -72,13 +72,14 @@ services:
       - "traefik.http.services.ollama.loadbalancer.server.port=11434"
     volumes:
       - /mnt/tank/ai/models/ollama:/root/.ollama
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
+    devices:
+      - /dev/kfd
+      - /dev/dri
+    group_add:
+      - video
+      - render
+    environment:
+      - HSA_OVERRIDE_GFX_VERSION=11.5.1  # gfx1151 (Strix Halo)
     restart: unless-stopped
 ```
 
@@ -100,33 +101,40 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
 
   ollama-1:
-    image: ollama/ollama
+    image: ollama/ollama:rocm
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.llm.rule=PathPrefix(`/v1`)"
       - "traefik.http.services.llm.loadbalancer.server.port=11434"
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              device_ids: ['0']
-              capabilities: [gpu]
+    devices:
+      - /dev/kfd
+      - /dev/dri
+    group_add:
+      - video
+      - render
+    environment:
+      - HSA_OVERRIDE_GFX_VERSION=11.5.1
+      - HIP_VISIBLE_DEVICES=0
 
   ollama-2:
-    image: ollama/ollama
+    image: ollama/ollama:rocm
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.llm.rule=PathPrefix(`/v1`)"
       - "traefik.http.services.llm.loadbalancer.server.port=11434"
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              device_ids: ['1']
-              capabilities: [gpu]
+    devices:
+      - /dev/kfd
+      - /dev/dri
+    group_add:
+      - video
+      - render
+    environment:
+      - HSA_OVERRIDE_GFX_VERSION=11.5.1
+      - HIP_VISIBLE_DEVICES=0
 ```
+
+!!! note "Single-GPU on the MS-S1 MAX"
+    The MS-S1 MAX has a single `gfx1151` iGPU. The two services above share that GPU — useful for testing routing, not for parallel hardware capacity. For true multi-backend setups you would scale on multiple hosts.
 
 ### Model-Based Routing
 
@@ -313,35 +321,57 @@ services:
 
   # General chat - 70B model
   ollama-chat:
-    image: ollama/ollama
+    image: ollama/ollama:rocm
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.chat.rule=PathPrefix(`/v1`) && HeaderRegexp(`X-Model`, `llama.*`)"
       - "traefik.http.services.chat.loadbalancer.server.port=11434"
     environment:
       - OLLAMA_KEEP_ALIVE=1h
+      - HSA_OVERRIDE_GFX_VERSION=11.5.1
+    devices:
+      - /dev/kfd
+      - /dev/dri
+    group_add:
+      - video
+      - render
     volumes:
       - /mnt/tank/ai/models/ollama-chat:/root/.ollama
 
   # Code assistance - DeepSeek
   ollama-code:
-    image: ollama/ollama
+    image: ollama/ollama:rocm
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.code.rule=PathPrefix(`/v1`) && HeaderRegexp(`X-Model`, `deepseek.*|code.*`)"
       - "traefik.http.services.code.loadbalancer.server.port=11434"
     environment:
       - OLLAMA_KEEP_ALIVE=1h
+      - HSA_OVERRIDE_GFX_VERSION=11.5.1
+    devices:
+      - /dev/kfd
+      - /dev/dri
+    group_add:
+      - video
+      - render
     volumes:
       - /mnt/tank/ai/models/ollama-code:/root/.ollama
 
   # Fast responses - small model
   ollama-fast:
-    image: ollama/ollama
+    image: ollama/ollama:rocm
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.fast.rule=PathPrefix(`/v1`) && Query(`fast=true`)"
       - "traefik.http.services.fast.loadbalancer.server.port=11434"
+    environment:
+      - HSA_OVERRIDE_GFX_VERSION=11.5.1
+    devices:
+      - /dev/kfd
+      - /dev/dri
+    group_add:
+      - video
+      - render
     volumes:
       - /mnt/tank/ai/models/ollama-fast:/root/.ollama
 ```
@@ -393,7 +423,7 @@ services:
     restart: unless-stopped
 
   ollama-main:
-    image: ollama/ollama
+    image: ollama/ollama:rocm
     container_name: ollama-main
     labels:
       - "traefik.enable=true"
@@ -406,13 +436,13 @@ services:
     environment:
       - OLLAMA_NUM_PARALLEL=4
       - OLLAMA_KEEP_ALIVE=1h
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
+      - HSA_OVERRIDE_GFX_VERSION=11.5.1
+    devices:
+      - /dev/kfd
+      - /dev/dri
+    group_add:
+      - video
+      - render
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:11434/"]
       interval: 30s

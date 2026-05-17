@@ -256,8 +256,8 @@ model = FastLanguageModel.get_peft_model(
 
 ```python
 training_args = TrainingArguments(
-    fp16=True,   # For older GPUs
-    bf16=True,   # For Ampere+ (RTX 30xx, 40xx)
+    fp16=True,   # For older GPUs / when bf16 isn't supported
+    bf16=True,   # For modern GPUs with bf16 support (RDNA3 incl. gfx1151, Apple Silicon, etc.)
     ...
 )
 ```

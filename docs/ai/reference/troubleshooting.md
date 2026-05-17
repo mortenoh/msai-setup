@@ -1,10 +1,13 @@
 # Troubleshooting
 
-Common problems and solutions for local LLM deployment.
+Common problems and solutions for local LLM deployment on the MS-S1 MAX
+(AMD ROCm) and Apple Silicon laptops (Metal). NVIDIA / CUDA is not used
+in this build; if you see a CUDA-specific error here, treat it as
+generic "GPU memory" guidance.
 
-## Model Loading Issues
+## Model loading issues
 
-### Model File Not Found
+### Model file not found
 
 ```
 Error: model file not found
@@ -27,7 +30,7 @@ docker exec ollama ls -la /root/.ollama/models
 ollama pull llama3.3:70b
 ```
 
-### Invalid Model Format
+### Invalid model format
 
 ```
 Error: invalid model format
@@ -49,16 +52,17 @@ file model.gguf
 # Should show: GGUF model data
 ```
 
-### Model Too Large
+### Model too large
 
 ```
-Error: CUDA out of memory
+Error: out of memory
 Error: failed to mmap model
 ```
 
 **Causes:**
-- Insufficient GPU memory
+- Insufficient GPU memory (UMA frame buffer too small)
 - Model exceeds available RAM
+- BIOS UMA setting needs tuning (see [Memory Configuration](../gpu/memory-configuration.md))
 
 **Solutions:**
 ```bash
@@ -72,63 +76,73 @@ ollama pull llama3.3:70b-instruct-q4_K_S  # Smaller than Q4_K_M
 ./llama-server -m model.gguf -c 4096
 ```
 
-## GPU Issues
+## GPU issues
 
-### GPU Not Detected
+### GPU not detected (AMD ROCm — MS-S1 MAX)
 
 ```
 No GPU detected
 Using CPU backend
 ```
 
-**NVIDIA Solutions:**
 ```bash
-# Check driver
-nvidia-smi
-
-# Check CUDA
-nvcc --version
-
-# Docker: Verify nvidia-container-toolkit
-docker run --rm --gpus all nvidia/cuda:12.0-base nvidia-smi
-
-# Reinstall toolkit
-sudo apt install nvidia-container-toolkit
-sudo systemctl restart docker
-```
-
-**AMD Solutions:**
-```bash
-# Check ROCm
-rocminfo
+# Host: confirm ROCm sees the iGPU
+rocminfo | head
 rocm-smi
+ls -l /dev/kfd /dev/dri
 
-# Docker: Check device access
-docker run --rm --device=/dev/kfd --device=/dev/dri rocm/rocm-terminal rocminfo
+# Docker: confirm device passthrough
+docker run --rm \
+  --device=/dev/kfd --device=/dev/dri \
+  --group-add video --group-add render \
+  rocm/rocm-terminal rocminfo | head
+
+# If the container can't see the iGPU, the Compose file is almost
+# certainly missing `devices:` or `group_add:`.
 ```
 
-### GPU Memory Exhausted
+If `rocminfo` returns "No agents found", ROCm itself isn't installed
+correctly — see [ROCm Installation](../gpu/rocm-installation.md).
+
+### GPU not detected (Apple Silicon, laptop)
 
 ```
-CUDA error: out of memory
+Metal not available
+```
+
+- Make sure you're not running inside Docker Desktop: it cannot expose
+  Metal to containers, so MLX / Metal-backed builds must run natively.
+- For PyTorch, verify with `torch.backends.mps.is_available()`.
+- For llama.cpp, build with `LLAMA_METAL=1`.
+
+### GPU memory exhausted
+
+```
+Error: out of memory
+HIP error: out of memory
 ```
 
 **Solutions:**
 ```bash
-# Check current usage
-nvidia-smi
+# AMD: check current usage
+rocm-smi --showmeminfo vram
 
 # Unload unused models
 ollama stop other-model
 
-# Use smaller model/quantization
+# Use a smaller model/quantization
 ollama run llama3.3:70b-instruct-q3_K_M  # Instead of Q4_K_M
 
 # Reduce context
---num-ctx 4096  # Instead of default
+--num-ctx 4096
 ```
 
-### Slow GPU Performance
+On the MS-S1 MAX, "GPU memory" is a slice of the unified-memory pool
+configured via the BIOS UMA frame buffer. If you keep running out, you
+may need to raise that allocation — see
+[Memory Configuration](../gpu/memory-configuration.md).
+
+### Slow GPU performance
 
 ```
 Tokens/sec much lower than expected
@@ -138,25 +152,26 @@ Tokens/sec much lower than expected
 - Not all layers on GPU
 - Thermal throttling
 - Power management
+- `HSA_OVERRIDE_GFX_VERSION` set incorrectly (or unset on older ROCm)
 
 **Solutions:**
 ```bash
 # Verify GPU layers
-# Look for "GPU layers: 99" in startup log
+# Look for "GPU layers: 99" / "offloaded N layers to GPU" in startup log
 
-# Check temperature
-nvidia-smi -q -d TEMPERATURE
+# Check temperature and clocks (AMD)
+rocm-smi --showtemp --showclocks
 
-# Check power state
-nvidia-smi -q -d PERFORMANCE
+# Confirm ROCm backend is actually active in logs
+journalctl -u ollama -f | grep -iE 'rocm|hip|gpu'
 
 # Force full GPU offload
 -ngl 99
 ```
 
-## API Issues
+## API issues
 
-### Connection Refused
+### Connection refused
 
 ```
 Error: connection refused
@@ -179,7 +194,7 @@ sudo ufw status
 OLLAMA_HOST=0.0.0.0 ollama serve
 ```
 
-### Timeout on Requests
+### Timeout on requests
 
 ```
 Error: request timeout
@@ -203,7 +218,7 @@ curl http://localhost:11434/api/generate \
 ollama ps
 ```
 
-### Empty or Truncated Response
+### Empty or truncated response
 
 ```
 Response has no content or stops abruptly
@@ -226,9 +241,9 @@ curl ... -d '{"max_tokens": 2000}'
 # Reduce prompt size or increase context
 ```
 
-## Docker Issues
+## Docker issues
 
-### Container Won't Start
+### Container won't start
 
 ```bash
 # Check logs
@@ -237,27 +252,24 @@ docker logs ollama
 # Check image
 docker images | grep ollama
 
-# Pull fresh image
-docker pull ollama/ollama:latest
+# Pull fresh image (use :rocm on the MS-S1 MAX)
+docker pull ollama/ollama:rocm
 ```
 
-### GPU Not Available in Container
+### GPU not available in container
 
 ```bash
-# NVIDIA: Check runtime
-docker info | grep -i runtime
-
-# Verify GPU access
-docker run --rm --gpus all nvidia/cuda:12.0-base nvidia-smi
-
 # AMD: Check devices
 ls -la /dev/kfd /dev/dri
 
 # Verify permissions
 groups  # Should include video, render
+
+# Verify Compose file passes them through
+docker compose config | grep -A4 -E 'devices|group_add'
 ```
 
-### Volume Mount Issues
+### Volume mount issues
 
 ```bash
 # Check mount
@@ -270,29 +282,29 @@ sudo chown -R 1000:1000 /mnt/tank/ai/models/ollama
 chcon -Rt svirt_sandbox_file_t /mnt/tank/ai/models/ollama
 ```
 
-## Performance Issues
+## Performance issues
 
-### Slow Token Generation
+### Slow token generation
 
 **Causes:**
-- CPU fallback
+- CPU fallback (ROCm not actually engaged)
 - Memory thrashing
 - Suboptimal quantization
 
 **Solutions:**
 ```bash
 # Verify GPU usage
-nvidia-smi -l 1
+watch -n 1 rocm-smi
 
 # Check for swap usage
 free -h
 swapon --show  # Should be minimal
 
 # Use appropriate quantization
-# Q4_K_M is good balance, not Q2_K
+# Q4_K_M is a good balance, not Q2_K
 ```
 
-### High Latency (TTFT)
+### High latency (TTFT)
 
 **Causes:**
 - Large context
@@ -309,12 +321,11 @@ curl -X POST http://localhost:11434/api/generate \
   -d '{"model": "llama3.3:70b", "keep_alive": "24h"}'
 
 # Reduce context
--c 4096  # Instead of larger
+-c 4096
 ```
 
-### Memory Pressure
+### Memory pressure
 
-**Solutions:**
 ```bash
 # Monitor memory
 watch -n 1 free -h
@@ -325,9 +336,9 @@ OLLAMA_MAX_LOADED_MODELS=1
 # Use smaller quantization
 ```
 
-## Coding Tool Issues
+## Coding tool issues
 
-### Tool Can't Connect
+### Tool can't connect
 
 ```
 Error: Cannot connect to API
@@ -345,9 +356,8 @@ curl $OPENAI_API_BASE/models
 # Check tool-specific config
 ```
 
-### Wrong Model Used
+### Wrong model used
 
-**Solutions:**
 ```bash
 # Specify model explicitly
 aider --model ollama/deepseek-coder-v2:16b
@@ -358,16 +368,15 @@ ollama list
 # In config files, use exact model name
 ```
 
-### Slow Code Completion
+### Slow code completion
 
-**Solutions:**
-- Use faster model for completion (7-8B)
-- Use larger model for complex tasks
+- Use a faster model for completion (7-8B)
+- Use a larger model for complex tasks
 - Reduce context sent with requests
 
-## Log Analysis
+## Log analysis
 
-### Ollama Logs
+### Ollama logs
 
 ```bash
 # View logs
@@ -380,7 +389,7 @@ docker logs -f ollama
 OLLAMA_DEBUG=1 ollama serve
 ```
 
-### llama.cpp Logs
+### llama.cpp logs
 
 ```bash
 # Enable verbose
@@ -390,38 +399,31 @@ OLLAMA_DEBUG=1 ollama serve
 ./llama-server -m model.gguf --log-file server.log
 ```
 
-### System Logs
+### System logs
 
 ```bash
 # Check for OOM
 dmesg | grep -i "killed process"
 
-# GPU errors
-dmesg | grep -i "gpu\|nvidia\|amd"
+# GPU errors (AMD)
+dmesg | grep -iE "amdgpu|kfd|hip"
 ```
 
-## Recovery Steps
+## Recovery steps
 
-### Full Reset (Ollama)
+### Full reset (Ollama, native)
 
 ```bash
-# Stop service
 sudo systemctl stop ollama
-
-# Clear models (optional)
+# Clear models (optional, large!)
 rm -rf ~/.ollama/models
-
-# Restart
 sudo systemctl start ollama
-
-# Re-pull models
 ollama pull llama3.3:70b
 ```
 
-### Full Reset (Docker)
+### Full reset (Docker, ROCm)
 
 ```bash
-# Stop and remove
 docker stop ollama
 docker rm ollama
 
@@ -429,58 +431,60 @@ docker rm ollama
 sudo rm -rf /mnt/tank/ai/models/ollama/*
 
 # Start fresh
-docker run -d --gpus all \
+docker run -d \
+  --device=/dev/kfd --device=/dev/dri \
+  --group-add video --group-add render \
+  -e HSA_OVERRIDE_GFX_VERSION=11.5.1 \
   -v /mnt/tank/ai/models/ollama:/root/.ollama \
   -p 11434:11434 \
   --name ollama \
-  ollama/ollama
+  ollama/ollama:rocm
 ```
 
-### GPU Driver Reset
+### GPU driver reset (AMD)
 
 ```bash
-# NVIDIA
-sudo nvidia-smi --gpu-reset
+# Reload the amdgpu kernel module
+sudo rmmod amdgpu
+sudo modprobe amdgpu
 
-# If that fails
-sudo rmmod nvidia_uvm nvidia_drm nvidia_modeset nvidia
-sudo modprobe nvidia
-
-# Reboot if necessary
+# If that doesn't unstick the GPU, reboot
 sudo reboot
 ```
 
-## Getting Help
+## Getting help
 
-### Collect Diagnostic Info
+### Collect diagnostic info
 
 ```bash
 # System info
 uname -a
 cat /etc/os-release
 
-# GPU info
-nvidia-smi  # or rocm-smi
+# GPU info (AMD)
+rocminfo | head
+rocm-smi
 
 # Memory
 free -h
 
 # Docker
 docker version
-docker info | grep -i nvidia
+docker info
 
 # Ollama
 ollama --version
 ollama list
 ```
 
-### Where to Ask
+### Where to ask
 
-- [Ollama GitHub Issues](https://github.com/ollama/ollama/issues)
-- [llama.cpp Discussions](https://github.com/ggml-org/llama.cpp/discussions)
+- [Ollama GitHub issues](https://github.com/ollama/ollama/issues)
+- [llama.cpp discussions](https://github.com/ggml-org/llama.cpp/discussions)
+- [ROCm GitHub](https://github.com/ROCm/ROCm/issues)
 - [r/LocalLLaMA](https://reddit.com/r/LocalLLaMA)
 
-## See Also
+## See also
 
 - [Performance Index](../performance/index.md) - Optimization
 - [Memory Management](../performance/memory-management.md) - Memory issues

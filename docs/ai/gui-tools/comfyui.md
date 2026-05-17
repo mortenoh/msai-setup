@@ -26,7 +26,7 @@ ComfyUI provides:
 
 | Component | Minimum | Recommended |
 |-----------|---------|-------------|
-| **GPU** | AMD RDNA2+ / NVIDIA RTX 20+ / Apple M1+ | AMD RDNA 3.5 / NVIDIA RTX 40+ |
+| **GPU** | AMD RDNA2+ or Apple M1+ | AMD RDNA 3.5 (Strix Halo) or Apple M3/M4 |
 | **VRAM** | 8 GB | 16+ GB (or unified memory APU) |
 | **RAM** | 16 GB | 32+ GB |
 | **Python** | 3.10 | 3.12 |
@@ -98,31 +98,6 @@ services:
 ```bash
 docker compose up -d
 ```
-
-### Docker (NVIDIA)
-
-```yaml
-services:
-  comfyui:
-    image: ghcr.io/ai-dock/comfyui:latest
-    container_name: comfyui
-    ports:
-      - "8188:8188"
-    volumes:
-      - /mnt/tank/ai/comfyui/models:/app/models
-      - /mnt/tank/ai/comfyui/output:/app/output
-      - /mnt/tank/ai/comfyui/custom_nodes:/app/custom_nodes
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
-    restart: unless-stopped
-```
-
-See [GPU Containers](../containers/gpu-containers.md) for more NVIDIA Docker details.
 
 ### Comfy CLI
 
@@ -316,7 +291,7 @@ Install 3D generation nodes via ComfyUI Manager. Most require the `trimesh` and 
 | `--listen 0.0.0.0` | Listen on all interfaces | Network access |
 | `--port 8188` | Set port number | Change default port |
 | `--lowvram` | Aggressive memory optimization | Large models, limited VRAM |
-| `--disable-pinned-memory` | Disable CUDA/HIP pinned memory | APU unified memory |
+| `--disable-pinned-memory` | Disable HIP pinned memory | APU unified memory |
 | `--cpu` | Force CPU inference | No GPU available |
 | `--force-fp16` | Force FP16 precision | Save memory |
 | `--preview-method auto` | Enable live previews | See generation progress |
@@ -431,7 +406,7 @@ while True:
 - **Keep models loaded** -- ComfyUI caches loaded models in VRAM between runs
 - **Reduce resolution first** -- Generate at lower res, then upscale with a dedicated node
 - **Batch wisely** -- Small batches avoid memory spikes on memory-constrained systems
-- **Monitor GPU usage** -- Run `rocm-smi` (AMD) or `nvidia-smi` (NVIDIA) during inference to verify the GPU is active
+- **Monitor GPU usage** -- Run `rocm-smi` during inference to verify the iGPU is active
 
 ## Troubleshooting
 

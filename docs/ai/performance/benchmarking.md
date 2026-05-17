@@ -42,10 +42,12 @@ cmake --build build --target llama-bench
 
 ### Output Interpretation
 
+On the MS-S1 MAX, llama.cpp is built with HIP, so the `backend` column reads `ROCm`:
+
 ```
 model                       size     params   backend  ngl   test     t/s
-llama-3.3-70b-q4_k_m       42.5G    70.55B   CUDA     99    pp512   1234.56
-llama-3.3-70b-q4_k_m       42.5G    70.55B   CUDA     99    tg128   35.67
+llama-3.3-70b-q4_k_m       42.5G    70.55B   ROCm     99    pp512   1234.56
+llama-3.3-70b-q4_k_m       42.5G    70.55B   ROCm     99    tg128   35.67
 ```
 
 - `pp512`: Prompt processing (512 tokens), higher is better
@@ -229,11 +231,11 @@ asyncio.run(benchmark(20, 4))
 # Terminal 1: Run benchmark
 ./llama-bench -m model.gguf -p 512 -n 128 -ngl 99
 
-# Terminal 2: Monitor GPU memory (NVIDIA)
-nvidia-smi -l 1
-
-# Terminal 2: Monitor GPU memory (AMD)
+# Terminal 2: Monitor GPU memory (AMD ROCm — MS-S1 MAX)
 watch -n 1 rocm-smi
+
+# Terminal 2 (alt): Apple Silicon laptops
+sudo powermetrics --samplers gpu_power -i 1000
 
 # Terminal 3: Monitor system memory
 watch -n 1 free -h
@@ -242,16 +244,16 @@ watch -n 1 free -h
 ### Record Peak Usage
 
 ```bash
-# Log GPU memory during test
-nvidia-smi --query-gpu=memory.used --format=csv -l 1 > gpu_mem.log &
+# Log VRAM during test (ROCm)
+rocm-smi --showmemuse --csv -d 1 > gpu_mem.log &
 PID=$!
 
 ./llama-bench -m model.gguf -p 512 -n 128 -ngl 99
 
 kill $PID
 
-# Find peak
-sort -t',' -k1 -n gpu_mem.log | tail -1
+# Inspect log for peak
+sort -t',' -k2 -n gpu_mem.log | tail -1
 ```
 
 ## Perplexity Testing
@@ -333,8 +335,9 @@ done
 
 ### Results Lower Than Expected
 
-- Check GPU driver version
-- Verify CUDA/ROCm installation
+- Check GPU driver version (`amdgpu` kernel module, ROCm runtime)
+- Verify ROCm installation (`rocminfo`, `rocm-smi`)
+- Confirm `HSA_OVERRIDE_GFX_VERSION=11.5.1` is set if running on `gfx1151`
 - Compare with reported benchmarks
 - Check for background processes
 

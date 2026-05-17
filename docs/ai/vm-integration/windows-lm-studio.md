@@ -68,9 +68,8 @@ virsh domifaddr win11
 
 ### GPU Drivers
 
-Install appropriate GPU drivers in Windows:
+Install AMD drivers in Windows (the MS-S1 MAX has an AMD Strix Halo iGPU):
 
-- **NVIDIA**: Download from [nvidia.com/drivers](https://nvidia.com/drivers)
 - **AMD**: Download from [amd.com/support](https://amd.com/support)
 
 ### Verify GPU

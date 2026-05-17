@@ -223,7 +223,8 @@ For better quality quantization:
 
 ## AWQ and GPTQ (vLLM)
 
-For vLLM/NVIDIA deployments:
+Reference only — these formats target CUDA hardware and are not used on the
+MS-S1 MAX. Stick to GGUF (llama.cpp / Ollama) for the AMD Strix Halo iGPU.
 
 | Method | Description | Best For |
 |--------|-------------|----------|

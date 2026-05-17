@@ -17,58 +17,45 @@ LocalAI provides:
 ### Docker (Recommended)
 
 ```bash
-# CPU only
+# AMD ROCm (MS-S1 MAX)
+docker run -p 8080:8080 \
+  --device=/dev/kfd --device=/dev/dri \
+  --group-add video --group-add render \
+  -e HSA_OVERRIDE_GFX_VERSION=11.5.1 \
+  -v /mnt/tank/ai/models/localai:/models \
+  --name localai \
+  localai/localai:latest-gpu-hipblas
+
+# CPU only (fallback)
 docker run -p 8080:8080 \
   -v /mnt/tank/ai/models/localai:/models \
-  --name localai \
+  --name localai-cpu \
   localai/localai:latest
-
-# With NVIDIA GPU
-docker run --gpus all -p 8080:8080 \
-  -v /mnt/tank/ai/models/localai:/models \
-  --name localai \
-  localai/localai:latest-gpu-nvidia-cuda-12
 ```
 
 ### Docker Compose
 
 ```yaml
-version: '3.8'
-
-services:
-  localai:
-    image: localai/localai:latest-gpu-nvidia-cuda-12
-    container_name: localai
-    ports:
-      - "8080:8080"
-    volumes:
-      - /mnt/tank/ai/models/localai:/models
-    environment:
-      - THREADS=8
-      - CONTEXT_SIZE=8192
-      - DEBUG=false
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
-    restart: unless-stopped
-```
-
-### AMD ROCm
-
-```yaml
 services:
   localai:
     image: localai/localai:latest-gpu-hipblas
+    container_name: localai
+    ports:
+      - "8080:8080"
     devices:
       - /dev/kfd
       - /dev/dri
     group_add:
       - video
       - render
+    volumes:
+      - /mnt/tank/ai/models/localai:/models
+    environment:
+      - THREADS=8
+      - CONTEXT_SIZE=8192
+      - DEBUG=false
+      - HSA_OVERRIDE_GFX_VERSION=11.5.1
+    restart: unless-stopped
 ```
 
 ## Installing Models
@@ -274,10 +261,16 @@ version: '3.8'
 
 services:
   localai:
-    image: localai/localai:latest-gpu-nvidia-cuda-12
+    image: localai/localai:latest-gpu-hipblas
     container_name: localai
     ports:
       - "127.0.0.1:8080:8080"
+    devices:
+      - /dev/kfd
+      - /dev/dri
+    group_add:
+      - video
+      - render
     volumes:
       - /mnt/tank/ai/models/localai:/models
       - /mnt/tank/ai/models/gguf:/models/gguf:ro
@@ -287,13 +280,7 @@ services:
       - DEBUG=false
       - WATCHDOG_IDLE=true
       - WATCHDOG_IDLE_TIMEOUT=600
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
+      - HSA_OVERRIDE_GFX_VERSION=11.5.1
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/readyz"]
       interval: 30s
@@ -375,11 +362,12 @@ docker exec localai ls -la /models/gguf/
 ### GPU Not Used
 
 ```bash
-# Verify GPU image
+# Verify GPU image (should be the hipblas variant on the MS-S1 MAX)
 docker images | grep localai
 
-# Check GPU in container
-docker exec localai nvidia-smi
+# Check the iGPU is visible inside the container
+docker exec localai rocm-smi
+docker exec localai rocminfo | head
 
 # Set GPU layers in config
 parameters:

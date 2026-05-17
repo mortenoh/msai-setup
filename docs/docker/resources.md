@@ -122,20 +122,9 @@ services:
       - render
 ```
 
-For NVIDIA GPUs with nvidia-container-toolkit:
-
-```yaml
-services:
-  llm:
-    image: nvidia/cuda:12.0-base
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
-```
+> **CUDA / NVIDIA**: not used on the MS-S1 MAX. The Strix Halo iGPU is an
+> AMD/ROCm device; CUDA images such as `nvidia/cuda:12.x` and the
+> `nvidia-container-toolkit` runtime do not apply to this build.
 
 ## Complete Service Examples
 

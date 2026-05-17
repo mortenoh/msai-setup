@@ -53,8 +53,8 @@ Run inference engines directly on the host OS.
 | Engine | macOS | Linux | Notes |
 |--------|-------|-------|-------|
 | MLX | Excellent | N/A | Apple Silicon only |
-| llama.cpp | Good (Metal) | Good (CUDA) | Cross-platform |
-| Ollama | Good | Good | Docker-like UX |
+| llama.cpp | Good (Metal) | Good (ROCm/HIP on gfx1151) | Cross-platform |
+| Ollama | Good | Good (ROCm build) | Docker-like UX |
 | LM Studio | Excellent | Good | GUI |
 | Jan.ai | Good | Good | GUI, offline-first |
 
@@ -76,7 +76,7 @@ Run inference engines in Docker/Podman containers.
 
 ### When to Choose Containers
 
-- **Linux servers** - NVIDIA Container Toolkit for GPU
+- **Linux servers** - ROCm device passthrough for GPU (the MS-S1 MAX path)
 - **Service isolation** - Separate models/configs
 - **Reproducibility** - Consistent deployments
 - **Multi-tenant** - Different users/applications
@@ -86,29 +86,29 @@ Run inference engines in Docker/Podman containers.
 
 | Platform | GPU Access | Setup |
 |----------|------------|-------|
-| Linux + NVIDIA | Excellent | nvidia-container-toolkit |
-| Linux + AMD | Good | ROCm containers |
-| macOS | Limited | No Metal passthrough |
-| Windows + WSL2 | Good | CUDA support in WSL |
+| Linux + AMD (MS-S1 MAX) | Good | `/dev/kfd` + `/dev/dri` passthrough, `video`/`render` groups |
+| macOS | Limited | No Metal passthrough — run engines natively |
+| Linux + NVIDIA | n/a here | Reference only — not used on this build |
 
-### Container Example (Linux)
+### Container Example (Linux + AMD ROCm, MS-S1 MAX)
 
 ```yaml
 # docker-compose.yml
 services:
   ollama:
-    image: ollama/ollama:latest
+    image: ollama/ollama:rocm
     volumes:
       - /mnt/tank/ai/models/ollama:/root/.ollama
     ports:
       - "11434:11434"
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
+    devices:
+      - /dev/kfd
+      - /dev/dri
+    group_add:
+      - video
+      - render
+    environment:
+      - HSA_OVERRIDE_GFX_VERSION=11.5.1  # gfx1151 (Strix Halo)
 ```
 
 ### macOS Container Limitations
@@ -138,9 +138,11 @@ Run LLMs inside a full virtual machine.
 ### When to Choose VMs
 
 - **Windows-only tools** - LM Studio has good Windows support
-- **GPU passthrough** - Dedicate GPU to VM
 - **Strong isolation** - Security boundaries
 - **Testing different OSes** - Linux distros, Windows
+
+!!! note "GPU passthrough on the MS-S1 MAX"
+    The Strix Halo iGPU is shared between the host and the iGPU display path; full PCIe passthrough is not the recommended deployment. Run inference engines in containers on the host with `/dev/kfd` + `/dev/dri` passthrough instead.
 
 ### VM GPU Passthrough
 
@@ -226,9 +228,9 @@ Native (fallback):
 
 | Platform | Solution |
 |----------|----------|
-| Apple Silicon | Native MLX |
-| NVIDIA GPU | Native or container llama.cpp |
-| Multi-GPU | vLLM container |
+| Apple Silicon (laptops) | Native MLX |
+| AMD Strix Halo (MS-S1 MAX) | Container llama.cpp built with HIP for `gfx1151` |
+| Multi-GPU datacenter (not this build) | vLLM, reference only |
 
 ## Migration Paths
 

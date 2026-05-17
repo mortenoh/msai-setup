@@ -62,7 +62,7 @@ Run large language models locally on a 128GB unified memory system for privacy, 
 ### Path 3: Maximum performance (native HIP build)
 
 1. [Install ROCm 7.x](gpu/rocm-installation.md).
-2. Build [llama.cpp with HIP for `gfx1151`](inference-engines/llama-cpp.md#linux-rocmhip--recommended-for-ms-s1-max).
+2. Build [llama.cpp with HIP for `gfx1151`](inference-engines/llama-cpp.md#linux-rocmhip-recommended-for-ms-s1-max).
 3. Run `llama-server` directly under systemd; tune `--parallel`, `-ngl 99`, KV-cache quantization.
 
 ## What You Can Run on 128GB

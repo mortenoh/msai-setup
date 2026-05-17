@@ -58,7 +58,7 @@ When model exceeds VRAM:
 ./llama-server -m model.gguf -ngl 40
 
 # Check GPU memory and adjust
-nvidia-smi  # Check usage
+rocm-smi  # AMD ROCm — on the MS-S1 MAX
 # Increase -ngl if room, decrease if OOM
 ```
 
@@ -218,17 +218,17 @@ echo 2 | sudo tee /proc/sys/vm/overcommit_memory
 ### Real-time Monitoring
 
 ```bash
-# GPU memory (NVIDIA)
-watch -n 1 nvidia-smi
-
-# GPU memory (AMD)
+# GPU memory (AMD ROCm — MS-S1 MAX)
 watch -n 1 rocm-smi
+
+# GPU + thermals on Apple Silicon (laptops)
+sudo powermetrics --samplers gpu_power -i 1000
 
 # System memory
 watch -n 1 free -h
 
-# Combined
-watch -n 1 'nvidia-smi; echo "---"; free -h'
+# Combined (Linux)
+watch -n 1 'rocm-smi; echo "---"; free -h'
 ```
 
 ### Memory Pressure
@@ -271,17 +271,30 @@ For multiple llama.cpp instances:
 ```yaml
 services:
   llama-small:
+    image: ghcr.io/ggml-org/llama.cpp:server-rocm
+    devices:
+      - /dev/kfd
+      - /dev/dri
+    group_add:
+      - video
+      - render
+    environment:
+      - HSA_OVERRIDE_GFX_VERSION=11.5.1
     deploy:
       resources:
         limits:
           memory: 16G
-        reservations:
-          devices:
-            - driver: nvidia
-              device_ids: ['0']
-              capabilities: [gpu]
 
   llama-large:
+    image: ghcr.io/ggml-org/llama.cpp:server-rocm
+    devices:
+      - /dev/kfd
+      - /dev/dri
+    group_add:
+      - video
+      - render
+    environment:
+      - HSA_OVERRIDE_GFX_VERSION=11.5.1
     deploy:
       resources:
         limits:

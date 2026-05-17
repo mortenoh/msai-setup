@@ -1,7 +1,7 @@
 # MLX
 
 !!! danger "Not applicable to the MS-S1 MAX"
-    MLX is **Apple Silicon only**. It does not run on the AMD Strix Halo iGPU in the MS-S1 MAX. This page is kept as a reference for Mac clients that might also host models — on this server, use [llama.cpp with HIP](llama-cpp.md#linux-rocmhip--recommended-for-ms-s1-max) or [Ollama](ollama.md).
+    MLX is **Apple Silicon only**. It does not run on the AMD Strix Halo iGPU in the MS-S1 MAX. This page is kept as a reference for Mac clients that might also host models — on this server, use [llama.cpp with HIP](llama-cpp.md#linux-rocmhip-recommended-for-ms-s1-max) or [Ollama](ollama.md).
 
 Apple's machine learning framework optimized for Apple Silicon, providing up to 87% faster inference than llama.cpp.
 

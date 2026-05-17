@@ -194,15 +194,6 @@ sudo dkms status
 sudo modprobe zfs && echo OK || journalctl --since "5 minutes ago" | grep -i zfs
 ```
 
-### NVIDIA Drivers (reference; not used on this build)
-
-The MS-S1 MAX has no NVIDIA hardware. Kept here for users who repurpose this guide on different hardware:
-
-```bash
-sudo apt install nvidia-driver-XXX
-# Same MOK flow.
-```
-
 ### VirtualBox
 
 ```bash
@@ -309,7 +300,8 @@ sbverify --cert /path/to/cert.pem /boot/efi/EFI/ubuntu/shimx64.efi
 | Production server, standard software | Enable |
 | Development machine, frequent module changes | Consider disabling or use MOK |
 | High-security environment | Enable, restrict physical access |
-| Using NVIDIA GPU for compute | Enable with MOK |
+| Using `amdgpu-dkms` / ROCm (this build's GPU path) | Enable with MOK, or leave disabled per [BIOS Setup](../../getting-started/bios-setup.md) |
+| Using `zfs-dkms` (this build's data pool) | Enable with MOK, or leave disabled |
 | Virtual machine (guest) | Depends on hypervisor support |
 
 ## Next Step

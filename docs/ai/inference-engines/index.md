@@ -15,12 +15,12 @@ For Strix Halo (AMD `gfx1151`) the practical choices are **llama.cpp built with 
 
 ## Engine Comparison
 
-| Engine | Best For | GPU Support | API | Speed |
-|--------|----------|-------------|-----|-------|
-| [llama.cpp](llama-cpp.md) | Flexibility, max perf on Strix Halo | HIP/ROCm, CUDA, Vulkan, Metal | OpenAI-compat | Good |
-| [Ollama](ollama.md) | Ease of use, model library | ROCm, CUDA, Metal | OpenAI-compat | Good |
+| Engine | Best For | GPU support (this site) | API | Speed |
+|--------|----------|--------------------------|-----|-------|
+| [llama.cpp](llama-cpp.md) | Flexibility, max perf on Strix Halo | HIP/ROCm + Vulkan + Metal (Mac) | OpenAI-compat | Good |
+| [Ollama](ollama.md) | Ease of use, model library | ROCm (Linux) + Metal (Mac) | OpenAI-compat | Good |
 | [MLX](mlx.md) | Apple Silicon only | Metal only | Python/REST | Excellent (on Mac) |
-| [vLLM](vllm.md) | High-throughput on supported AMD/NVIDIA | CUDA + ROCm CDNA/`gfx1100` | OpenAI-compat | Excellent (when supported) |
+| [vLLM](vllm.md) | High-throughput when supported | ROCm CDNA / `gfx1100` only — not `gfx1151` | OpenAI-compat | Excellent (when supported) |
 
 ## Feature Matrix
 
@@ -59,11 +59,13 @@ Ollama runs ~5-15% slower than a direct `llama-server` build because it ships it
 |---|---|---|
 | Apple M4 Max 128GB | MLX | ~30-45 tok/s |
 | Apple M4 Max 128GB | llama.cpp (Metal) | ~25-35 tok/s |
-| NVIDIA RTX 4090 | vLLM (single request) | ~50 tok/s |
-| NVIDIA RTX 4090 | llama.cpp (CUDA) | ~45 tok/s |
 | **MS-S1 MAX (gfx1151)** | **llama.cpp (HIP)** | **~7-9 tok/s** |
 
-The MS-S1 MAX is slower per token on small models but can run far larger models without offloading.
+The MS-S1 MAX is slower per token on small models but can run far larger
+models without offloading because of its 128GB unified-memory pool. For
+context, discrete-GPU rigs with ~24GB of VRAM (RTX 4090 class) typically
+hit ~45-50 tok/s on a 70B Q4 — much faster on small models, but unable
+to fit larger weights at all without spilling to system RAM.
 
 ## API Compatibility
 
@@ -127,21 +129,22 @@ Standard endpoints:
 === "vLLM"
 
     ```bash
-    # Requires NVIDIA GPU
+    # vLLM does not support the MS-S1 MAX (gfx1151) today.
+    # Listed here for reference only — works on ROCm CDNA / gfx1100 or
+    # other supported GPUs. Re-evaluate when AMD ships official gfx1151
+    # kernels.
     pip install vllm
-
-    # Start server
     vllm serve meta-llama/Llama-3.3-70B-Instruct
     ```
 
 ## Container Availability
 
-| Engine | Official Image | GPU Support |
-|--------|----------------|-------------|
-| llama.cpp | `ghcr.io/ggml-org/llama.cpp:server` | CUDA, ROCm |
-| Ollama | `ollama/ollama` | CUDA, ROCm |
-| MLX | N/A (native only) | Metal (native) |
-| vLLM | `vllm/vllm-openai` | CUDA |
+| Engine | Official image (this build) | Notes |
+|--------|------------------------------|-------|
+| llama.cpp | `ghcr.io/ggml-org/llama.cpp:server-rocm` | ROCm variant for MS-S1 MAX; `:server-vulkan` as fallback |
+| Ollama | `ollama/ollama:rocm` | ROCm variant; default `:latest` is CUDA and unused here |
+| MLX | N/A (native only) | Metal — run natively on Mac |
+| vLLM | `vllm/vllm-openai` | Not used — does not support gfx1151 today |
 
 See [Container Deployment](../containers/index.md) for detailed Docker setups.
 
@@ -167,15 +170,16 @@ Same model, different engines (70B Q4):
 
 ### Production API
 
-**Recommended: vLLM (NVIDIA) or llama.cpp (Apple Silicon)**
-- vLLM for high throughput
-- llama.cpp for stability and flexibility
+**Recommended on the MS-S1 MAX: llama.cpp (HIP) behind Ollama or a thin proxy**
+- Best stability + flexibility on `gfx1151`
+- Use `--parallel` to allow concurrent slots
 
 ### Maximum Performance
 
-**Recommended: MLX (Apple Silicon) or vLLM (NVIDIA)**
-- Best tokens/sec
-- Optimized for their platforms
+**MS-S1 MAX: llama.cpp (HIP) tuned with `--flash-attn --cont-batching`**
+**Apple Silicon laptop: MLX**
+- Pick the engine that matches the hardware; cross-platform comparisons
+  rarely beat the platform-native option.
 
 ### Container Deployment
 

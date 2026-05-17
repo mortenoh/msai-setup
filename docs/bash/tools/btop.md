@@ -352,9 +352,9 @@ btop --low-color
 ### No GPU Information
 
 GPU monitoring requires:
-- NVIDIA: nvidia-smi
-- AMD: rocm-smi or radeontop
-- Intel: intel_gpu_top
+- AMD (MS-S1 MAX): `rocm-smi` or `radeontop`
+- Intel: `intel_gpu_top`
+- Apple Silicon: `sudo powermetrics --samplers gpu_power` (Metal)
 
 ### High CPU Usage
 

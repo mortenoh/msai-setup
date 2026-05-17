@@ -1,37 +1,21 @@
 # llama.cpp Docker
 
-Deploy llama.cpp inference server in Docker with GPU acceleration.
+Deploy the llama.cpp inference server in Docker with GPU acceleration on
+the MS-S1 MAX (AMD ROCm). CUDA images are noted only for reference and
+are not used on this build.
 
 ## Official Images
 
 Available from GitHub Container Registry:
 
-| Image | GPU | Use Case |
-|-------|-----|----------|
+| Image | Backend | Use case |
+|-------|---------|----------|
 | `ghcr.io/ggml-org/llama.cpp:server` | CPU only | Testing, fallback |
-| `ghcr.io/ggml-org/llama.cpp:server-cuda` | NVIDIA | Production |
-| `ghcr.io/ggml-org/llama.cpp:server-rocm` | AMD | ROCm systems |
-| `ghcr.io/ggml-org/llama.cpp:server-vulkan` | Vulkan | Cross-platform GPU |
+| `ghcr.io/ggml-org/llama.cpp:server-rocm` | AMD ROCm | **MS-S1 MAX (primary)** |
+| `ghcr.io/ggml-org/llama.cpp:server-vulkan` | Vulkan | Portable GPU fallback |
+| `ghcr.io/ggml-org/llama.cpp:server-cuda` | NVIDIA CUDA | Reference only — not used here |
 
-## Quick Start
-
-### NVIDIA GPU
-
-```bash
-docker run -d \
-  --gpus all \
-  -v /mnt/tank/ai/models/gguf:/models \
-  -p 8080:8080 \
-  --name llama-server \
-  ghcr.io/ggml-org/llama.cpp:server-cuda \
-  -m /models/llama-3.3-70b-instruct-q4_k_m.gguf \
-  --host 0.0.0.0 \
-  --port 8080 \
-  -c 8192 \
-  -ngl 99
-```
-
-### AMD GPU (ROCm)
+## Quick start (AMD ROCm — MS-S1 MAX)
 
 ```bash
 docker run -d \
@@ -40,6 +24,7 @@ docker run -d \
   --group-add video \
   --group-add render \
   -v /mnt/tank/ai/models/gguf:/models \
+  -e HSA_OVERRIDE_GFX_VERSION=11.5.1 \
   -p 8080:8080 \
   --name llama-server \
   ghcr.io/ggml-org/llama.cpp:server-rocm \
@@ -52,43 +37,9 @@ docker run -d \
 
 ## Docker Compose
 
-### Basic Setup (NVIDIA)
+### Basic AMD ROCm setup
 
 ```yaml
-# docker-compose.yml
-version: '3.8'
-
-services:
-  llama-server:
-    image: ghcr.io/ggml-org/llama.cpp:server-cuda
-    container_name: llama-server
-    volumes:
-      - /mnt/tank/ai/models/gguf:/models:ro
-    ports:
-      - "8080:8080"
-    command: >
-      -m /models/llama-3.3-70b-instruct-q4_k_m.gguf
-      --host 0.0.0.0
-      --port 8080
-      -c 8192
-      -ngl 99
-      --parallel 2
-      --cont-batching
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
-    restart: unless-stopped
-```
-
-### AMD ROCm Setup
-
-```yaml
-version: '3.8'
-
 services:
   llama-server:
     image: ghcr.io/ggml-org/llama.cpp:server-rocm
@@ -103,6 +54,8 @@ services:
     group_add:
       - video
       - render
+    environment:
+      HSA_OVERRIDE_GFX_VERSION: "11.5.1"
     command: >
       -m /models/llama-3.3-70b-instruct-q4_k_m.gguf
       --host 0.0.0.0
@@ -112,20 +65,26 @@ services:
     restart: unless-stopped
 ```
 
-### Production Configuration
+### Production configuration
 
 ```yaml
-version: '3.8'
-
 services:
   llama-server:
-    image: ghcr.io/ggml-org/llama.cpp:server-cuda
+    image: ghcr.io/ggml-org/llama.cpp:server-rocm
     container_name: llama-server
     volumes:
       - /mnt/tank/ai/models/gguf:/models:ro
       - /mnt/tank/ai/logs/llama:/logs
     ports:
       - "127.0.0.1:8080:8080"  # Local only, use reverse proxy
+    devices:
+      - /dev/kfd
+      - /dev/dri
+    group_add:
+      - video
+      - render
+    environment:
+      HSA_OVERRIDE_GFX_VERSION: "11.5.1"
     command: >
       -m /models/llama-3.3-70b-instruct-q4_k_m.gguf
       --host 0.0.0.0
@@ -139,11 +98,6 @@ services:
       --log-file /logs/llama-server.log
     deploy:
       resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
         limits:
           memory: 100G
     healthcheck:
@@ -159,9 +113,9 @@ services:
         max-file: "3"
 ```
 
-## Server Parameters
+## Server parameters
 
-### Essential Options
+### Essential options
 
 | Parameter | Description | Recommended |
 |-----------|-------------|-------------|
@@ -171,7 +125,7 @@ services:
 | `-c` | Context length | `8192` - `32768` |
 | `-ngl` | GPU layers | `99` (all) |
 
-### Performance Options
+### Performance options
 
 | Parameter | Description | Recommended |
 |-----------|-------------|-------------|
@@ -180,7 +134,7 @@ services:
 | `--flash-attn` | Flash attention | Enable if supported |
 | `--threads` | CPU threads | Auto or core count |
 
-### Monitoring Options
+### Monitoring options
 
 | Parameter | Description |
 |-----------|-------------|
@@ -188,50 +142,48 @@ services:
 | `--log-file` | Log to file |
 | `-v` | Verbose output |
 
-## Multi-Model Deployment
+## Multi-model deployment
 
-### Separate Containers
+The MS-S1 MAX has a single iGPU sharing the unified-memory pool, so
+running two llama.cpp containers at the same time will fight for the
+same GPU. The right pattern here is either:
+
+1. One container, model swapped via an orchestrator (Ollama, LiteLLM).
+2. Two containers, but only one with `-ngl 99` and the other CPU-only
+   for embedding / lightweight tasks.
 
 ```yaml
-version: '3.8'
-
 services:
   llama-chat:
-    image: ghcr.io/ggml-org/llama.cpp:server-cuda
+    image: ghcr.io/ggml-org/llama.cpp:server-rocm
     ports:
       - "8081:8080"
+    devices:
+      - /dev/kfd
+      - /dev/dri
+    group_add:
+      - video
+      - render
+    environment:
+      HSA_OVERRIDE_GFX_VERSION: "11.5.1"
     command: >
       -m /models/llama-3.3-70b-instruct-q4_k_m.gguf
       --host 0.0.0.0 -c 8192 -ngl 99
     volumes:
       - /mnt/tank/ai/models/gguf:/models:ro
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              device_ids: ['0']
-              capabilities: [gpu]
 
-  deepseek-code:
-    image: ghcr.io/ggml-org/llama.cpp:server-cuda
+  embedder-cpu:
+    image: ghcr.io/ggml-org/llama.cpp:server
     ports:
       - "8082:8080"
     command: >
-      -m /models/deepseek-coder-v2-16b-q5_k_m.gguf
-      --host 0.0.0.0 -c 16384 -ngl 99
+      -m /models/bge-large-en-v1.5-q8_0.gguf
+      --host 0.0.0.0 -c 4096
     volumes:
       - /mnt/tank/ai/models/gguf:/models:ro
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              device_ids: ['1']
-              capabilities: [gpu]
 ```
 
-### With Load Balancer
+### With a load balancer
 
 ```yaml
 services:
@@ -245,24 +197,24 @@ services:
       - --providers.docker
       - --entrypoints.web.address=:80
 
-  llama-1:
-    image: ghcr.io/ggml-org/llama.cpp:server-cuda
+  llama-primary:
+    image: ghcr.io/ggml-org/llama.cpp:server-rocm
     labels:
       - "traefik.http.routers.llama.rule=PathPrefix(`/v1`)"
       - "traefik.http.services.llama.loadbalancer.server.port=8080"
-    # ...
+    # ...devices, group_add, command as above
 
-  llama-2:
-    image: ghcr.io/ggml-org/llama.cpp:server-cuda
+  llama-secondary-cpu:
+    image: ghcr.io/ggml-org/llama.cpp:server
     labels:
       - "traefik.http.routers.llama.rule=PathPrefix(`/v1`)"
       - "traefik.http.services.llama.loadbalancer.server.port=8080"
     # ...
 ```
 
-## API Usage
+## API usage
 
-### Test Endpoint
+### Test endpoint
 
 ```bash
 # Health check
@@ -272,7 +224,7 @@ curl http://localhost:8080/health
 curl http://localhost:8080/v1/models
 ```
 
-### Chat Completion
+### Chat completion
 
 ```bash
 curl http://localhost:8080/v1/chat/completions \
@@ -302,10 +254,9 @@ curl http://localhost:8080/v1/chat/completions \
 
 ## Monitoring
 
-### Prometheus Metrics
+### Prometheus metrics
 
 ```yaml
-# Enable metrics in compose
 command: >
   -m /models/model.gguf
   --metrics
@@ -313,117 +264,94 @@ command: >
 ```
 
 ```bash
-# Scrape metrics
 curl http://localhost:8080/metrics
 ```
 
 Key metrics:
 
-- `llamacpp_requests_total` - Request count
-- `llamacpp_tokens_generated_total` - Tokens generated
-- `llamacpp_prompt_tokens_total` - Prompt tokens processed
-- `llamacpp_kv_cache_usage_ratio` - KV cache utilization
+- `llamacpp_requests_total` — request count
+- `llamacpp_tokens_generated_total` — tokens generated
+- `llamacpp_prompt_tokens_total` — prompt tokens processed
+- `llamacpp_kv_cache_usage_ratio` — KV cache utilisation
 
 ### Logs
 
 ```bash
-# View container logs
 docker logs -f llama-server
-
-# With log file
 docker exec llama-server cat /logs/llama-server.log
 ```
 
 ## Troubleshooting
 
-### Container Won't Start
+### Container won't start
 
 ```bash
-# Check logs
 docker logs llama-server
 
-# Common issues:
-# - Model file not found -> check volume mount
-# - Out of memory -> reduce -ngl or use smaller model
-# - GPU not available -> check nvidia-smi or rocm-smi
+# Common causes:
+# - Model file not found      -> check the volume mount
+# - Out of memory             -> lower -ngl or pick a smaller model
+# - GPU not available         -> check `rocm-smi` on the host
 ```
 
-### GPU Not Detected
+### GPU not detected
 
 ```bash
-# NVIDIA: Verify nvidia-container-toolkit
-docker run --rm --gpus all nvidia/cuda:12.0-base nvidia-smi
+# Host first
+rocm-smi
 
-# AMD: Verify ROCm
-docker run --rm --device=/dev/kfd --device=/dev/dri rocm/rocm-terminal rocminfo
+# Then in a container
+docker run --rm \
+  --device=/dev/kfd --device=/dev/dri \
+  --group-add video --group-add render \
+  rocm/rocm-terminal rocminfo | head
 ```
 
-### Slow Performance
+### Slow performance
 
 ```bash
 # Verify GPU layers are used
-docker logs llama-server 2>&1 | grep -i "gpu\|layer"
+docker logs llama-server 2>&1 | grep -iE 'gpu|layer|rocm|hip'
 
-# Check GPU utilization
-nvidia-smi  # NVIDIA
-rocm-smi    # AMD
+# Check GPU utilisation
+watch -n 1 rocm-smi
 
-# Increase parallel slots for multiple requests
+# Increase parallel slots for multi-client throughput
 --parallel 4
 ```
 
-### Memory Issues
+### Memory issues
 
 ```bash
 # Reduce context length
--c 4096  # Instead of 8192
+-c 4096  # instead of 8192
 
-# Reduce GPU layers if GPU memory limited
--ngl 50  # Instead of 99
+# Reduce GPU layers if VRAM-bound
+-ngl 50
 
-# Use smaller quantization
+# Use a smaller quantization
 # Q4_K_S instead of Q4_K_M
 ```
 
-## Building Custom Image
-
-### With Custom Configuration
+## Building a custom image
 
 ```dockerfile
-# Dockerfile
-FROM ghcr.io/ggml-org/llama.cpp:server-cuda
+# Dockerfile — extend the upstream ROCm server image
+FROM ghcr.io/ggml-org/llama.cpp:server-rocm
 
-# Add health check script
 COPY healthcheck.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/healthcheck.sh
 
 HEALTHCHECK CMD /usr/local/bin/healthcheck.sh
 ```
 
-### From Source
+For a from-source build, see the upstream
+[llama.cpp Docker docs](https://github.com/ggml-org/llama.cpp/tree/master/.devops)
+and pick the `rocm` Dockerfile.
 
-```dockerfile
-FROM nvidia/cuda:12.1-devel-ubuntu22.04 AS builder
+## See also
 
-RUN apt-get update && apt-get install -y \
-    git cmake build-essential
-
-WORKDIR /app
-RUN git clone https://github.com/ggml-org/llama.cpp.git
-WORKDIR /app/llama.cpp
-
-RUN cmake -B build -DGGML_CUDA=ON && \
-    cmake --build build --config Release -j
-
-FROM nvidia/cuda:12.1-runtime-ubuntu22.04
-COPY --from=builder /app/llama.cpp/build/bin/llama-server /usr/local/bin/
-
-ENTRYPOINT ["llama-server"]
-```
-
-## See Also
-
-- [Container Deployment](index.md) - Container overview
-- [GPU Containers](gpu-containers.md) - GPU setup details
-- [Model Volumes](model-volumes.md) - Storage configuration
-- [llama.cpp](../inference-engines/llama-cpp.md) - Native installation
+- [Container Deployment](index.md) — container overview
+- [GPU Containers](gpu-containers.md) — GPU setup details
+- [Model Volumes](model-volumes.md) — storage configuration
+- [llama.cpp](../inference-engines/llama-cpp.md) — native installation

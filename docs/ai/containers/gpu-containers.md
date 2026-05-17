@@ -1,131 +1,56 @@
 # GPU Containers
 
-Configure GPU access for containerized LLM inference.
+Configure GPU access for containerized LLM inference on the MS-S1 MAX
+(AMD Strix Halo, ROCm) and — for cross-reference — Apple Silicon laptops.
 
 ## GPU Support Matrix
 
-| Platform | GPU | Container Support | Framework |
+| Platform | GPU | Container support | Toolchain |
 |----------|-----|-------------------|-----------|
-| Linux | NVIDIA | Excellent | nvidia-container-toolkit |
-| Linux | AMD | Good | ROCm |
-| Linux | Intel | Experimental | OneAPI |
-| macOS | Apple Silicon | None | Use native |
-| Windows WSL2 | NVIDIA | Good | nvidia-container-toolkit |
+| MS-S1 MAX (Linux) | AMD Strix Halo iGPU (gfx1151) | Yes — `/dev/kfd` + `/dev/dri` passthrough | ROCm 7.x |
+| Linux | AMD discrete (RDNA 3/CDNA) | Yes | ROCm 7.x |
+| macOS | Apple Silicon | None — Docker Desktop does not expose Metal | Run natively (MLX, llama.cpp Metal) |
 
-## NVIDIA Setup
+> **Not used on the MS-S1 MAX**: NVIDIA / `nvidia-container-toolkit` / CUDA images.
+> The Strix Halo iGPU is an AMD device; this whole site assumes a CUDA-free stack.
 
-### Install Container Toolkit
+## AMD ROCm setup (this build)
 
-```bash
-# Add repository
-curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | \
-  sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
+!!! tip "Native vs container"
+    For direct inference without containers, see
+    [ROCm Installation](../gpu/rocm-installation.md). For an APU like the
+    MS-S1 MAX, native installation can simplify debugging; containers buy
+    you reproducibility and isolation.
 
-curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | \
-  sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \
-  sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
-
-# Install
-sudo apt-get update
-sudo apt-get install -y nvidia-container-toolkit
-
-# Configure Docker
-sudo nvidia-ctk runtime configure --runtime=docker
-sudo systemctl restart docker
-```
-
-### Verify Installation
-
-```bash
-# Test GPU access in container
-docker run --rm --gpus all nvidia/cuda:12.0-base nvidia-smi
-```
-
-### Docker Compose Configuration
-
-```yaml
-version: '3.8'
-
-services:
-  ollama:
-    image: ollama/ollama
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all  # or specific number
-              capabilities: [gpu]
-```
-
-### Specify GPU Devices
-
-```yaml
-# All GPUs
-devices:
-  - driver: nvidia
-    count: all
-    capabilities: [gpu]
-
-# Specific number
-devices:
-  - driver: nvidia
-    count: 2
-    capabilities: [gpu]
-
-# Specific GPU IDs
-devices:
-  - driver: nvidia
-    device_ids: ['0', '1']
-    capabilities: [gpu]
-```
-
-### docker run Syntax
-
-```bash
-# All GPUs
-docker run --gpus all ...
-
-# Specific count
-docker run --gpus 2 ...
-
-# Specific device
-docker run --gpus '"device=0,1"' ...
-```
-
-## AMD ROCm Setup
-
-!!! tip "Native Installation"
-    For direct inference without containers, see [ROCm Installation](../gpu/rocm-installation.md). Native installation may provide better performance and simpler debugging for APU configurations.
-
-### Install ROCm
+### Install ROCm on the host
 
 ```bash
 # Ubuntu 26.04: ROCm 7.1 ships in Universe
 sudo apt update
 sudo apt install rocm
 
-# Add user to groups
+# Grant container processes access to the GPU
 sudo usermod -aG video,render $USER
 ```
 
-For newer ROCm than 7.1, use AMD's `amdgpu-install` from `repo.radeon.com` — see [ROCm Installation](../gpu/rocm-installation.md) for the upstream path.
+For ROCm newer than what is in the Ubuntu archive, install AMD's
+`amdgpu-install` from `repo.radeon.com`. See
+[ROCm Installation](../gpu/rocm-installation.md) for the upstream path.
 
-### Verify Installation
+### Verify the host can talk to the GPU
 
 ```bash
-# Check ROCm
-rocminfo
-
-# Check GPU
+rocminfo | head
 rocm-smi
+ls -l /dev/kfd /dev/dri
 ```
 
-### Container Configuration
+You should see `gfx1151` in `rocminfo` output and the `kfd` + `dri`
+devices on disk.
+
+### Docker Compose configuration
 
 ```yaml
-version: '3.8'
-
 services:
   ollama:
     image: ollama/ollama:rocm
@@ -135,11 +60,13 @@ services:
     group_add:
       - video
       - render
+    environment:
+      HSA_OVERRIDE_GFX_VERSION: "11.5.1"  # only needed for older ROCm
     volumes:
       - /mnt/tank/ai/models/ollama:/root/.ollama
 ```
 
-### docker run Syntax
+### `docker run` syntax
 
 ```bash
 docker run -d \
@@ -147,6 +74,7 @@ docker run -d \
   --device=/dev/dri \
   --group-add video \
   --group-add render \
+  -e HSA_OVERRIDE_GFX_VERSION=11.5.1 \
   -v /mnt/tank/ai/models/ollama:/root/.ollama \
   ollama/ollama:rocm
 ```
@@ -163,6 +91,8 @@ services:
     group_add:
       - video
       - render
+    environment:
+      HSA_OVERRIDE_GFX_VERSION: "11.5.1"
     command: >
       -m /models/llama-3.3-70b-q4_k_m.gguf
       --host 0.0.0.0
@@ -170,21 +100,19 @@ services:
       -ngl 99
 ```
 
-## Vulkan (Cross-Platform)
+## Vulkan (fallback)
 
-For GPUs not well-supported by CUDA or ROCm:
+For GPUs where the ROCm runtime is not ready (or you want a portable
+build), llama.cpp also ships a Vulkan backend.
 
-### Host Setup
+### Host setup
 
 ```bash
-# Install Vulkan
 sudo apt install vulkan-tools libvulkan1
-
-# Verify
-vulkaninfo
+vulkaninfo | head
 ```
 
-### Container Configuration
+### Container configuration
 
 ```yaml
 services:
@@ -197,115 +125,27 @@ services:
       - render
 ```
 
-## Multi-GPU Configurations
+Vulkan is generally slower than ROCm on the Strix Halo iGPU, but is
+useful as a sanity check if a ROCm image misbehaves.
 
-### Split Workloads
+## Memory management
 
-Assign different models to different GPUs:
+### Sharing the 128GB unified memory pool
 
-```yaml
-version: '3.8'
+The MS-S1 MAX has a single iGPU sharing the system memory pool, so
+container "GPU memory limits" don't apply the way they do on a
+discrete-GPU box. Instead:
 
-services:
-  chat-model:
-    image: ollama/ollama
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              device_ids: ['0']
-              capabilities: [gpu]
-    environment:
-      - CUDA_VISIBLE_DEVICES=0
+- Choose quantization that fits comfortably (Q4_K_M for 70B, etc.).
+- Use the BIOS UMA frame buffer setting to give ROCm enough headroom —
+  see [Memory Configuration](../gpu/memory-configuration.md).
+- Only run one inference engine at a time unless you have explicit
+  reason to share.
 
-  code-model:
-    image: ollama/ollama
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              device_ids: ['1']
-              capabilities: [gpu]
-    environment:
-      - CUDA_VISIBLE_DEVICES=0  # Container sees it as GPU 0
-```
+### Shared memory
 
-### Tensor Parallelism (vLLM)
-
-For models too large for one GPU:
-
-```yaml
-services:
-  vllm:
-    image: vllm/vllm-openai
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 2
-              capabilities: [gpu]
-    command: >
-      --model meta-llama/Llama-3.1-405B-Instruct
-      --tensor-parallel-size 2
-```
-
-## Monitoring GPU Usage
-
-### NVIDIA
-
-```bash
-# Real-time monitoring
-nvidia-smi -l 1
-
-# Watch specific metrics
-watch -n 1 nvidia-smi --query-gpu=utilization.gpu,memory.used,memory.total --format=csv
-
-# From inside container
-docker exec ollama nvidia-smi
-```
-
-### AMD
-
-```bash
-# Real-time monitoring
-watch -n 1 rocm-smi
-
-# GPU usage
-rocm-smi --showuse
-
-# Memory usage
-rocm-smi --showmeminfo vram
-```
-
-### Container Stats
-
-```bash
-# Docker stats with GPU
-docker stats ollama
-
-# GPU utilization in container logs
-docker logs ollama 2>&1 | grep -i gpu
-```
-
-## Memory Management
-
-### GPU Memory Limits
-
-NVIDIA containers can limit GPU memory:
-
-```yaml
-environment:
-  - CUDA_VISIBLE_DEVICES=0
-  # Ollama doesn't support direct memory limits
-  # Use model quantization to control memory
-```
-
-### Shared Memory
-
-Some workloads need increased shared memory:
+Some workloads (vLLM, tensor-parallel runs on multi-GPU rigs) need
+larger `shm`:
 
 ```yaml
 services:
@@ -313,40 +153,66 @@ services:
     shm_size: '16gb'
 ```
 
-### Offloading Strategies
+### Offloading strategies
 
-When GPU memory is limited:
+If a model is too big even at Q4:
 
 ```bash
-# Partial GPU offload
-llama-server -m model.gguf -ngl 30  # Only 30 layers on GPU
+# Partial GPU offload — keep some layers on CPU
+llama-server -m model.gguf -ngl 30
 
 # Ollama adjusts automatically based on available memory
 ```
 
-## Troubleshooting
+## Monitoring GPU usage
 
-### GPU Not Detected
+### From the host
 
 ```bash
-# NVIDIA: Check driver
-nvidia-smi
+# Real-time monitoring (AMD ROCm)
+watch -n 1 rocm-smi
 
-# Check container toolkit
-docker run --rm --gpus all nvidia/cuda:12.0-base nvidia-smi
+# GPU utilization
+rocm-smi --showuse
 
-# If fails, reconfigure
-sudo nvidia-ctk runtime configure --runtime=docker
-sudo systemctl restart docker
+# VRAM (unified memory carved out for the GPU)
+rocm-smi --showmeminfo vram
 ```
 
-### Permission Denied (AMD)
+### From inside a container
 
 ```bash
-# Add user to groups
+docker exec ollama rocm-smi
+docker stats ollama
+docker logs ollama 2>&1 | grep -iE 'rocm|hip|gpu'
+```
+
+## Troubleshooting
+
+### GPU not detected in the container
+
+```bash
+# Host first: do you see the GPU at all?
+rocminfo | head
+ls -l /dev/kfd /dev/dri
+
+# Then in a clean container
+docker run --rm \
+  --device=/dev/kfd --device=/dev/dri \
+  --group-add video --group-add render \
+  rocm/rocm-terminal:latest rocminfo | head
+```
+
+If the host sees the GPU but the container doesn't, the most common
+cause is missing `--device=` / `--group-add` flags.
+
+### Permission denied (`/dev/kfd` or `/dev/dri/renderD*`)
+
+```bash
+# Add user to groups (one-time)
 sudo usermod -aG video,render $USER
 
-# Log out and back in, or:
+# New shell to pick up the groups
 newgrp video
 newgrp render
 
@@ -354,23 +220,11 @@ newgrp render
 ls -la /dev/kfd /dev/dri/*
 ```
 
-### CUDA Version Mismatch
+### Out of GPU memory
 
 ```bash
-# Check host driver version
-nvidia-smi
-
-# Use matching container image
-# Driver 535+ -> CUDA 12.x images
-# Driver 525+ -> CUDA 11.8 images
-docker run --gpus all nvidia/cuda:12.1-base nvidia-smi
-```
-
-### Out of GPU Memory
-
-```bash
-# Check current usage
-nvidia-smi  # or rocm-smi
+# Check what's currently using the GPU
+rocm-smi
 
 # Solutions:
 # 1. Use higher quantization (Q4 instead of Q8)
@@ -380,42 +234,30 @@ nvidia-smi  # or rocm-smi
 docker exec ollama ollama stop model-name
 ```
 
-### Container Can't Access GPU
+### `HSA_OVERRIDE_GFX_VERSION` confusion
 
-```bash
-# Verify Docker runtime
-docker info | grep -i runtime
+On older ROCm (6.x) the Strix Halo iGPU required
+`HSA_OVERRIDE_GFX_VERSION=11.5.1` because the runtime didn't recognise
+`gfx1151` by default. ROCm 7.x supports `gfx1151` natively, so the
+override is no longer required — but setting it does no harm and lets
+the same Compose file work on both ROCm 6 and 7.
 
-# Should show nvidia runtime available
-# If not, reinstall nvidia-container-toolkit
+## Environment variables reference
 
-# Check GPU passthrough in compose
-docker compose config | grep -A5 devices
-```
-
-## Environment Variables Reference
-
-### NVIDIA
+### AMD / ROCm
 
 | Variable | Description |
 |----------|-------------|
-| `CUDA_VISIBLE_DEVICES` | Limit visible GPUs |
-| `NVIDIA_VISIBLE_DEVICES` | Same as above (Docker) |
-| `NVIDIA_DRIVER_CAPABILITIES` | Required capabilities |
+| `HIP_VISIBLE_DEVICES` | Limit which GPUs HIP sees |
+| `ROCR_VISIBLE_DEVICES` | Alternative device selection (HSA runtime) |
+| `HSA_OVERRIDE_GFX_VERSION` | Override GPU architecture (e.g. `11.5.1` for gfx1151 on older ROCm) |
+| `GPU_MAX_HW_QUEUES` | Bound on hardware queue count, useful for tuning |
 
-### AMD/ROCm
+## See also
 
-| Variable | Description |
-|----------|-------------|
-| `HIP_VISIBLE_DEVICES` | Limit visible GPUs |
-| `ROCR_VISIBLE_DEVICES` | Alternative device selection |
-| `HSA_OVERRIDE_GFX_VERSION` | Override GPU architecture (ROCm 6.x only, not needed for ROCm 7.x with gfx1151) |
-
-## See Also
-
-- [Container Deployment](index.md) - Container overview
-- [llama.cpp Docker](llama-cpp-docker.md) - llama.cpp container
-- [Ollama Docker](ollama-docker.md) - Ollama container
-- [vLLM](../inference-engines/vllm.md) - Multi-GPU serving
-- [ROCm Installation](../gpu/rocm-installation.md) - Native ROCm setup
-- [Memory Configuration](../gpu/memory-configuration.md) - APU memory optimization
+- [Container Deployment](index.md) — container overview
+- [llama.cpp Docker](llama-cpp-docker.md) — llama.cpp container details
+- [Ollama Docker](ollama-docker.md) — Ollama container details
+- [vLLM](../inference-engines/vllm.md) — multi-engine serving (reference)
+- [ROCm Installation](../gpu/rocm-installation.md) — native ROCm setup
+- [Memory Configuration](../gpu/memory-configuration.md) — APU memory optimization

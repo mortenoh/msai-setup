@@ -2,6 +2,9 @@
 
 Local audio processing for speech-to-text, text-to-speech, and audio analysis.
 
+!!! note "`device="cuda"` on AMD ROCm"
+    PyTorch's ROCm wheels keep the `torch.cuda.*` namespace — `torch.cuda.is_available()` returns `True` on the AMD GPU, and `device="cuda"` resolves to the `gfx1151` iGPU on the MS-S1 MAX. The string `"cuda"` is a PyTorch API name, not an NVIDIA dependency. The Python examples below are written portably as `device="cuda" if torch.cuda.is_available() else "cpu"`.
+
 ## Speech-to-Text (Whisper)
 
 ### Local Whisper with Python
@@ -40,10 +43,13 @@ pip install faster-whisper
 ```
 
 ```python
+import torch
 from faster_whisper import WhisperModel
 
 # Load model (uses less VRAM, faster)
-model = WhisperModel("base", device="cuda", compute_type="float16")
+# "cuda" here resolves to the ROCm GPU on the MS-S1 MAX
+device = "cuda" if torch.cuda.is_available() else "cpu"
+model = WhisperModel("base", device=device, compute_type="float16")
 
 # Transcribe
 segments, info = model.transcribe("audio.mp3")
@@ -60,13 +66,20 @@ for segment in segments:
 # docker-compose.yml
 services:
   localai:
-    image: localai/localai:latest-gpu-nvidia-cuda-12
+    image: localai/localai:latest-gpu-hipblas
     ports:
       - "8080:8080"
     volumes:
       - ./models:/build/models
+    devices:
+      - /dev/kfd
+      - /dev/dri
+    group_add:
+      - video
+      - render
     environment:
       - WHISPER_MODEL=base
+      - HSA_OVERRIDE_GFX_VERSION=11.5.1  # gfx1151 (Strix Halo)
 ```
 
 ```python
@@ -191,28 +204,7 @@ Available language codes:
 
 OpenAI-compatible TTS server using the Kokoro model:
 
-```yaml
-# docker-compose.yml
-services:
-  kokoro:
-    image: ghcr.io/remsky/kokoro-fastapi:v0.4-gpu
-    ports:
-      - "8880:8880"
-    volumes:
-      - kokoro-voices:/app/api/src/voices
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
-
-volumes:
-  kokoro-voices:
-```
-
-For CPU-only deployment:
+On the MS-S1 MAX, the recommended deployment today is the CPU image (see the AMD ROCm note below — the 82M model is fast on CPU anyway):
 
 ```yaml
 services:
@@ -298,7 +290,9 @@ from pathlib import Path
 
 class AudioTranscriber:
     def __init__(self, model_size: str = "base"):
-        self.model = WhisperModel(model_size, device="cuda", compute_type="float16")
+        import torch
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.model = WhisperModel(model_size, device=device, compute_type="float16")
 
     def transcribe(self, audio_path: str) -> dict:
         """Transcribe audio file."""
@@ -417,7 +411,9 @@ from faster_whisper import WhisperModel
 
 class RealtimeTranscriber:
     def __init__(self):
-        self.model = WhisperModel("tiny", device="cuda", compute_type="float16")
+        import torch
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.model = WhisperModel("tiny", device=device, compute_type="float16")
         self.audio = pyaudio.PyAudio()
         self.sample_rate = 16000
         self.chunk_duration = 5  # seconds

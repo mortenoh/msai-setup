@@ -176,14 +176,21 @@ answer = ask_about_image("chart.png", "What is the trend shown in this chart?")
 # docker-compose.yml
 services:
   localai:
-    image: localai/localai:latest-gpu-nvidia-cuda-12
+    image: localai/localai:latest-gpu-hipblas
     ports:
       - "8080:8080"
+    devices:
+      - /dev/kfd
+      - /dev/dri
+    group_add:
+      - video
+      - render
     volumes:
       - ./models:/build/models
     environment:
       - THREADS=4
       - DEBUG=true
+      - HSA_OVERRIDE_GFX_VERSION=11.5.1
 ```
 
 ### Speech-to-Text (Whisper)

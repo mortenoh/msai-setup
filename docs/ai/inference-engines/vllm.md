@@ -1,9 +1,9 @@
 # vLLM
 
 !!! danger "Not currently usable on the MS-S1 MAX"
-    vLLM's ROCm support targets CDNA/Instinct (`gfx9xx`) and a small set of RDNA3 dGPUs (`gfx1100`). The Strix Halo iGPU (`gfx1151`) is **not on the supported target list** as of ROCm 7.x — vLLM will either fail to build kernels for it or crash at model load. This page is kept as reference; on this hardware use [llama.cpp HIP](llama-cpp.md#linux-rocmhip--recommended-for-ms-s1-max) or [Ollama](ollama.md). Re-evaluate vLLM if and when AMD ships official `gfx1151` kernels upstream.
+    vLLM's ROCm support targets CDNA/Instinct (`gfx9xx`) and a small set of RDNA3 dGPUs (`gfx1100`). The Strix Halo iGPU (`gfx1151`) is **not on the supported target list** as of ROCm 7.x — vLLM will either fail to build kernels for it or crash at model load. This page is kept as **reference only**; on this hardware use [llama.cpp HIP](llama-cpp.md#linux-rocmhip-recommended-for-ms-s1-max) or [Ollama](ollama.md). Re-evaluate vLLM if and when AMD ships official `gfx1151` kernels upstream.
 
-High-throughput LLM serving engine with PagedAttention and continuous batching for production deployments.
+High-throughput LLM serving engine with PagedAttention and continuous batching. Listed here so readers comparing engines understand what vLLM offers and why it isn't selected for this build.
 
 ## Overview
 
@@ -15,47 +15,27 @@ vLLM provides:
 - **OpenAI-compatible API** - Drop-in replacement
 - **Multi-GPU support** - Tensor and pipeline parallelism
 
-## Requirements
+## Hardware Support (reference only)
 
-- **NVIDIA GPU** - Primary support (CUDA 11.8+)
-- **AMD GPU** - ROCm support (experimental)
-- **Linux** - Primary platform
-- **Python 3.9+**
+vLLM is GPU-first and primarily targets datacenter accelerators:
 
-!!! note "Apple Silicon"
-    vLLM does not support Apple Silicon. Use [MLX](mlx.md) or [llama.cpp](llama-cpp.md) instead.
+| Backend | Status | Notes |
+|---------|--------|-------|
+| AMD ROCm — CDNA / Instinct (`gfx9xx`) | Supported | MI200/MI300 class |
+| AMD ROCm — RDNA3 dGPU (`gfx1100`) | Supported | RX 7900 XTX and similar |
+| AMD ROCm — RDNA3.5 iGPU (`gfx1151`, Strix Halo) | **Not supported** | The MS-S1 MAX falls here |
+| Apple Silicon (Metal / MLX) | Not supported | Use [MLX](mlx.md) or [llama.cpp](llama-cpp.md) instead |
+| CPU-only | Experimental | Not a production path |
 
-## Installation
+For the MS-S1 MAX specifically, the supported alternatives that cover the same use cases are:
 
-### pip Install
+- **High concurrency / OpenAI-compatible serving** -> [llama.cpp `llama-server`](llama-cpp.md) with `--cont-batching --parallel N`
+- **Easy model management** -> [Ollama (ROCm image)](ollama.md)
+- **Multimodal / extra endpoints** -> [LocalAI (`localai/localai:latest-gpu-hipblas`)](../api-serving/localai.md)
 
-```bash
-# Basic installation
-pip install vllm
+## Quick Start (reference)
 
-# With specific CUDA version
-pip install vllm --extra-index-url https://download.pytorch.org/whl/cu121
-```
-
-### Docker
-
-```bash
-docker run --gpus all \
-  -v /mnt/tank/ai/models/huggingface:/root/.cache/huggingface \
-  -p 8000:8000 \
-  vllm/vllm-openai:latest \
-  --model meta-llama/Llama-3.3-70B-Instruct
-```
-
-### From Source
-
-```bash
-git clone https://github.com/vllm-project/vllm.git
-cd vllm
-pip install -e .
-```
-
-## Quick Start
+The commands below show what vLLM usage looks like on supported hardware. They are **not expected to work on the MS-S1 MAX**.
 
 ### Command Line
 
@@ -64,10 +44,6 @@ pip install -e .
 vllm serve meta-llama/Llama-3.3-70B-Instruct \
   --host 0.0.0.0 \
   --port 8000
-
-# With quantization
-vllm serve meta-llama/Llama-3.3-70B-Instruct \
-  --quantization awq
 ```
 
 ### Python API
@@ -75,10 +51,7 @@ vllm serve meta-llama/Llama-3.3-70B-Instruct \
 ```python
 from vllm import LLM, SamplingParams
 
-# Initialize model
 llm = LLM(model="meta-llama/Llama-3.3-70B-Instruct")
-
-# Generate
 sampling_params = SamplingParams(temperature=0.7, max_tokens=100)
 outputs = llm.generate(["What is machine learning?"], sampling_params)
 
@@ -86,19 +59,7 @@ for output in outputs:
     print(output.outputs[0].text)
 ```
 
-## Server Configuration
-
-### Basic Server
-
-```bash
-vllm serve meta-llama/Llama-3.3-70B-Instruct \
-  --host 0.0.0.0 \
-  --port 8000 \
-  --tensor-parallel-size 1 \
-  --max-model-len 8192
-```
-
-### Key Parameters
+### Key Server Parameters
 
 | Parameter | Description | Default |
 |-----------|-------------|---------|
@@ -112,314 +73,49 @@ vllm serve meta-llama/Llama-3.3-70B-Instruct \
 | `--quantization` | Quantization method | None |
 | `--dtype` | Data type | `auto` |
 
-### Multi-GPU Setup
+## Concepts Worth Knowing
 
-```bash
-# 2 GPUs with tensor parallelism
-vllm serve meta-llama/Llama-3.1-405B-Instruct \
-  --tensor-parallel-size 2 \
-  --gpu-memory-utilization 0.95
-
-# 4 GPUs with pipeline + tensor
-vllm serve meta-llama/Llama-3.1-405B-Instruct \
-  --tensor-parallel-size 2 \
-  --pipeline-parallel-size 2
-```
-
-## API Usage
-
-### Chat Completion
-
-```bash
-curl http://localhost:8000/v1/chat/completions \
-  -H "Content-Type: application/json" \
-  -d '{
-    "model": "meta-llama/Llama-3.3-70B-Instruct",
-    "messages": [
-      {"role": "system", "content": "You are a helpful assistant."},
-      {"role": "user", "content": "Explain Docker containers."}
-    ],
-    "temperature": 0.7,
-    "max_tokens": 500
-  }'
-```
-
-### Streaming
-
-```bash
-curl http://localhost:8000/v1/chat/completions \
-  -H "Content-Type: application/json" \
-  -d '{
-    "model": "meta-llama/Llama-3.3-70B-Instruct",
-    "messages": [{"role": "user", "content": "Hello!"}],
-    "stream": true
-  }'
-```
-
-### Completions
-
-```bash
-curl http://localhost:8000/v1/completions \
-  -H "Content-Type: application/json" \
-  -d '{
-    "model": "meta-llama/Llama-3.3-70B-Instruct",
-    "prompt": "The capital of France is",
-    "max_tokens": 20
-  }'
-```
-
-### Python Client
-
-```python
-from openai import OpenAI
-
-client = OpenAI(
-    base_url="http://localhost:8000/v1",
-    api_key="dummy"  # Required but not validated
-)
-
-response = client.chat.completions.create(
-    model="meta-llama/Llama-3.3-70B-Instruct",
-    messages=[
-        {"role": "user", "content": "Write a haiku about coding"}
-    ]
-)
-print(response.choices[0].message.content)
-```
-
-## Quantization
-
-### AWQ
-
-```bash
-# Use AWQ-quantized model
-vllm serve TheBloke/Llama-2-70B-Chat-AWQ \
-  --quantization awq
-```
-
-### GPTQ
-
-```bash
-vllm serve TheBloke/Llama-2-70B-Chat-GPTQ \
-  --quantization gptq
-```
-
-### Supported Quantization
-
-| Method | Memory Savings | Quality | Notes |
-|--------|---------------|---------|-------|
-| AWQ | ~75% | Good | Recommended for vLLM |
-| GPTQ | ~75% | Good | Wide model availability |
-| SqueezeLLM | ~75% | Good | Newer method |
-| FP8 | ~50% | Excellent | H100/RTX 40 series |
-
-## Performance Features
+Even though vLLM isn't deployed on this build, two of its concepts are useful context for tuning llama.cpp's `llama-server`:
 
 ### Continuous Batching
 
-Automatically batches concurrent requests:
-
-```python
-# Multiple concurrent requests handled efficiently
-import asyncio
-from openai import AsyncOpenAI
-
-client = AsyncOpenAI(base_url="http://localhost:8000/v1", api_key="x")
-
-async def generate(prompt):
-    response = await client.chat.completions.create(
-        model="meta-llama/Llama-3.3-70B-Instruct",
-        messages=[{"role": "user", "content": prompt}]
-    )
-    return response.choices[0].message.content
-
-# Run 10 requests concurrently
-prompts = [f"Question {i}" for i in range(10)]
-results = asyncio.run(asyncio.gather(*[generate(p) for p in prompts]))
-```
+vLLM popularized continuous batching — admit and retire requests at every decode step rather than waiting for a full batch to finish. `llama-server --cont-batching --parallel N` is llama.cpp's implementation of the same idea. See [API Serving](../api-serving/index.md).
 
 ### PagedAttention
 
-Memory-efficient KV cache management:
+Paged KV-cache allocation — store the per-request KV cache in fixed-size pages rather than one contiguous block. This is what makes vLLM's memory utilization so high. llama.cpp does not have a direct equivalent today; budget KV cache conservatively (see [Memory Management](../performance/memory-management.md)).
 
 ```
 Traditional: Contiguous memory allocation
-┌─────────────────────────────────────┐
-│ Request 1 KV Cache (wasted space)   │
-├─────────────────────────────────────┤
-│ Request 2 KV Cache                  │
-└─────────────────────────────────────┘
++-------------------------------------+
+| Request 1 KV Cache (wasted space)   |
++-------------------------------------+
+| Request 2 KV Cache                  |
++-------------------------------------+
 
 PagedAttention: Paged memory blocks
-┌────┬────┬────┬────┬────┬────┬────┬────┐
-│ R1 │ R2 │ R1 │ R3 │ R2 │ R1 │ R3 │ R2 │
-└────┴────┴────┴────┴────┴────┴────┴────┘
++----+----+----+----+----+----+----+----+
+| R1 | R2 | R1 | R3 | R2 | R1 | R3 | R2 |
++----+----+----+----+----+----+----+----+
 ```
 
-Benefits:
-- Near-zero memory waste
-- More concurrent requests
-- Better GPU utilization
+## Comparison with Alternatives Used on the MS-S1 MAX
 
-### Speculative Decoding
-
-Use draft model for faster inference:
-
-```bash
-vllm serve meta-llama/Llama-3.3-70B-Instruct \
-  --speculative-model meta-llama/Llama-3.2-1B-Instruct \
-  --num-speculative-tokens 5
-```
-
-## Docker Deployment
-
-### docker-compose
-
-```yaml
-version: '3.8'
-
-services:
-  vllm:
-    image: vllm/vllm-openai:latest
-    ports:
-      - "8000:8000"
-    volumes:
-      - /mnt/tank/ai/models/huggingface:/root/.cache/huggingface
-    environment:
-      - HUGGING_FACE_HUB_TOKEN=${HF_TOKEN}
-    command: >
-      --model meta-llama/Llama-3.3-70B-Instruct
-      --tensor-parallel-size 1
-      --max-model-len 8192
-      --gpu-memory-utilization 0.9
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
-```
-
-### Health Checks
-
-```yaml
-healthcheck:
-  test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-  interval: 30s
-  timeout: 10s
-  retries: 3
-```
-
-## Monitoring
-
-### Prometheus Metrics
-
-```bash
-# Enable metrics
-vllm serve model --enable-metrics
-
-# Metrics available at
-curl http://localhost:8000/metrics
-```
-
-Key metrics:
-- `vllm:num_requests_running` - Active requests
-- `vllm:num_requests_waiting` - Queued requests
-- `vllm:gpu_cache_usage_perc` - KV cache utilization
-- `vllm:avg_prompt_throughput_toks_per_s` - Input throughput
-- `vllm:avg_generation_throughput_toks_per_s` - Output throughput
-
-### Logging
-
-```bash
-# Verbose logging
-vllm serve model --log-level debug
-```
-
-## Performance Tuning
-
-### Memory Optimization
-
-```bash
-# Increase GPU memory usage
-vllm serve model --gpu-memory-utilization 0.95
-
-# Reduce max context for more concurrent requests
-vllm serve model --max-model-len 4096
-```
-
-### Throughput Optimization
-
-```bash
-# Enable chunked prefill for better batching
-vllm serve model --enable-chunked-prefill
-
-# Tune block size
-vllm serve model --block-size 32
-```
-
-### Benchmarking
-
-```python
-# Use vLLM benchmarking tools
-python -m vllm.entrypoints.openai.api_server_benchmark \
-  --model meta-llama/Llama-3.3-70B-Instruct \
-  --num-prompts 100 \
-  --request-rate 10
-```
-
-## Troubleshooting
-
-### CUDA Out of Memory
-
-```bash
-# Reduce memory usage
---gpu-memory-utilization 0.8
---max-model-len 4096
-
-# Use quantization
---quantization awq
-```
-
-### Model Not Loading
-
-```bash
-# Check HuggingFace token for gated models
-export HUGGING_FACE_HUB_TOKEN=your_token
-
-# Or use local path
-vllm serve /mnt/tank/ai/models/huggingface/models--meta-llama--Llama-3.3-70B-Instruct/snapshots/...
-```
-
-### Slow Startup
-
-First startup is slow due to model loading. Subsequent starts use cache:
-
-```bash
-# Pre-download model
-huggingface-cli download meta-llama/Llama-3.3-70B-Instruct
-```
-
-## Comparison with Alternatives
-
-| Feature | vLLM | llama.cpp | Ollama |
-|---------|------|-----------|--------|
-| Throughput | Highest | Medium | Medium |
-| Batching | Continuous | Basic | Basic |
-| GPU Support | NVIDIA/AMD | All | All |
+| Feature | vLLM (not used) | llama.cpp (HIP) | Ollama (ROCm) |
+|---------|-----------------|-----------------|----------------|
+| Runs on `gfx1151` today | No | Yes | Yes |
+| Throughput on supported HW | Highest | Good | Good |
+| Batching | Continuous + paged | Continuous | Continuous |
+| GPU backends | ROCm (CDNA/gfx1100), CUDA | ROCm/HIP, Metal, Vulkan, CUDA | ROCm, Metal, CUDA |
 | Setup | Medium | Easy | Easiest |
-| Memory Efficiency | Excellent | Good | Good |
-| Apple Silicon | No | Yes | Yes |
+| Apple Silicon | No | Yes (Metal) | Yes (Metal) |
 
-Use vLLM when:
-- Running on NVIDIA GPUs
-- Need high throughput
-- Serving multiple concurrent users
+When `gfx1151` lands in vLLM upstream, the candidate path will be the official ROCm image with `devices: /dev/kfd, /dev/dri`, `group_add: [video, render]`, and the usual `HSA_OVERRIDE_GFX_VERSION=11.5.1` override if needed. Until then, do not deploy.
 
 ## See Also
 
 - [Inference Engines Index](index.md) - Engine comparison
+- [llama.cpp](llama-cpp.md) - Recommended engine for the MS-S1 MAX
+- [Ollama](ollama.md) - Easiest path to serving on `gfx1151`
 - [Load Balancing](../api-serving/load-balancing.md) - Multi-backend setup
-- [API Serving](../api-serving/index.md) - Production deployment
 - [Benchmarking](../performance/benchmarking.md) - Performance testing

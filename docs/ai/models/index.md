@@ -49,7 +49,7 @@ Understanding model selection, formats, and acquisition for local LLM inference.
 |--------|----------|------|------|
 | GGUF | llama.cpp, Ollama | Quantized, small | Limited to llama.cpp ecosystem |
 | Safetensors | vLLM, transformers | Safe, fast loading | Larger files |
-| AWQ | vLLM | Fast inference | NVIDIA only |
+| AWQ | vLLM | Fast inference | CUDA-only — does not run on the MS-S1 MAX |
 | GPTQ | vLLM, transformers | Wide support | Slightly slower |
 
 ## Model Categories

@@ -56,32 +56,12 @@ services:
       - proxy
 ```
 
-### NVIDIA GPU Transcoding
+### AMD VAAPI Transcoding (MS-S1 MAX)
 
-```yaml
-services:
-  jellyfin:
-    image: jellyfin/jellyfin:latest
-    container_name: jellyfin
-    restart: unless-stopped
-    environment:
-      - TZ=Europe/Oslo
-      - NVIDIA_VISIBLE_DEVICES=all
-    runtime: nvidia
-    volumes:
-      - ./config:/config
-      - ./cache:/cache
-      - /data/media:/media:ro
-    ports:
-      - "8096:8096"
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu, video]
-```
+The Strix Halo iGPU exposes hardware video encode/decode through VAAPI.
+The Compose snippet above (`/dev/dri` passthrough + `video`/`render`
+groups) is the right setup — turn on VAAPI in the Jellyfin dashboard
+(see [Transcoding Configuration](#transcoding-configuration)).
 
 ## Initial Setup
 
@@ -124,19 +104,17 @@ services:
 
 1. Go to **Dashboard** > **Playback** > **Transcoding**
 2. Select hardware acceleration:
-   - **Intel QSV** for Intel CPUs
-   - **NVENC** for NVIDIA GPUs
-   - **VAAPI** for AMD/Intel
+   - **VAAPI** for the MS-S1 MAX (AMD Strix Halo iGPU)
 3. Enable hardware decoding for supported codecs
 
-### Codec Support
+### Codec Support (VAAPI on Strix Halo)
 
-| Codec | Intel QSV | NVENC | VAAPI |
-|-------|-----------|-------|-------|
-| H.264 | Yes | Yes | Yes |
-| HEVC | Gen 6+ | GTX 10+ | Yes |
-| AV1 | Gen 12+ | RTX 40+ | Limited |
-| VP9 | Gen 9+ | GTX 10+ | Yes |
+| Codec | Decode | Encode |
+|-------|--------|--------|
+| H.264 | Yes | Yes |
+| HEVC  | Yes | Yes |
+| AV1   | Yes | Yes |
+| VP9   | Yes | No  |
 
 ## User Management
 
@@ -305,14 +283,11 @@ docker logs jellyfin
 ### Verify Hardware Access
 
 ```bash
-# Check if GPU is accessible
+# Check if the GPU device is accessible
 docker exec jellyfin ls -la /dev/dri
 
-# Check Intel QSV
+# Check VAAPI (the path used on the MS-S1 MAX)
 docker exec jellyfin vainfo
-
-# Check NVIDIA
-docker exec jellyfin nvidia-smi
 ```
 
 ## See Also

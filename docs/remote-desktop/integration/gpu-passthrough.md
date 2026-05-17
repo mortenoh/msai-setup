@@ -121,7 +121,7 @@ Recommended for quality:
 | Setting | Value |
 |---------|-------|
 | Bitrate | 50+ Mbps (LAN) |
-| Encoder | NVENC (NVIDIA) or AMF (AMD) |
+| Encoder | AMF (AMD — MS-S1 MAX) |
 | Resolution | Match display |
 | FPS | 60+ |
 
@@ -198,7 +198,7 @@ Open-source virtual display driver for Windows:
 
 - Non-gaming workloads
 - RDP access to GPU VM
-- CUDA/compute workloads where display doesn't matter
+- ROCm/compute workloads where display doesn't matter
 
 ## Configuration Examples
 
@@ -225,7 +225,7 @@ Components:
 
 Connection:
 macOS ──Tailscale──> RDP ──> VM
-(GPU available for CUDA/rendering, RDP for display)
+(GPU available for ROCm/rendering, RDP for display)
 ```
 
 ### Hybrid Setup

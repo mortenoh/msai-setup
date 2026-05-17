@@ -36,7 +36,7 @@ VM-based LLM deployment enables:
 │  │  │  │           :1234 -> API endpoint                │  │ │   │
 │  │  │  └───────────────────────────────────────────────┘  │ │   │
 │  │  │  ┌───────────────────────────────────────────────┐  │ │   │
-│  │  │  │         AMD/NVIDIA GPU (Passthrough)          │  │ │   │
+│  │  │  │              AMD GPU (Passthrough)             │  │ │   │
 │  │  │  └───────────────────────────────────────────────┘  │ │   │
 │  │  └─────────────────────────────────────────────────────┘ │   │
 │  └──────────────────────────────────────────────────────────┘   │
@@ -137,7 +137,7 @@ For 128GB system running LLM in VM:
 |--------|-----|-----------|
 | Overhead | Higher | Lower |
 | Isolation | Full | Process-level |
-| GPU access | Passthrough | NVIDIA/ROCm toolkit |
+| GPU access | Passthrough | ROCm devices (/dev/kfd, /dev/dri) |
 | Windows support | Yes | WSL only |
 | Setup complexity | Higher | Lower |
 | Startup time | Minutes | Seconds |
