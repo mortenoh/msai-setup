@@ -13,83 +13,110 @@ This page covers backup strategies, recovery testing, and disaster recovery proc
 
 ## ZFS Snapshots
 
-### Automated Snapshots
+This project uses **sanoid** (automatic local snapshot retention) plus **syncoid** (incremental replication to a remote ZFS host) — both from the `sanoid` package. `zfs-auto-snapshot` is upstream-abandoned and is not used here.
 
-Install zfs-auto-snapshot:
-
-```bash
-sudo apt install -y zfs-auto-snapshot
-```
-
-Default retention:
-
-- Frequent: 4 (every 15 min)
-- Hourly: 24
-- Daily: 31
-- Weekly: 8
-- Monthly: 12
-
-### Disable for Disposable Data
-
-```bash
-sudo zfs set com.sun:auto-snapshot=false tank/containers
-```
-
-### Manual Snapshots
-
-Before major changes:
-
-```bash
-sudo zfs snapshot -r tank@pre-upgrade-$(date +%Y%m%d)
-```
-
-## Remote Backups
-
-### Send to Remote Server
-
-Initial full send:
-
-```bash
-zfs send tank/nextcloud-data@latest | \
-    ssh backup-server zfs receive backup/nextcloud-data
-```
-
-Incremental sends:
-
-```bash
-zfs send -i @previous @latest tank/nextcloud-data | \
-    ssh backup-server zfs receive backup/nextcloud-data
-```
-
-### Automated with Sanoid/Syncoid
-
-Install sanoid:
+### Install sanoid
 
 ```bash
 sudo apt install -y sanoid
 ```
 
-Configure `/etc/sanoid/sanoid.conf`:
+Sanoid configuration lives at `/etc/sanoid/sanoid.conf`. Template-based retention is the clean pattern:
 
 ```ini
-[tank/nextcloud-data]
-    use_template = production
+# /etc/sanoid/sanoid.conf
 
-[template_production]
+[template_data]
     frequently = 0
     hourly = 24
     daily = 30
+    weekly = 8
     monthly = 6
     yearly = 0
     autosnap = yes
     autoprune = yes
+
+[template_db]
+    frequently = 6
+    hourly = 48
+    daily = 30
+    weekly = 4
+    monthly = 3
+    autosnap = yes
+    autoprune = yes
+
+[template_disposable]
+    autosnap = no
+    autoprune = yes
+    daily = 7
+
+# Apply templates to datasets
+[tank/nextcloud-data]
+    use_template = data
+
+[tank/db]
+    use_template = db
+    recursive = yes
+
+[tank/containers]
+    use_template = disposable
+    recursive = yes
 ```
 
-Run syncoid for replication:
+Sanoid's systemd timers run automatically:
 
 ```bash
-syncoid tank/nextcloud-data backup-server:backup/nextcloud-data
+systemctl status sanoid.timer
+systemctl list-timers sanoid
 ```
+
+### Manual snapshots
+
+Before major changes:
+
+```bash
+sudo zfs snapshot -r tank@pre-upgrade-$(date +%F)
+```
+
+## Remote Backups
+
+### Replicate with syncoid
+
+`syncoid` wraps `zfs send|receive` with sensible defaults (resumable transfers, incremental detection, automatic bookmarks). Set up SSH keys to the backup host first, then:
+
+```bash
+# Initial transfer (recursive)
+syncoid -r tank/nextcloud-data backup-host:backup/nextcloud-data
+
+# Subsequent incremental runs
+syncoid -r tank/nextcloud-data backup-host:backup/nextcloud-data
+```
+
+Schedule via systemd timer or cron. Example daily cron:
+
+```bash
+# /etc/cron.daily/syncoid-replicate
+#!/bin/sh
+/usr/sbin/syncoid -r tank/nextcloud-data backup-host:backup/nextcloud-data
+/usr/sbin/syncoid -r tank/db              backup-host:backup/db
+```
+
+### Off-site target
+
+On-site replication protects against disk failure on the primary host. **It does not protect against site loss (theft, fire, full-pool corruption).** Add an off-site target:
+
+- **restic to B2 / S3 / Wasabi** — encrypted, deduplicated, cross-platform restore. Good for the file-level layer (Nextcloud data, photos).
+- **rclone crypt to B2 / S3** — encrypted object-storage sync, no client-side dedup but simple.
+- **syncoid over Tailscale** to a remote ZFS host (a friend's box, a VPS with attached storage) — keeps the ZFS abstraction end-to-end.
+
+For this build, the recommended split is:
+
+| Layer | Tool | Target |
+|---|---|---|
+| Local snapshots | sanoid | `tank` itself |
+| On-site replica | syncoid | Always-on ZFS host on LAN |
+| Off-site (block) | syncoid over Tailscale | Remote ZFS host (e.g. friend's homelab) |
+| Off-site (file) | restic | B2/S3 (encrypted, for Nextcloud + photos) |
 
 ## Database Backups
 

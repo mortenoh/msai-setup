@@ -16,6 +16,43 @@ Create a ZFS pool from:
 sudo apt install -y zfsutils-linux
 ```
 
+Ubuntu 26.04 ships OpenZFS in the main archive. The DKMS module builds against the running kernel on first install; if you're on the Ubuntu-provided HWE kernel (the default on this hardware), you get a prebuilt kmod and DKMS only triggers on kernel upgrades.
+
+!!! note "ZFS and Secure Boot"
+    With Secure Boot enabled, the ZFS DKMS module must be MOK-signed before it loads, or `modprobe zfs` fails silently and the pool won't import. This build keeps Secure Boot **disabled** (see [BIOS Setup](../getting-started/bios-setup.md)) to avoid that complication. If you specifically need Secure Boot, enrol a MOK before installing ZFS.
+
+## Cap the ARC Size
+
+ZFS defaults its Adaptive Replacement Cache (ARC) to ~50% of system RAM. On a 128 GB box that's 64 GB silently consumed by cache — which collides with the memory budget for VMs and Ollama/llama.cpp.
+
+Set a hard cap **before** importing the pool or doing anything memory-heavy:
+
+```bash
+# Cap ARC at 16 GiB
+echo 'options zfs zfs_arc_max=17179869184' | sudo tee /etc/modprobe.d/zfs.conf
+
+# Apply on next reboot (initramfs needs updating because zfs is in there)
+sudo update-initramfs -u
+```
+
+Sane caps for this hardware:
+
+| Workload mix | ARC cap |
+|---|---|
+| Heavy LLM (Ollama/llama.cpp hot) | 8 GiB (`8589934592`) |
+| Mixed: VMs + AI + services (recommended default) | 16 GiB (`17179869184`) |
+| Mostly cold storage, ZFS-heavy reads | 32 GiB (`34359738368`) |
+
+You can also set/check `zfs_arc_max` at runtime without rebooting, useful for tuning:
+
+```bash
+# Inspect
+cat /sys/module/zfs/parameters/zfs_arc_max
+
+# Change live (still picks up modprobe.d on next boot)
+echo 17179869184 | sudo tee /sys/module/zfs/parameters/zfs_arc_max
+```
+
 ## Identify Disks
 
 List block devices to see partitions:
