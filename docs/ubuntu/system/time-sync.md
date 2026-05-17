@@ -339,11 +339,12 @@ sudo ufw status | grep 123
 # Allow NTP through firewall
 sudo ufw allow out 123/udp
 
-# Test NTP server reachability
-ntpdate -q pool.ntp.org
+# Test NTP server reachability with chrony (preferred — ntpdate is deprecated/removed on modern Ubuntu)
+chronyc sources -v
+chronyc tracking
 
-# Check chrony sources
-chronyc sources
+# If you specifically need a one-shot probe and chrony isn't installed:
+sntp -t 5 pool.ntp.org
 ```
 
 ### Large Time Offset

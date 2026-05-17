@@ -96,9 +96,13 @@ MOK allows you to sign and load modules not signed by Canonical.
 
 ### When MOK is Needed
 
-- Installing NVIDIA drivers from official packages
-- Using DKMS modules (VirtualBox, ZFS on root, etc.)
+- Using **amdgpu-dkms** (the ROCm install path on Strix Halo)
+- Using **zfs-dkms** (the ZFS data pool in this build)
 - Loading custom kernel modules
+- Other third-party DKMS modules (VirtualBox additions, vendor drivers, etc.)
+
+!!! note "This build keeps Secure Boot disabled"
+    The default for this MS-S1 MAX build is **Secure Boot off** (see [BIOS Setup](../../getting-started/bios-setup.md)). All MOK procedures below apply only if you specifically want Secure Boot enabled. Don't enroll a MOK casually — the operational complexity (every kernel/DKMS upgrade re-prompts) usually doesn't pay back the marginal threat-model improvement on a private headless server.
 
 ### MOK Enrollment Process
 
@@ -108,8 +112,8 @@ Ubuntu automatically prompts for MOK enrollment when installing unsigned modules
 
 ```bash
 # Example: Installing a DKMS module triggers enrollment
-sudo apt install nvidia-driver-535
-# System prompts for MOK password
+sudo apt install amdgpu-dkms
+# System prompts for MOK password (one-time, on first DKMS module install)
 ```
 
 **Manual enrollment:**
@@ -159,29 +163,44 @@ mokutil --test-key /root/MOK.der
 
 ## Secure Boot and Third-Party Software
 
-### NVIDIA Drivers
+### amdgpu-dkms / ROCm (relevant to this build)
 
-Ubuntu's packaged NVIDIA drivers handle Secure Boot automatically:
+The ROCm install path includes `amdgpu-dkms`. Under Secure Boot it must be MOK-signed:
 
 ```bash
-# Install NVIDIA driver (MOK enrollment prompted if needed)
-sudo apt install nvidia-driver-535
+sudo apt install amdgpu-dkms
+# Ubuntu prompts for a MOK password; reboot, complete enrollment in MOK Manager.
+# Subsequent kernel upgrades re-build and re-sign automatically.
 ```
 
-During installation:
-1. System generates a MOK
-2. You're prompted for a password
-3. On reboot, enroll the MOK
-4. Driver loads successfully
-
-### ZFS
-
-If using ZFS as root filesystem with Secure Boot:
+If `modprobe amdgpu` fails after a kernel update with "key was rejected by service", the rebuilt module didn't get signed — re-run DKMS:
 
 ```bash
-# ZFS DKMS modules need signing
+sudo dkms autoinstall
+sudo modprobe amdgpu
+```
+
+### ZFS (relevant to this build for the data pool)
+
+```bash
 sudo apt install zfs-dkms
-# Follow MOK enrollment prompts
+# Same MOK flow as amdgpu-dkms above.
+```
+
+Without MOK signing, `modprobe zfs` fails silently and the pool won't import at boot. Confirm:
+
+```bash
+sudo dkms status
+sudo modprobe zfs && echo OK || journalctl --since "5 minutes ago" | grep -i zfs
+```
+
+### NVIDIA Drivers (reference; not used on this build)
+
+The MS-S1 MAX has no NVIDIA hardware. Kept here for users who repurpose this guide on different hardware:
+
+```bash
+sudo apt install nvidia-driver-XXX
+# Same MOK flow.
 ```
 
 ### VirtualBox

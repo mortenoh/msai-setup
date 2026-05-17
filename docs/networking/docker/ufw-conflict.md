@@ -276,14 +276,14 @@ nmap -p 3306,5432,27017 your-server-ip
 
 This problem affects you if:
 
-1. ✅ Using Docker with `-p` or `ports:` in compose
-2. ✅ Using UFW for firewall management
-3. ✅ Server is network-accessible (not just localhost)
-4. ✅ Any service besides the web-facing ones
+- Using Docker with `-p` or `ports:` in compose
+- Using UFW for firewall management
+- Server is network-accessible (not just localhost)
+- You publish any service besides the web-facing ones
 
 This problem does NOT affect you if:
 
-1. ❌ Only running containers without published ports
-2. ❌ Using host network mode (UFW works normally)
-3. ❌ Using macvlan/ipvlan (different issue)
-4. ❌ Server is behind another firewall that blocks everything
+- Only running containers without published ports
+- Using host network mode (UFW works normally)
+- Using macvlan/ipvlan (different issue)
+- Server is behind another firewall that blocks everything

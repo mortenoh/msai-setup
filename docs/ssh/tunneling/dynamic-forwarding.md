@@ -141,11 +141,11 @@ proxychains wget https://example.com
 
 | Feature | SOCKS4 | SOCKS5 |
 |---------|--------|--------|
-| TCP | ✅ | ✅ |
-| UDP | ❌ | ✅ |
-| IPv6 | ❌ | ✅ |
-| Authentication | ❌ | ✅ |
-| DNS via proxy | ❌ | ✅ |
+| TCP | Yes | Yes |
+| UDP | No | Yes |
+| IPv6 | No | Yes |
+| Authentication | No | Yes |
+| DNS via proxy | No | Yes |
 
 SSH creates a SOCKS5 proxy.
 
@@ -343,7 +343,7 @@ ssh -D 1080 -o ServerAliveInterval=60 user@server.example.com
 
 | Tool | Encryption | All Apps | Easy Setup | Speed |
 |------|------------|----------|------------|-------|
-| SSH SOCKS | ✅ | Manual | ✅ | Good |
-| VPN | ✅ | ✅ | Medium | Good |
-| Tor | ✅ | Manual | ✅ | Slow |
-| Commercial proxy | Varies | Manual | ✅ | Varies |
+| SSH SOCKS | Yes | Manual | Yes | Good |
+| VPN | Yes | Yes | Medium | Good |
+| Tor | Yes | Manual | Yes | Slow |
+| Commercial proxy | Varies | Manual | Yes | Varies |

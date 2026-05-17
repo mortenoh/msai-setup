@@ -1,310 +1,97 @@
+# MS-S1 MAX Build — Start Here
 
-Perfect — below is a clean, structured README.md that turns this entire conversation into a project-grade document you can drop straight into a repo.
+This file is the architectural intent for the project. Implementation details live in `docs/`. If you're new, read this then `docs/getting-started/`.
 
-This is written to be:
-	•	Understandable to future you
-	•	Justifiable to other engineers
-	•	Stable across rebuilds
-	•	Free of chatty back-and-forth
+Hardware: [Minisforum MS-S1 MAX](https://www.minisforum.com/products/ms-s1-max) — AMD Ryzen AI Max+ 395 (Strix Halo), Radeon 8060S iGPU (RDNA 3.5, `gfx1151`), 128 GB LPDDR5X-8000 quad-channel, 2 × M.2 NVMe (PCIe 4.0 x4 + x1), 2 × 10GbE.
 
-You can copy-paste this verbatim into README.md.
+Target OS: **Ubuntu Server 26.04 LTS** ("Resolute Raccoon"), headless.
 
-⸻
+## High-level intent
 
-MS-S1 MAX — Host, Storage, Virtualization & Services
+- **Host OS is boring.** Ubuntu Server LTS, no desktop environment, SSH-only management. Plain ext4 root, no LUKS, no LVM. Boot is uninteresting infrastructure; it can be reinstalled at any time.
+- **Data lives outside containers.** ZFS is the source of truth: VM disks, container data, media, model files, backups. The host can be wiped without touching pool data.
+- **Containers are disposable.** Docker + Compose for services. Bind mounts from container volumes into ZFS datasets, never named volumes for important data.
+- **Virtual machines are first-class.** KVM/QEMU on the host. Windows 11 VM (TPM 2.0, Secure Boot OVMF, virtio-gpu — no GPU passthrough by default; the iGPU stays with the host for ROCm).
+- **AI is the primary purpose.** ROCm 7.x on the host iGPU. Ollama + llama.cpp (HIP build) for local LLM inference, with `amd-ttm` allocating ~108 GB of the 128 GB pool as GPU-accessible (GTT) memory.
+- **Everything is recoverable.** Snapshots (sanoid) for accidents and bad upgrades. Off-host replication (syncoid over Tailscale and restic to B2/S3) for disk failure and site loss. Rebuild without touching data is a known procedure, not a hope.
 
-This repository documents the design, rationale, and operational plan for the MS-S1 MAX mini-PC project.
+## Hardware assumptions (one-line each)
 
-The goal is to build a clean, minimal Ubuntu Server host that:
-	•	Uses ZFS for all important data
-	•	Runs full desktop operating systems (Windows 11, Linux) via KVM/QEMU with GPU passthrough
-	•	Runs services (Nextcloud, Plex, etc.) via Docker
-	•	Remains rebuildable, understandable, and low-maintenance over time
+- One CPU: 16-core / 32-thread Zen 5 in 2 × CCX layout.
+- One GPU: integrated Radeon 8060S, 40 CUs, gfx1151. **Owned by the host** for ROCm.
+- One RAM pool: 128 GB LPDDR5X-8000, soldered, quad-channel (~256 GB/s peak).
+- Two NVMe slots, **unequal speeds**: slot 1 is PCIe 4.0 x4 (~8 GB/s), slot 2 is PCIe 4.0 x1 (~2 GB/s).
+- Two 10GbE ports (Realtek RTL8127). 320W external PSU. Single HDMI 2.1 output (rarely used; SSH is the management plane).
 
-This document captures decisions and reasoning, not just commands.
+## Disk and filesystem layout
 
-⸻
+### Primary 2 TB NVMe (slot 1, PCIe 4.0 x4) — boot + hot data
 
-High-level goals
-	•	Host OS is boring
-	•	Ubuntu Server LTS
-	•	No desktop environment
-	•	SSH-only management
-	•	Data lives outside containers
-	•	ZFS is the source of truth
-	•	Containers are disposable
-	•	Virtual machines are first-class
-	•	KVM/QEMU on the host
-	•	GPU passthrough for Windows/Linux VMs
-	•	Services are containerized
-	•	Docker + Compose
-	•	Bind mounts into ZFS datasets
-	•	Everything is recoverable
-	•	Reinstall host without touching data
-	•	Snapshot and backup at filesystem level
+| Partition | Size | Filesystem | Mount |
+|---|---|---|---|
+| EFI | 512 MB | FAT32 | `/boot/efi` |
+| Boot | 1 GB | ext4 | `/boot` |
+| Root | 1 TB | ext4 | `/` |
+| Pool member | ~1 TB | — | (ZFS) |
 
-⸻
+### Secondary 4 TB NVMe (slot 2, PCIe 4.0 x1) — bulk cold data
 
-Hardware assumptions
-	•	Minisforum MS-S1 MAX
-	•	Internal NVMe: 2 TB
-	•	Secondary NVMe: 4 TB
-	•	Integrated AMD GPU (used for passthrough)
-	•	Single HDMI output (Samsung TV as display)
+Entire disk → ZFS pool member.
 
-⸻
+### ZFS pool `tank`
 
-Disk & filesystem layout
+```
+tank (single pool, no redundancy, snapshots + replication for protection)
++-- (1 TB partition on primary NVMe, PCIe 4.0 x4)
++-- (4 TB secondary NVMe, PCIe 4.0 x1)
+```
 
-Internal NVMe (2 TB)
+ARC capped at 16 GiB so VMs and Ollama have predictable memory.
 
-Partition	Size	FS	Mount
-EFI	512 MB	FAT32	/boot/efi
-Boot	1 GB	ext4	/boot
-Root	1 TB	ext4	/
-Free	~1 TB	—	(used later for ZFS)
+### Dataset layout (per workload)
 
-Why ext4 for root
-	•	Extremely stable
-	•	Excellent recovery tooling
-	•	Zero operational surprises
-	•	Root filesystem is infrastructure, not a feature
+| Dataset | Properties | Holds |
+|---|---|---|
+| `tank/ai` | `recordsize=1M`, `compression=off`, `primarycache=metadata` | GGUF / safetensors model files |
+| `tank/media` | `recordsize=1M`, `compression=lz4`, `primarycache=metadata` | Plex / Jellyfin libraries |
+| `tank/nextcloud-data` | defaults | Nextcloud user data |
+| `tank/nextcloud-app` | defaults | Nextcloud config / apps |
+| `tank/db` | `recordsize=16K` | Per-service databases |
+| `tank/vm` | `recordsize=64K` | qcow2 VM disk images |
+| `tank/containers/<svc>` | defaults | Per-service container state |
+| `tank/backups` | `compression=zstd-3` | Cold archive target |
 
-/boot lives on the same disk as / — not on ZFS, not on a separate drive.
+Detailed properties live in `docs/zfs/datasets.md`.
 
-⸻
+## Networking
 
-ZFS pool (post-install)
+- Netplan with the `systemd-networkd` renderer. No NetworkManager.
+- UFW for firewall (nftables backend on 26.04). Reverse proxy + bind-to-127.0.0.1 for service exposure; `ufw-docker` to make UFW actually filter Docker-published ports.
+- Tailscale as the remote-management plane. The host is reachable on the LAN and via Tailscale; **not** directly on the public internet.
 
-ZFS is created after Ubuntu installation.
+## Backup philosophy
 
-Sources:
-	•	Remaining ~1 TB on internal NVMe
-	•	Entire 4 TB secondary NVMe
+- **Local snapshots** (sanoid): hourly/daily/weekly/monthly retention per dataset.
+- **On-site replication** (syncoid): periodic `zfs send` to a second box on the LAN.
+- **Off-site (block)**: syncoid over Tailscale to a remote ZFS host.
+- **Off-site (file)**: restic to B2 or S3, encrypted, for Nextcloud user data and photos.
 
-Topology:
-	•	Single pool
-	•	No redundancy (snapshots + backups instead)
+Rebuild path: install Ubuntu → re-import pool → re-deploy compose stacks → re-define VMs (XML was captured before tear-down). Detailed in `docs/operations/rebuild-checklist.md`.
 
-Example datasets:
+## Things this build intentionally avoids
 
-tank/
-├── media/              # Plex / Jellyfin (large, read-heavy)
-├── nextcloud-data/     # User files
-├── nextcloud-app/      # App config, apps, themes
-├── db/                 # Databases (MariaDB/Postgres)
-├── containers/         # Misc container state
-├── vm/                 # VM disks
-└── backups/
+- ZFS on root (boring ext4 root is more predictable).
+- LUKS+LVM (private network, headless box; LUKS adds remote-unlock friction).
+- Secure Boot (DKMS amdgpu/ROCm/ZFS make MOK enrollment its own chore; threat model doesn't justify the friction).
+- iGPU passthrough to a Windows VM (mutually exclusive with host ROCm, and this build's primary purpose is local LLM inference).
+- Docker named volumes for important data (bind mounts into ZFS instead).
+- ZFS deduplication (not worth the RAM on a homelab).
+- Manual iptables rules (UFW + nftables backend).
 
-ZFS features used:
-	•	compression=lz4 (everywhere)
-	•	Per-dataset snapshot policies
-	•	Per-dataset tuning (recordsize, quotas)
+## Where to start reading
 
-⸻
-
-Networking
-
-Netplan
-	•	Netplan is used for all network configuration
-	•	Renderer: systemd-networkd
-	•	Ethernet + DHCP
-	•	No Wi-Fi on the host unless strictly necessary
-
-Example:
-
-network:
-  version: 2
-  renderer: networkd
-  ethernets:
-    enp5s0:
-      dhcp4: true
-
-Netplan responsibilities:
-	•	Interfaces
-	•	IP addressing
-	•	Routes
-	•	DNS (via systemd-resolved)
-
-Netplan does not handle security or filtering.
-
-⸻
-
-Firewall & security
-
-UFW (not raw iptables)
-	•	UFW is used as the firewall frontend
-	•	Backend is nftables
-	•	No manual iptables rules
-
-Baseline policy:
-
-ufw default deny incoming
-ufw default allow outgoing
-ufw allow OpenSSH
-ufw enable
-
-Rationale:
-	•	UFW expresses policy, not packet mechanics
-	•	nftables is the modern kernel firewall
-	•	Mixing UFW with manual iptables is avoided
-
-Netplan and UFW are not directly connected:
-	•	Netplan brings interfaces up
-	•	UFW filters traffic on those interfaces
-
-⸻
-
-Host management model
-	•	Host is headless
-	•	SSH is the primary management interface
-	•	No desktop, browser, or dev tooling on the host
-	•	HDMI output is considered optional/emergency
-
-Once GPU passthrough is enabled, the GPU may no longer be available to the host.
-
-⸻
-
-Virtualization (KVM/QEMU)
-
-Stack
-	•	KVM
-	•	QEMU
-	•	libvirt
-	•	virt-manager (used remotely over SSH)
-
-VM types
-	•	Windows 11 (GPU passthrough, gaming capable)
-	•	Linux desktop VMs (optional)
-	•	Other OSes as needed
-
-Key principles
-	•	VMs run directly on the host
-	•	No containers around KVM/libvirt
-	•	UEFI (OVMF), Q35 chipset
-	•	CPU mode: host-passthrough
-
-⸻
-
-GPU passthrough & display model
-	•	The GPU is passed through to the Windows VM
-	•	The HDMI port is owned by the VM, not the host
-	•	Monitor is plugged directly into the GPU
-	•	Host is managed over SSH
-
-Important implications:
-	•	VNC/RDP/SPICE are not used for gaming
-	•	Fullscreen games render natively via HDMI
-	•	RDP/VNC are admin tools only
-
-Streaming (Parsec/Moonlight) is optional but secondary.
-
-⸻
-
-Containers & data handling
-
-Golden rule
-
-Containers are disposable.
-Data is not.
-
-Bind mounts vs Docker volumes
-
-Bind mounts (default choice)
-	•	Transparent paths
-	•	Backed by ZFS datasets
-	•	Easy snapshots and backups
-	•	Human-inspectable
-
-Docker volumes
-	•	Avoided by default
-	•	Used only for small, disposable state
-
-⸻
-
-Plex example
-	•	Media stored in tank/media
-	•	Bind-mounted read-only into the container
-
-volumes:
-  - /mnt/tank/media:/media:ro
-
-
-⸻
-
-Nextcloud example
-
-Nextcloud data is split into two categories:
-	1.	User data (important)
-	•	Stored in tank/nextcloud-data
-	•	Bind-mounted into container
-	•	Fully snapshotted
-	2.	Application state
-	•	Config, apps, themes
-	•	Stored in tank/nextcloud-app
-	•	Bind-mounted for transparency and recovery
-
-Databases:
-	•	Stored in tank/db
-	•	Bind-mounted
-	•	Snapshotted or dumped as needed
-
-⸻
-
-Backup & recovery philosophy
-	•	ZFS snapshots protect against:
-	•	Accidental deletion
-	•	Bad upgrades
-	•	Backups protect against:
-	•	Disk failure
-	•	Host loss
-
-Host can be reinstalled without touching ZFS data:
-	1.	Reinstall Ubuntu
-	2.	Re-import ZFS pool
-	3.	Restart containers and VMs
-
-⸻
-
-What this project intentionally avoids
-	•	ZFS on root
-	•	Desktop environment on the host
-	•	Manual iptables rules
-	•	Docker volumes for critical data
-	•	Nested virtualization
-	•	“All-in-one” hypervisor distros
-
-⸻
-
-Status
-
-This repository documents:
-	•	Architecture decisions
-	•	Operational principles
-	•	Rationale behind choices
-
-Implementation details (exact commands, compose files, scripts) are expected to live alongside this README in docs/ and scripts/.
-
-⸻
-
-Final note
-
-This setup is intentionally boring where it should be and powerful where it matters.
-
-The host is infrastructure.
-ZFS owns data.
-KVM owns hardware abstraction.
-Docker owns services.
-
-Everything else is replaceable.
-
-⸻
-
-If you want next, I can:
-	•	Split this into multiple docs (host.md, zfs.md, vms.md, containers.md)
-	•	Generate a ZFS dataset creation script
-	•	Write a docker-compose for Nextcloud done the ZFS way
-	•	Add a rebuild checklist
-
-Just say what you want to tackle next.
+- `README.md` — top-level overview.
+- `docs/getting-started/hardware.md` — full hardware spec.
+- `docs/ubuntu/installation/installation-walkthrough.md` — actual install steps.
+- `docs/zfs/concepts.md` then `docs/zfs/virtualbox-lab.md` — to practice ZFS before the real install.
+- `docs/operations/rebuild-checklist.md` — what to do when the rebuild day comes.

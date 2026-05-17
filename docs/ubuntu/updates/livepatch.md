@@ -44,7 +44,7 @@ Ubuntu Livepatch applies critical kernel security fixes without requiring a rebo
 
 ### System Requirements
 
-- Ubuntu 18.04 LTS or later (including 24.04 LTS)
+- Ubuntu 18.04 LTS or later (including 24.04 LTS and 26.04 LTS)
 - 64-bit (amd64 or arm64) architecture
 - Generic or low-latency kernel
 - Active internet connection

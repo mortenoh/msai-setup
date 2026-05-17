@@ -317,9 +317,9 @@ Output shows security score and recommendations:
 
 ```
   NAME                         DESCRIPTION                              EXPOSURE
-✗ PrivateNetwork=              Service has access to the host's network      0.5
-✓ PrivateTmp=                  Service has access to private tmp
-✗ ProtectSystem=               Service has full access to the file system   0.5
+[ ] PrivateNetwork=              Service has access to the host's network      0.5
+[x] PrivateTmp=                  Service has access to private tmp
+[ ] ProtectSystem=               Service has full access to the file system   0.5
 ...
 → Overall exposure level for nginx.service: 7.2 MEDIUM
 ```

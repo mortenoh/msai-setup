@@ -322,8 +322,9 @@ journalctl -u sshd -f
 # Recent entries
 journalctl -u sshd --since "10 minutes ago"
 
-# Auth log
-tail -f /var/log/auth.log
+# Auth events via journald (default on 26.04)
+sudo journalctl _COMM=sshd -f
+# Legacy: /var/log/auth.log (only if rsyslog is installed)
 ```
 
 ### Enable Debug Logging

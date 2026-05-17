@@ -89,7 +89,11 @@ kernel.perf_event_paranoid = 3
 vm.mmap_min_addr = 65536
 
 # Randomize mmap base
-vm.mmap_rnd_bits = 32
+# Note: 32 may exceed the per-arch ceiling. Check the max first:
+#   cat /proc/sys/vm/mmap_rnd_bits_max
+# On x86_64 the typical max is 28; setting higher silently fails or
+# returns "invalid argument" on sysctl --system.
+vm.mmap_rnd_bits = 28
 vm.mmap_rnd_compat_bits = 16
 ```
 
@@ -208,16 +212,19 @@ fs.file-max = 65535
 Limit process tracing (prevents some debugging attacks):
 
 ```ini
-# Restrict ptrace
-kernel.yama.ptrace_scope = 2
+# Restrict ptrace — value=1 keeps debugging tools working under sudo
+kernel.yama.ptrace_scope = 1
 ```
 
 | Value | Effect |
 |-------|--------|
 | 0 | Classic ptrace (any process can trace) |
-| 1 | Restricted (only parent can trace) |
-| 2 | Admin-only (CAP_SYS_PTRACE required) |
+| 1 | Restricted (only parent or root can trace) — recommended for container/VM hosts |
+| 2 | Admin-only (CAP_SYS_PTRACE required) — breaks many `docker exec` debug flows, `gdb attach`, `py-spy`, `perf` |
 | 3 | No ptrace (disabled entirely) |
+
+!!! note "Why not 2 on this build"
+    This host runs Docker, KVM, and Ollama — all of which benefit from being debugged interactively (`gdb attach`, `py-spy`, `perf top`, container `strace`). `ptrace_scope=2` breaks all of those for non-root users and is friction for very modest extra protection on an already-firewalled headless server. Use `1`; revisit if your threat model changes.
 
 ### SysRq Key
 
@@ -344,8 +351,8 @@ fs.protected_regular = 2
 # Process Security
 #########################################
 
-# Restrict ptrace
-kernel.yama.ptrace_scope = 2
+# Restrict ptrace (1 = parent/root; 2 = root-only, breaks container debugging)
+kernel.yama.ptrace_scope = 1
 
 # Disable SysRq
 kernel.sysrq = 0

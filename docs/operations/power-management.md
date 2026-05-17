@@ -124,12 +124,21 @@ done
 
 ### power-profiles-daemon
 
-Ubuntu includes power-profiles-daemon for system-wide power management:
+power-profiles-daemon (ppd) provides system-wide power profiles. **Ubuntu Server doesn't install it by default** (it's pulled in by `ubuntu-desktop`), so install it explicitly on this build if you want the `powerprofilesctl` workflow:
 
 ```bash
+sudo apt install power-profiles-daemon
+sudo systemctl enable --now power-profiles-daemon.service
+
 # Check status
 powerprofilesctl
 ```
+
+Alternatives if you'd rather not run ppd:
+
+- `cpupower frequency-set -g performance` (in `linux-tools-generic`) for direct cpufreq governor control.
+- `tuned` (in `tuned`) for tuned-profile-style management.
+- For a headless 24/7 server, just leave the kernel default (`schedutil` governor) — usually correct.
 
 ### Available Profiles
 

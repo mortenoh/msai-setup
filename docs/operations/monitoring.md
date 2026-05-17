@@ -190,13 +190,15 @@ mpstat -P ALL 1 1
 uptime
 ```
 
-Load average guidelines for 8-core system:
+Load average guidelines for the MS-S1 MAX (16 cores / 32 SMT threads):
 
 | Load | Status |
 |------|--------|
-| < 8 | Normal |
-| 8-16 | High |
-| > 16 | Overloaded |
+| < 16 | Normal |
+| 16-32 | High (all logical CPUs saturated; some queueing) |
+| > 32 | Overloaded (run-queue growing faster than CPUs can drain) |
+
+Load average is "number of processes wanting CPU + uninterruptible IO waits". A load near the **physical core count** (16) is full utilisation; up to the **SMT thread count** (32) is acceptable; above that means processes are queued.
 
 ### Disk Capacity
 

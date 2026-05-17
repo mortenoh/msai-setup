@@ -399,10 +399,10 @@ rsync -avz /local/ backupuser@host::backup/
 
 | Feature | rsync | scp | sftp |
 |---------|-------|-----|------|
-| Delta transfer | ✅ | ❌ | ❌ |
-| Resume | ✅ | ❌ | ✅ |
-| Progress | ✅ | ✅ | ✅ |
-| Sync/delete | ✅ | ❌ | ❌ |
-| Bandwidth limit | ✅ | ✅ | ✅ |
-| Preserve perms | ✅ | ✅ | ✅ |
+| Delta transfer | Yes | No | No |
+| Resume | Yes | No | Yes |
+| Progress | Yes | Yes | Yes |
+| Sync/delete | Yes | No | No |
+| Bandwidth limit | Yes | Yes | Yes |
+| Preserve perms | Yes | Yes | Yes |
 | Complexity | Medium | Low | Low |

@@ -344,14 +344,16 @@ auditctl -a always,exit -F arch=b64 -S execve -k ssh_commands
 ### Monitor Logs
 
 ```bash
-# Real-time
-tail -f /var/log/auth.log | grep sshd
+# Real-time (journald — works regardless of rsyslog)
+sudo journalctl -u ssh -f
+# Or by process:
+sudo journalctl _COMM=sshd -f
 
 # Failed logins
-grep "Failed password" /var/log/auth.log
+sudo journalctl _COMM=sshd | grep "Failed password"
 
 # Successful logins
-grep "Accepted" /var/log/auth.log
+sudo journalctl _COMM=sshd | grep "Accepted"
 ```
 
 ## Banner and Warning

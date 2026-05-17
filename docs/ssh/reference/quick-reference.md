@@ -191,9 +191,10 @@ ssh -G hostname
 sshd -t
 sshd -T
 
-# Server logs
-journalctl -u sshd -f
-tail -f /var/log/auth.log
+# Server logs (journald — works on default 26.04)
+sudo journalctl -u sshd -f
+sudo journalctl _COMM=sshd -f
+# Legacy: sudo tail -f /var/log/auth.log (rsyslog only)
 ```
 
 ## Key Permissions

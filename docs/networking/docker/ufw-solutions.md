@@ -84,13 +84,13 @@ sudo ufw allow 443/tcp
 
 ### Pros and Cons
 
-✅ **Pros:**
+Yes **Pros:**
 - Simple to understand
 - No extra tools needed
 - Works with standard UFW
 - Kernel-level protection
 
-❌ **Cons:**
+No **Cons:**
 - Requires reverse proxy for public services
 - Can't access from other machines for debugging
 - Need to remember for every container
@@ -178,12 +178,12 @@ sudo ufw-docker status
 
 ### Pros and Cons
 
-✅ **Pros:**
+Yes **Pros:**
 - Integrates with UFW workflow
 - Easy to use
 - Maintains UFW as single firewall interface
 
-❌ **Cons:**
+No **Cons:**
 - External tool (not official)
 - Must remember to allow new containers
 - Rules reference container names (if container renamed, rules break)
@@ -270,12 +270,12 @@ systemctl start docker-firewall
 
 ### Pros and Cons
 
-✅ **Pros:**
+Yes **Pros:**
 - Full control
 - Works with any Docker setup
 - Efficient (iptables native)
 
-❌ **Cons:**
+No **Cons:**
 - Manual management
 - Separate from UFW
 - Need to maintain script
@@ -354,12 +354,12 @@ networks:
 
 ### Pros and Cons
 
-✅ **Pros:**
+Yes **Pros:**
 - Docker-native solution
 - Clear network boundaries
 - No iptables manipulation
 
-❌ **Cons:**
+No **Cons:**
 - Internal containers can't reach internet
 - More complex compose files
 - Need to plan network topology
@@ -405,12 +405,12 @@ iptables -A FORWARD -p tcp -d 172.17.0.2 --dport 80 -j ACCEPT
 
 ### Pros and Cons
 
-✅ **Pros:**
+Yes **Pros:**
 - Complete control
 - UFW works normally
 - No surprises
 
-❌ **Cons:**
+No **Cons:**
 - Very complex
 - Must manually manage every container
 - Container networking features break
@@ -439,12 +439,12 @@ sudo ufw allow 32400/tcp  # Plex
 
 ### Pros and Cons
 
-✅ **Pros:**
+Yes **Pros:**
 - UFW works as expected
 - Best performance
 - Simple to understand
 
-❌ **Cons:**
+No **Cons:**
 - No network isolation
 - Port conflicts possible
 - Container sees all host interfaces

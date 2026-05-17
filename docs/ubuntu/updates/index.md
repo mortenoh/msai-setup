@@ -17,6 +17,8 @@ Keeping Ubuntu Server updated is critical for security. This section covers APT 
 
 | Release | Support Period | Security Updates |
 |---------|----------------|------------------|
+| 26.04 LTS (this build) | 5 years standard | Until April 2031 |
+| 26.04 LTS + ESM | 12 years total | Until April 2038 |
 | 24.04 LTS | 5 years standard | Until April 2029 |
 | 24.04 LTS + ESM | 12 years total | Until April 2036 |
 

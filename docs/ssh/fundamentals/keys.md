@@ -13,7 +13,7 @@ SSH keys provide stronger authentication than passwords through public-key crypt
 │   │                 │                       │                 │      │
 │   │  Private Key    │    Challenge/Response │  Public Key     │      │
 │   │  (id_ed25519)   │◀─────────────────────▶│(authorized_keys)│      │
-│   │  🔐 SECRET      │                       │  🔓 Shareable   │      │
+│   │  Private: SECRET      │                       │  Public: Shareable   │      │
 │   │                 │                       │                 │      │
 │   └─────────────────┘                       └─────────────────┘      │
 │                                                                       │
@@ -59,10 +59,10 @@ ssh-keygen -t ecdsa -b 521 -C "your@email.com"
 
 | Type | Recommended | Key Size | Use Case |
 |------|-------------|----------|----------|
-| Ed25519 | ✅ Yes | 256-bit fixed | Default choice |
-| RSA | ⚠️ 4096-bit only | 2048-4096 bit | Legacy compatibility |
-| ECDSA | ⚠️ Maybe | 256/384/521 bit | Specific requirements |
-| DSA | ❌ No | 1024-bit | Deprecated |
+| Ed25519 | Yes | 256-bit fixed | Default choice |
+| RSA | Only 4096-bit | 2048-4096 bit | Legacy compatibility |
+| ECDSA | If specifically needed | 256/384/521 bit | Specific requirements |
+| DSA | No (deprecated) | 1024-bit | Removed from modern OpenSSH |
 
 ## Generating Keys
 
@@ -304,21 +304,21 @@ from="10.0.0.0/8",command="/usr/local/bin/backup-script",no-port-forwarding,no-X
 
 ### Do
 
-- ✅ Use Ed25519 for new keys
-- ✅ Use passphrases on private keys
-- ✅ Use ssh-agent to avoid retyping
-- ✅ Use different keys for different purposes
-- ✅ Regularly audit authorized_keys
-- ✅ Rotate keys periodically
+- Use Ed25519 for new keys
+- Use passphrases on private keys
+- Use ssh-agent to avoid retyping
+- Use different keys for different purposes
+- Regularly audit authorized_keys
+- Rotate keys periodically
 
 ### Don't
 
-- ❌ Share private keys
-- ❌ Use DSA keys
-- ❌ Use RSA keys under 2048 bits
-- ❌ Store private keys in repos
-- ❌ Use the same key everywhere
-- ❌ Leave orphaned keys on servers
+- Share private keys
+- Use DSA keys
+- Use RSA keys under 2048 bits
+- Store private keys in repos
+- Use the same key everywhere
+- Leave orphaned keys on servers
 
 ## Troubleshooting Keys
 

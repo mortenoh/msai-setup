@@ -198,6 +198,15 @@ silent
 dir = /var/run/faillock
 ```
 
+!!! warning "Recovery if root gets locked out"
+    With `even_deny_root = true` and `silent`, a sequence of failed SSH password attempts can lock root out without any visible indication of why. On a headless server, this can be painful if you forget your password right after a config change. Recovery paths:
+
+    - **Boot to single-user mode** from GRUB and run `faillock --user root --reset`.
+    - **Wait `root_unlock_time` seconds** (60 by default) and try again.
+    - **Use a Tailscale-tunneled session** if Tailscale was already up — the lockout is per-source-IP-and-user; a different source IP isn't necessarily blocked.
+
+    Test the lockout behaviour from a non-critical user account before applying this policy in earnest.
+
 ### Enable Faillock in PAM
 
 Edit `/etc/pam.d/common-auth`:

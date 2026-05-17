@@ -166,24 +166,26 @@ sudo ufw deny <port>
 
 ### Log Locations
 
-| Log | Location | Purpose |
-|-----|----------|---------|
-| Auth | `/var/log/auth.log` | Authentication events |
-| System | `/var/log/syslog` | General system logs |
-| Kernel | `/var/log/kern.log` | Kernel messages |
-| UFW | `/var/log/ufw.log` | Firewall events |
-| Audit | `/var/log/audit/audit.log` | auditd events |
-| Fail2ban | `/var/log/fail2ban.log` | Banning events |
+Ubuntu Server 26.04 stores most logs in **journald** by default. `/var/log/auth.log`, `/var/log/syslog`, etc. only exist if `rsyslog` is installed (it is by default, but a minimised install can omit it). Where possible, prefer `journalctl` queries — they work even on rsyslog-less installs.
+
+| Log | journalctl query | rsyslog file (if installed) | Purpose |
+|---|---|---|---|
+| Auth (SSH, sudo, PAM) | `journalctl _COMM=sshd` / `journalctl _SYSTEMD_UNIT=ssh.service` | `/var/log/auth.log` | Authentication events |
+| System | `journalctl -b` | `/var/log/syslog` | General system logs |
+| Kernel | `journalctl -k` | `/var/log/kern.log` | Kernel messages |
+| UFW | `journalctl -k | grep '\[UFW'` | `/var/log/ufw.log` | Firewall events |
+| Audit | `ausearch` / `aureport` | `/var/log/audit/audit.log` | auditd events |
+| Fail2ban | `journalctl -u fail2ban` | `/var/log/fail2ban.log` | Banning events |
 
 ### Critical Events to Monitor
 
-| Event | Log Source | Example |
-|-------|------------|---------|
-| Root login | auth.log | `sudo grep "root" /var/log/auth.log` |
-| Failed auth | auth.log | `sudo grep "Failed" /var/log/auth.log` |
-| sudo usage | auth.log | `sudo grep "sudo:" /var/log/auth.log` |
-| Service changes | syslog | `sudo grep "systemd" /var/log/syslog` |
-| Firewall blocks | ufw.log | `sudo grep "BLOCK" /var/log/ufw.log` |
+| Event | Recommended query |
+|---|---|
+| Root SSH login | `journalctl _COMM=sshd \| grep 'Accepted .* for root'` |
+| Failed auth | `journalctl _COMM=sshd \| grep 'Failed password'` |
+| sudo usage | `journalctl _COMM=sudo` |
+| Service start/stop | `journalctl _SYSTEMD_UNIT=docker.service` (substitute the unit name) |
+| Firewall blocks | `journalctl -k \| grep '\[UFW BLOCK'` |
 
 ## Incident Response Basics
 

@@ -165,10 +165,10 @@ sudo tailscale up --advertise-tags=tag:recorder
 
 | Scenario | Use Tailscale SSH |
 |----------|-------------------|
-| Key management burden | ✓ |
-| Identity-based access | ✓ |
-| Audit/compliance needs | ✓ |
-| Quick, secure access | ✓ |
+| Key management burden | [x] |
+| Identity-based access | [x] |
+| Audit/compliance needs | [x] |
+| Quick, secure access | [x] |
 | Existing SSH workflows | Consider both |
 
 ### Running Both

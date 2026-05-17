@@ -19,8 +19,8 @@ Jump hosts (bastion hosts) provide controlled access to internal networks. Inste
 │                                 │ Server  │  │ Server  │                │
 │                                 └─────────┘  └─────────┘                │
 │                                                                           │
-│   Direct access to internal servers: ❌                                  │
-│   Access through bastion: ✅                                             │
+│   Direct access to internal servers: No                                  │
+│   Access through bastion: Yes                                             │
 │                                                                           │
 └──────────────────────────────────────────────────────────────────────────┘
 ```

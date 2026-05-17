@@ -95,16 +95,16 @@ Most devices are behind NAT, making direct connections difficult:
 │                                                                              │
 │   Type              Behavior                      Direct Connection?        │
 │   ─────────────────────────────────────────────────────────────────         │
-│   Full Cone         Any external host can         Easy ✓                    │
+│   Full Cone         Any external host can         Easy [x]                    │
 │                     reach mapped port                                        │
 │                                                                              │
-│   Restricted        Only hosts we've sent         Possible ✓                │
+│   Restricted        Only hosts we've sent         Possible [x]                │
 │   Cone              packets to can reply                                     │
 │                                                                              │
-│   Port Restricted   Only specific host:port       Harder ✓                  │
+│   Port Restricted   Only specific host:port       Harder [x]                  │
 │   Cone              combinations allowed                                     │
 │                                                                              │
-│   Symmetric         Different mapping for         Very hard ✗               │
+│   Symmetric         Different mapping for         Very hard [ ]               │
 │                     each destination              (needs relay)             │
 │                                                                              │
 └──────────────────────────────────────────────────────────────────────────────┘

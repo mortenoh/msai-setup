@@ -284,10 +284,10 @@ tailscale file get --loop /taildrop/
 
 | Feature | Taildrop | AirDrop | Cloud Storage |
 |---------|----------|---------|---------------|
-| Cross-platform | ✓ | Apple only | ✓ |
+| Cross-platform | [x] | Apple only | [x] |
 | No account needed | Via Tailscale | Yes | No |
-| End-to-end encrypted | ✓ | ✓ | Varies |
-| Works over internet | ✓ | Local only | ✓ |
+| End-to-end encrypted | [x] | [x] | Varies |
+| Works over internet | [x] | Local only | [x] |
 | File size limit | None | 5GB practical | Varies |
 | Speed | Direct WireGuard | Local WiFi | Upload/Download |
 

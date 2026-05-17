@@ -394,20 +394,23 @@ LogLevel VERBOSE
 ### View SSH Logs
 
 ```bash
-# Real-time
-sudo tail -f /var/log/auth.log | grep sshd
-
-# With journalctl
+# Real-time SSH activity (works whether or not rsyslog is installed)
 sudo journalctl -u ssh -f
+# Or follow the sshd process specifically:
+sudo journalctl _COMM=sshd -f
 
-# Failed logins
-sudo grep "Failed password" /var/log/auth.log
+# Failed logins (last 200 lines)
+sudo journalctl _COMM=sshd | grep "Failed password" | tail -200
 
 # Successful logins
-sudo grep "Accepted" /var/log/auth.log
+sudo journalctl _COMM=sshd | grep "Accepted"
 
 # All SSH activity today
 sudo journalctl -u ssh --since today
+
+# Legacy: if rsyslog is installed, /var/log/auth.log also has these:
+# sudo tail -f /var/log/auth.log | grep sshd
+# sudo grep "Failed password" /var/log/auth.log
 ```
 
 ### Monitor with auditd
@@ -439,7 +442,7 @@ echo -e "\n--- Listening ---"
 sudo ss -tlnp | grep sshd
 
 echo -e "\n--- Failed Logins (24h) ---"
-sudo grep "Failed password" /var/log/auth.log 2>/dev/null | tail -5
+sudo journalctl _COMM=sshd | grep "Failed password" | tail -5
 
 echo -e "\n--- Fail2ban Status ---"
 sudo fail2ban-client status sshd 2>/dev/null || echo "Not installed"

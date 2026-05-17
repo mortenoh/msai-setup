@@ -303,9 +303,8 @@ SyslogFacility AUTHPRIV # Private auth messages
 ### View Logs
 
 ```bash
-journalctl -u sshd
-# or
-tail -f /var/log/auth.log
+sudo journalctl _COMM=sshd -f
+# Legacy: sudo tail -f /var/log/auth.log (only if rsyslog is installed)
 ```
 
 ## Host Keys

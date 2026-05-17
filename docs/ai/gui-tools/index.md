@@ -35,10 +35,10 @@ GUI tools provide:
 │  ┌─────────────────────┐    ┌─────────────────────┐             │
 │  │      LM Studio      │    │       Jan.ai        │             │
 │  ├─────────────────────┤    ├─────────────────────┤             │
-│  │ ✓ Model discovery   │    │ ✓ 100% offline      │             │
-│  │ ✓ Built-in chat     │    │ ✓ No telemetry      │             │
-│  │ ✓ OpenAI API server │    │ ✓ Extensions        │             │
-│  │ ✓ Good for testing  │    │ ✓ Privacy-first     │             │
+│  │ [x] Model discovery   │    │ [x] 100% offline      │             │
+│  │ [x] Built-in chat     │    │ [x] No telemetry      │             │
+│  │ [x] OpenAI API server │    │ [x] Extensions        │             │
+│  │ [x] Good for testing  │    │ [x] Privacy-first     │             │
 │  └─────────────────────┘    └─────────────────────┘             │
 │                                                                  │
 └─────────────────────────────────────────────────────────────────┘
@@ -50,23 +50,23 @@ GUI tools provide:
 │  ┌─────────────────────────────────────────────────────────┐    │
 │  │                      Open WebUI                          │    │
 │  ├─────────────────────────────────────────────────────────┤    │
-│  │ ✓ Connects to Ollama, OpenAI, any compatible API        │    │
-│  │ ✓ Multi-user with authentication                        │    │
-│  │ ✓ RAG (document upload and search)                      │    │
-│  │ ✓ Model switching                                       │    │
-│  │ ✓ Chat history                                          │    │
-│  │ ✓ Self-hosted                                           │    │
+│  │ [x] Connects to Ollama, OpenAI, any compatible API        │    │
+│  │ [x] Multi-user with authentication                        │    │
+│  │ [x] RAG (document upload and search)                      │    │
+│  │ [x] Model switching                                       │    │
+│  │ [x] Chat history                                          │    │
+│  │ [x] Self-hosted                                           │    │
 │  └─────────────────────────────────────────────────────────┘    │
 │                                                                  │
 │  ┌─────────────────────────────────────────────────────────┐    │
 │  │                       ComfyUI                            │    │
 │  ├─────────────────────────────────────────────────────────┤    │
-│  │ ✓ Node-based workflow editor                            │    │
-│  │ ✓ Image, video, audio/music, 3D generation              │    │
-│  │ ✓ Native AMD ROCm support                               │    │
-│  │ ✓ Thousands of custom nodes                             │    │
-│  │ ✓ API-driven (every workflow is JSON)                   │    │
-│  │ ✓ Self-hosted, open source (GPL-3.0)                    │    │
+│  │ [x] Node-based workflow editor                            │    │
+│  │ [x] Image, video, audio/music, 3D generation              │    │
+│  │ [x] Native AMD ROCm support                               │    │
+│  │ [x] Thousands of custom nodes                             │    │
+│  │ [x] API-driven (every workflow is JSON)                   │    │
+│  │ [x] Self-hosted, open source (GPL-3.0)                    │    │
 │  └─────────────────────────────────────────────────────────┘    │
 │                                                                  │
 └─────────────────────────────────────────────────────────────────┘

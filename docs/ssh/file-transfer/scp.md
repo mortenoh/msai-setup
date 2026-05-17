@@ -272,13 +272,13 @@ done < filelist.txt
 
 | Feature | SCP | SFTP | rsync |
 |---------|-----|------|-------|
-| Simple copies | ✅ | ✅ | ✅ |
-| Interactive | ❌ | ✅ | ❌ |
-| Resume transfers | ❌ | ✅ | ✅ |
-| Delta sync | ❌ | ❌ | ✅ |
-| Preserve permissions | ✅ | ✅ | ✅ |
-| Bandwidth limit | ✅ | ✅ | ✅ |
-| Available everywhere | ✅ | ✅ | ⚠️ |
+| Simple copies | Yes | Yes | Yes |
+| Interactive | No | Yes | No |
+| Resume transfers | No | Yes | Yes |
+| Delta sync | No | No | Yes |
+| Preserve permissions | Yes | Yes | Yes |
+| Bandwidth limit | Yes | Yes | Yes |
+| Available everywhere | Yes | Yes | Usually (needs separate install on some systems) |
 
 ## When to Use SCP
 

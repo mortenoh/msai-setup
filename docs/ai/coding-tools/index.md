@@ -31,20 +31,20 @@ AI coding tools can connect to:
 │  ┌─────────────────────┐    ┌─────────────────────┐             │
 │  │    Claude Code      │    │       Aider         │             │
 │  ├─────────────────────┤    ├─────────────────────┤             │
-│  │ ✓ Official Claude   │    │ ✓ Git-aware         │             │
-│  │ ✓ Multi-file edits  │    │ ✓ Local models      │             │
-│  │ ✓ Code execution    │    │ ✓ Auto-commits      │             │
-│  │ ✓ File operations   │    │ ✓ Multiple LLMs     │             │
+│  │ [x] Official Claude   │    │ [x] Git-aware         │             │
+│  │ [x] Multi-file edits  │    │ [x] Local models      │             │
+│  │ [x] Code execution    │    │ [x] Auto-commits      │             │
+│  │ [x] File operations   │    │ [x] Multiple LLMs     │             │
 │  └─────────────────────┘    └─────────────────────┘             │
 │                                                                  │
 │  IDE Extensions:                                                 │
 │  ┌─────────────────────┐    ┌─────────────────────┐             │
 │  │       Cline         │    │    Continue.dev     │             │
 │  ├─────────────────────┤    ├─────────────────────┤             │
-│  │ ✓ VS Code           │    │ ✓ VS Code + JetBrains│            │
-│  │ ✓ Plan/Act modes    │    │ ✓ Autocomplete      │             │
-│  │ ✓ Local providers   │    │ ✓ Chat + Edit       │             │
-│  │ ✓ MCP support       │    │ ✓ Local-first       │             │
+│  │ [x] VS Code           │    │ [x] VS Code + JetBrains│            │
+│  │ [x] Plan/Act modes    │    │ [x] Autocomplete      │             │
+│  │ [x] Local providers   │    │ [x] Chat + Edit       │             │
+│  │ [x] MCP support       │    │ [x] Local-first       │             │
 │  └─────────────────────┘    └─────────────────────┘             │
 │                                                                  │
 └─────────────────────────────────────────────────────────────────┘

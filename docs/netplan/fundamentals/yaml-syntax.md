@@ -122,10 +122,9 @@ ethernets:
       - 192.168.1.100/24
       - "2001:db8::100/64"
 
-    # Gateway (deprecated but still works)
-    gateway4: 192.168.1.1
-
-    # Routes (preferred way)
+    # Routes — the only way on netplan >= 0.106 (Ubuntu 23.10+).
+    # The old `gateway4: 192.168.1.1` / `gateway6:` syntax was REMOVED
+    # (not just deprecated) and `netplan generate` will error out.
     routes:
       - to: default
         via: 192.168.1.1

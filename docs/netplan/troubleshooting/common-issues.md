@@ -250,8 +250,8 @@ ping 192.168.1.1
 ```bash
 # Check if gateway is on same subnet
 # IP: 192.168.1.100/24
-# Gateway: 192.168.1.1 ✓
-# Gateway: 192.168.2.1 ✗ (different subnet)
+# Gateway: 192.168.1.1 [x]
+# Gateway: 192.168.2.1 [ ] (different subnet)
 
 # Use on-link if needed
 routes:

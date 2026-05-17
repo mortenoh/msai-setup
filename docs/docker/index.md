@@ -28,7 +28,11 @@ All persistent data lives on ZFS via bind mounts.
 
 ## Sections
 
-- [Docker Setup](setup.md) - Install and configure Docker
-- [Resource Limits](resources.md) - Container memory, CPU, and device constraints
-- [Nextcloud](nextcloud.md) - Self-hosted cloud storage
-- [Plex](plex.md) - Media server
+- [Docker Setup](setup.md) — Install Docker on Ubuntu 26.04 (with `resolute → noble` fallback) and configure the daemon
+- [Docker Compose](compose.md) — Compose Spec, project structure, common patterns
+- [Resource Limits](resources.md) — Container memory, CPU, GPU, and device constraints
+- [Development Stacks](development-stacks.md) — Postgres, Redis, Elasticsearch, etc. for dev
+- [Ollama Stack](ollama-stack.md) — ROCm-backed Ollama + Open WebUI compose
+- [Monitoring](monitoring.md) — Prometheus + Grafana + Loki + cAdvisor
+- [Nextcloud](nextcloud.md) — Self-hosted cloud storage
+- [Plex](plex.md) — Media server (with iGPU transcoding caveat — see notes inside)
