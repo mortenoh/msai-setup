@@ -155,7 +155,10 @@ X11Forwarding no
 AllowTcpForwarding no
 
 # Use strong key exchange algorithms
-KexAlgorithms sshd_config,curve25519-sha256@libssh.org,diffie-hellman-group16-sha512,diffie-hellman-group18-sha512
+KexAlgorithms sntrup761x25519-sha512@openssh.com,curve25519-sha256,curve25519-sha256@libssh.org,diffie-hellman-group16-sha512,diffie-hellman-group18-sha512
+
+# Restrict client public key algorithms (refuse legacy ssh-rsa SHA1)
+PubkeyAcceptedAlgorithms ssh-ed25519,ssh-ed25519-cert-v01@openssh.com,rsa-sha2-512,rsa-sha2-256
 
 # Use strong ciphers
 Ciphers chacha20-poly1305@openssh.com,aes256-gcm@openssh.com,aes128-gcm@openssh.com

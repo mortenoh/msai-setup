@@ -1,335 +1,157 @@
 # Disk Partitioning
 
-A well-planned partition layout enhances security, simplifies management, and enables full disk encryption.
+This page is the canonical disk layout for the MS-S1 MAX install: **plain ext4 root on the primary 2 TB NVMe, with ZFS picking up the leftover space and the entire 4 TB secondary NVMe**.
 
-## Partitioning Strategies
+Authoritative spec (slot speeds matter — see warning below): [Minisforum MS-S1 MAX product page](https://www.minisforum.com/products/ms-s1-max).
 
-### Why Partition Layout Matters
+!!! note "Two storage slots, two speeds"
+    The MS-S1 MAX exposes **two M.2 slots: PCIe 4.0 x4 (primary) and PCIe 4.0 x1 (secondary)**. The x1 slot tops out around 2 GB/s — fine for ZFS-backed media and cold data, slow for VM disks or hot databases. Put the 2 TB drive in the x4 slot, the 4 TB drive in the x1 slot, and keep VM disks on the primary drive.
 
-| Benefit | How Partitioning Helps |
-|---------|------------------------|
-| Security | Separate /tmp, /var with noexec, nosuid options |
-| Stability | Prevent log floods from filling root filesystem |
-| Encryption | LUKS on separate partitions for different protection levels |
-| Flexibility | LVM enables resizing without reinstallation |
-| Recovery | Separate /boot allows recovery even if root is corrupted |
+## Canonical Layout — plain ext4 root + ZFS data pool
 
-### Ubuntu 26.04 Partitioning Options
+This is the layout used by [`hardware.md`](../../getting-started/hardware.md), [`zfs/partitioning.md`](../../zfs/partitioning.md), and the [`rebuild-checklist.md`](../../operations/rebuild-checklist.md).
 
-The installer offers three approaches:
+### Internal NVMe (slot 1, 2 TB, PCIe 4.0 x4)
 
-1. **Use entire disk** - Automatic, no encryption option
-2. **Use entire disk with LVM** - Automatic, optional encryption
-3. **Custom storage layout** - Full control (recommended)
+| Partition | Size | Filesystem | Mount | Purpose |
+|-----------|------|------------|-------|---------|
+| EFI System | 512 MB | FAT32 (esp) | `/boot/efi` | UEFI bootloader |
+| Boot | 1 GB | ext4 | `/boot` | Kernel, initramfs |
+| Root | 1 TB | ext4 | `/` | Host OS, container compose files, libvirt VM XML |
+| Unallocated | ~1 TB | — | (ZFS) | Pool member, added post-install |
 
-## LVM Fundamentals
+### Secondary NVMe (slot 2, 4 TB, PCIe 4.0 x1)
 
-### What LVM Provides
+| Partition | Size | Filesystem | Mount | Purpose |
+|-----------|------|------------|-------|---------|
+| ZFS data | 4 TB | (ZFS) | (ZFS) | Pool member, entire disk |
 
-Logical Volume Manager abstracts physical storage:
+ZFS pool creation happens after Ubuntu is installed — see [ZFS Partitioning](../../zfs/partitioning.md) and [ZFS Pool Creation](../../zfs/pool-creation.md). At installation time, just **leave the ~1 TB on the primary disk and the entire 4 TB drive unallocated**. Do not let the installer's "guided" mode touch the secondary drive.
 
-```
-┌────────────────────────────────────────────────────────────┐
-│                    Logical Volumes                          │
-│    ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐     │
-│    │  root   │  │  home   │  │   var   │  │  swap   │     │
-│    │  20 GB  │  │  50 GB  │  │  30 GB  │  │   8 GB  │     │
-│    └─────────┘  └─────────┘  └─────────┘  └─────────┘     │
-├────────────────────────────────────────────────────────────┤
-│                     Volume Group                            │
-│                      "vg-system"                            │
-│                       (108 GB)                              │
-├────────────────────────────────────────────────────────────┤
-│                   Physical Volumes                          │
-│         ┌─────────────────────────────────────┐            │
-│         │         /dev/nvme0n1p3              │            │
-│         │         (LUKS encrypted)             │            │
-│         │            ~500 GB                   │            │
-│         └─────────────────────────────────────┘            │
-└────────────────────────────────────────────────────────────┘
-```
+### Why this layout
 
-### LVM Components
+- **ext4 root is boring infrastructure**. Excellent recovery tooling, zero operational surprises, mature `e2fsck`.
+- **Separate `/boot`** survives a corrupted root and gives GRUB a stable home.
+- **ZFS is for data only, never root**. Snapshots and backups protect data; the OS is rebuildable.
+- **No LVM**. The root drive doesn't need volume management — `/` either fits or doesn't. The 1 TB target leaves plenty of headroom.
+- **No LUKS by default** on this build. The host lives on a private network behind UFW/Tailscale; LUKS just adds a remote-unlock problem on a headless box. See the "Encrypted alternative" section below if you need it.
 
-| Component | Purpose | Example |
-|-----------|---------|---------|
-| Physical Volume (PV) | Raw storage device/partition | /dev/nvme0n1p3 |
-| Volume Group (VG) | Pool of physical volumes | vg-system |
-| Logical Volume (LV) | Virtual partition | lv-root, lv-home |
+## Creating Partitions in the Ubuntu 26.04 Installer
 
-### LVM Advantages
+### Step 1 — pick Custom storage layout
 
-- **Resize online** - Grow filesystems without unmounting (ext4, XFS)
-- **Snapshots** - Create point-in-time copies
-- **Thin provisioning** - Over-allocate storage
-- **Span disks** - Volume groups can span multiple physical drives
-- **LUKS integration** - Encrypt the entire VG with single passphrase
+When the storage screen appears, choose **Custom storage layout**. Do not use guided/entire-disk — it will format the wrong drive.
 
-## LUKS Encryption
+### Step 2 — partition the 2 TB primary NVMe
 
-### What LUKS Encrypts
+1. Select the primary NVMe.
+2. Add partition: **size 512 MB**, format **fat32**, mount `/boot/efi`.
+3. Add partition: **size 1 GB**, format **ext4**, mount `/boot`.
+4. Add partition: **size 1 TB** (`1024G` or `1000G` depending on installer rounding), format **ext4**, mount `/`.
+5. Leave the remaining ~1 TB as **free space**.
 
-LUKS (Linux Unified Key Setup) provides block-level encryption:
+### Step 3 — leave the 4 TB secondary NVMe alone
+
+Confirm the secondary NVMe is listed but has **no partitions**. If the installer pre-created any, delete them. ZFS will claim the whole disk later.
+
+### Step 4 — review and confirm
+
+The summary should look approximately like:
 
 ```
-┌─────────────────────────────────────────┐
-│             Filesystem                   │
-│            (ext4, xfs)                   │
-├─────────────────────────────────────────┤
-│          Logical Volume                  │
-│        (/dev/vg-system/lv-root)         │
-├─────────────────────────────────────────┤
-│         dm-crypt (decrypted)             │
-├─────────────────────────────────────────┤
-│      LUKS Container (encrypted)          │
-│         (/dev/nvme0n1p3)                 │
-└─────────────────────────────────────────┘
+nvme0n1               disk   2.0T
+  nvme0n1p1           part   512M  /boot/efi  (fat32)
+  nvme0n1p2           part   1.0G  /boot       (ext4)
+  nvme0n1p3           part   1.0T  /           (ext4)
+  (free space)               ~1.0T
+
+nvme1n1               disk   4.0T
+  (free space)               4.0T
 ```
 
-### LUKS Benefits
-
-| Benefit | Description |
-|---------|-------------|
-| Data-at-rest protection | Data unreadable without passphrase |
-| Compliance | Meets encryption requirements (HIPAA, PCI, etc.) |
-| Decommissioning | Secure disposal by destroying key |
-| Full volume encryption | Every byte encrypted, including metadata |
-
-### Encryption Considerations
-
-**What's encrypted:**
-
-- All data on LUKS volume
-- Filesystem metadata
-- Swap contents
-- Temporary files in /tmp, /var
-
-**What's NOT encrypted:**
-
-- /boot partition (contains kernel, initramfs)
-- EFI System Partition
-- GRUB configuration
-
-!!! info "Boot Partition Security"
-    The unencrypted /boot can be a target for Evil Maid attacks. Consider Secure Boot to mitigate this risk.
-
-## Recommended Partition Layout
-
-### Standard Server Layout
-
-For a 500 GB system disk:
-
-| Partition | Size | Type | Mount | Purpose |
-|-----------|------|------|-------|---------|
-| EFI | 512 MB | FAT32 | /boot/efi | UEFI bootloader |
-| Boot | 1 GB | ext4 | /boot | Kernel, initramfs |
-| LUKS+LVM | Remaining | LUKS2 | — | Encrypted container |
-
-**Logical volumes within LVM:**
-
-| Volume | Size | Mount | Options |
-|--------|------|-------|---------|
-| root | 25 GB | / | defaults |
-| home | 50 GB | /home | nodev,nosuid |
-| var | 50 GB | /var | nodev,nosuid |
-| var-log | 20 GB | /var/log | nodev,nosuid,noexec |
-| tmp | 5 GB | /tmp | nodev,nosuid,noexec |
-| swap | RAM size | swap | — |
-| (free) | ~350 GB | — | Reserved for growth |
-
-### Server with ZFS Data Pool
-
-When using ZFS for data storage (like for virtualization or file server), reserve space:
-
-| Partition | Size | Type | Purpose |
-|-----------|------|------|---------|
-| EFI | 512 MB | FAT32 | UEFI bootloader |
-| Boot | 1 GB | ext4 | Kernel |
-| LUKS+LVM | 100 GB | LUKS2 | OS volumes |
-| Unallocated | Remaining | — | ZFS pool later |
-
-### Minimal Server Layout
-
-For constrained environments:
-
-| Volume | Size | Mount |
-|--------|------|-------|
-| root | 15 GB | / |
-| swap | 2 GB | swap |
-
-## Creating Partitions During Installation
-
-### Using the Ubuntu Installer
-
-**Step 1: Select Custom Layout**
-
-When you reach the storage configuration screen:
-- Select "Custom storage layout"
-- Click "Done"
-
-**Step 2: Create EFI Partition**
-
-1. Select the target disk
-2. Add partition:
-   - Size: 512 MB
-   - Format: FAT32
-   - Mount: /boot/efi
-
-**Step 3: Create Boot Partition**
-
-1. Add partition:
-   - Size: 1 GB
-   - Format: ext4
-   - Mount: /boot
-
-**Step 4: Create LUKS Volume**
-
-1. Add partition:
-   - Size: Remaining (or specific size if reserving space)
-   - Format: Leave unformatted
-2. Select the new partition
-3. Choose "Create encrypted volume"
-4. Enter encryption passphrase (use a strong passphrase)
-
-**Step 5: Create LVM Volume Group**
-
-1. Select the encrypted volume
-2. Choose "Create volume group"
-3. Name: `vg-system`
-
-**Step 6: Create Logical Volumes**
-
-For each volume:
-1. Select the volume group
-2. Choose "Create logical volume"
-3. Set name, size, filesystem, mount point
-
-## Manual Partitioning (Advanced)
-
-### From Command Line
-
-If you need to partition manually (e.g., from rescue mode):
-
-```bash
-# Create partitions with gdisk
-sudo gdisk /dev/nvme0n1
-
-# Commands:
-# n - new partition (EFI: type ef00, Linux: type 8300)
-# w - write and exit
-
-# Format EFI
-sudo mkfs.fat -F32 /dev/nvme0n1p1
-
-# Format boot
-sudo mkfs.ext4 /dev/nvme0n1p2
-
-# Create LUKS container
-sudo cryptsetup luksFormat --type luks2 /dev/nvme0n1p3
-
-# Open LUKS
-sudo cryptsetup open /dev/nvme0n1p3 cryptroot
-
-# Create LVM
-sudo pvcreate /dev/mapper/cryptroot
-sudo vgcreate vg-system /dev/mapper/cryptroot
-
-# Create logical volumes
-sudo lvcreate -L 25G -n lv-root vg-system
-sudo lvcreate -L 50G -n lv-home vg-system
-sudo lvcreate -L 50G -n lv-var vg-system
-sudo lvcreate -L 20G -n lv-var-log vg-system
-sudo lvcreate -L 5G -n lv-tmp vg-system
-sudo lvcreate -L 8G -n lv-swap vg-system
-
-# Format volumes
-sudo mkfs.ext4 /dev/vg-system/lv-root
-sudo mkfs.ext4 /dev/vg-system/lv-home
-sudo mkfs.ext4 /dev/vg-system/lv-var
-sudo mkfs.ext4 /dev/vg-system/lv-var-log
-sudo mkfs.ext4 /dev/vg-system/lv-tmp
-sudo mkswap /dev/vg-system/lv-swap
-```
+!!! danger "Verify before confirming"
+    Proceeding wipes the selected disks. Double-check that you've identified the correct drives and that the 4 TB drive has no partitions defined.
 
 ## Mount Options for Security
 
-### Recommended fstab Options
+For a server, harden mount options in `/etc/fstab` after install:
 
 ```
 # /etc/fstab
-/dev/vg-system/lv-root    /          ext4  defaults                    0 1
-/dev/vg-system/lv-home    /home      ext4  defaults,nodev,nosuid       0 2
-/dev/vg-system/lv-var     /var       ext4  defaults,nodev,nosuid       0 2
-/dev/vg-system/lv-var-log /var/log   ext4  defaults,nodev,nosuid,noexec 0 2
-/dev/vg-system/lv-tmp     /tmp       ext4  defaults,nodev,nosuid,noexec 0 2
-/dev/vg-system/lv-swap    swap       swap  defaults                    0 0
+/dev/nvme0n1p1   /boot/efi  vfat   umask=0077,fmask=0077,dmask=0077  0 1
+/dev/nvme0n1p2   /boot      ext4   defaults,nodev,nosuid,noexec      0 2
+/dev/nvme0n1p3   /          ext4   defaults                          0 1
 ```
 
-### Mount Option Reference
-
-| Option | Effect |
-|--------|--------|
-| nodev | Prevent device files |
-| nosuid | Ignore setuid/setgid bits |
-| noexec | Prevent execution |
-
-## LUKS Configuration Details
-
-### Strong Passphrase Guidelines
-
-- Minimum 20 characters
-- Mix of words, numbers, symbols
-- Consider a passphrase: "correct horse battery staple"
-- Store securely (password manager, separate from server)
-
-### LUKS Key Slots
-
-LUKS supports multiple key slots (passphrases):
-
-```bash
-# View key slots
-sudo cryptsetup luksDump /dev/nvme0n1p3
-
-# Add additional passphrase
-sudo cryptsetup luksAddKey /dev/nvme0n1p3
-
-# Remove a key slot
-sudo cryptsetup luksRemoveKey /dev/nvme0n1p3
-```
-
-### Recovery Key
-
-Create a recovery key for emergency access:
-
-```bash
-# Add a recovery key
-dd if=/dev/urandom of=/root/luks-recovery.key bs=512 count=4
-sudo cryptsetup luksAddKey /dev/nvme0n1p3 /root/luks-recovery.key
-
-# Store this file securely offline!
-# Then remove from server:
-shred -u /root/luks-recovery.key
-```
+If you want stricter isolation, mount `/tmp` and `/var/log` as separate filesystems (or `tmpfs` for `/tmp`) with `nodev,nosuid,noexec` — but on this build the simpler unified ext4 root is sufficient. ZFS datasets under `/mnt/tank/` get their own per-dataset mount options.
 
 ## Post-Partitioning Verification
-
-After installation, verify your layout:
 
 ```bash
 # View block devices
 lsblk
 
-# View LVM configuration
-sudo pvs
-sudo vgs
-sudo lvs
+# Verify the partition layout
+sudo parted /dev/nvme0n1 print
+sudo parted /dev/nvme1n1 print
 
-# View mounted filesystems with options
-mount | grep -E "^/dev"
+# Check fstab is sane
+cat /etc/fstab
+findmnt /
 
-# Verify LUKS
-sudo cryptsetup status cryptroot
+# Free space available for ZFS
+sudo parted /dev/nvme0n1 unit GB print free
 ```
+
+## Encrypted Alternative — LUKS + LVM
+
+If you do need full-disk encryption on the root drive (regulated environment, physical-theft concern), the layout below works but adds operational overhead on a headless box. You'll need either a yubikey/Tang/Clevis unlock mechanism, an out-of-band unlock channel (BMC/IPMI — not present on the MS-S1 MAX), or you'll have to walk to the machine to type the passphrase on reboot.
+
+### LUKS + LVM layout
+
+| Partition | Size | Type | Purpose |
+|-----------|------|------|---------|
+| EFI System | 512 MB | FAT32 | UEFI bootloader |
+| Boot | 1 GB | ext4 | Kernel (unencrypted by necessity) |
+| LUKS container | 1 TB | LUKS2 | Holds the LVM physical volume |
+| Unallocated | ~1 TB | — | ZFS pool member (encrypted via ZFS native encryption if needed) |
+
+### LVM volumes within the LUKS container
+
+| Volume | Size | Mount | Notes |
+|--------|------|-------|-------|
+| `lv-root` | 100 GB | `/` | OS only |
+| `lv-var` | 200 GB | `/var` | Docker bind-mount targets land here unless redirected to ZFS |
+| `lv-var-log` | 50 GB | `/var/log` | `nodev,nosuid,noexec` |
+| `lv-tmp` | 20 GB | `/tmp` | `nodev,nosuid,noexec` |
+| `lv-swap` | 16 GB | swap | Optional; sized for hibernation if used |
+| (free) | ~614 GB | — | Reserved for future growth |
+
+Sizing assumes you push container/VM data into ZFS rather than `/var`. If you keep Docker's default `/var/lib/docker` and don't bind-mount, grow `lv-var` accordingly.
+
+### LUKS unlock on a headless box
+
+The reasonable options on this hardware:
+
+- **Walk-up unlock**: Connect a keyboard and the single HDMI output for first boot. Painful for reboots.
+- **`dropbear-initramfs`**: Open SSH in the initramfs so you can unlock remotely. Add `dropbear-initramfs` and copy your unlock SSH key into `/etc/dropbear/initramfs/authorized_keys`. Works well, requires the box to have a stable IP/static route at unlock time.
+- **Clevis + Tang**: Network-bound disk encryption against a Tang server elsewhere on your network. Unlock is automatic when the Tang server is reachable. Good for a homelab with a separate always-on Tang host.
+
+If you go this route, plan the unlock mechanism *before* you encrypt — locking yourself out of the only host is not a fun recovery exercise.
+
+### Encryption walkthrough sketch
+
+This is intentionally a sketch — the canonical, more detailed walkthrough is built around the plain-ext4 layout above. For the LUKS path, the additional installer steps are:
+
+1. Create EFI and `/boot` as above.
+2. Create a third partition of 1 TB on the primary NVMe; mark it for use as an encrypted volume.
+3. Set a strong passphrase (≥20 chars; store in a password manager).
+4. On the resulting dm-crypt device, create an LVM volume group (`vg-system`).
+5. Create logical volumes per the table above.
+6. Mount each LV to its target.
+7. Leave the remaining ~1 TB and the entire secondary NVMe unallocated for ZFS.
+
+For LUKS key-slot management, recovery keys, and `cryptsetup luksDump`, see the `cryptsetup` man pages — they're better than anything we'd duplicate here.
 
 ## Next Step
 

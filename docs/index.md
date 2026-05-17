@@ -22,10 +22,10 @@ Build a clean, minimal Ubuntu Server host that:
 
 ## The Hardware
 
-This guide is built around the **Minisforum MS-S1 MAX**, a mini-PC featuring AMD's Strix Point APU - a chip that combines CPU and GPU on a single die with access to all system memory.
+This guide is built around the **[Minisforum MS-S1 MAX](https://www.minisforum.com/products/ms-s1-max)**, a mini-PC featuring AMD's Strix Halo APU - a chip that combines CPU and GPU on a single die with access to all system memory.
 
 ```
-AMD Ryzen AI Max+ 395 (Strix Point APU):
+AMD Ryzen AI Max+ 395 (Strix Halo APU):
 +--------------------------------------------------+
 |                                                  |
 |  +-------------+          +------------------+   |
@@ -38,8 +38,9 @@ AMD Ryzen AI Max+ 395 (Strix Point APU):
 |                      |                           |
 |         +------------v-------------+             |
 |         |   Unified Memory         |             |
-|         |   128GB DDR5-5600        |             |
-|         |   Shared CPU + GPU       |             |
+|         |   128GB LPDDR5X-8000     |             |
+|         |   Quad-channel, soldered |             |
+|         |   ~256 GB/s peak         |             |
 |         +--------------------------+             |
 |                                                  |
 +--------------------------------------------------+
@@ -47,12 +48,12 @@ AMD Ryzen AI Max+ 395 (Strix Point APU):
 
 | Component | Specification | Why It Matters |
 |-----------|---------------|----------------|
-| CPU | Ryzen AI Max+ 395 (16 cores) | Fast prompt processing |
-| GPU | RDNA 3.5 (40 CUs) | Accelerated inference |
-| RAM | 128GB DDR5-5600 | Fits 70B+ models |
+| CPU | Ryzen AI Max+ 395 (Strix Halo, 16C / 32T) | Fast prompt processing |
+| GPU | Radeon 8060S, RDNA 3.5 (40 CUs, `gfx1151`) | Accelerated inference |
+| RAM | 128GB LPDDR5X-8000, quad-channel | Fits 70B+ models; ~256 GB/s peak |
 | Architecture | Unified memory | No VRAM bottleneck |
 
-Unlike discrete GPUs limited to 24GB VRAM, the APU shares all 128GB with both CPU and GPU, enabling models that won't fit on any consumer graphics card.
+Unlike discrete GPUs limited to 24GB VRAM, the APU shares all 128GB with both CPU and GPU, enabling models that won't fit on any consumer graphics card. The LPDDR5X-8000 quad-channel bus delivers roughly 3× the bandwidth of typical desktop DDR5, which is what makes integrated-GPU inference practical at this scale.
 
 [:octicons-arrow-right-24: Hardware details](getting-started/hardware.md){ .md-button }
 [:octicons-arrow-right-24: Hardware architecture](getting-started/hardware-architecture.md){ .md-button .md-button--primary }

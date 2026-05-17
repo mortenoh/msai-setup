@@ -9,8 +9,12 @@ sudo apt install -y \
     libvirt-clients \
     bridge-utils \
     virtinst \
-    ovmf
+    ovmf \
+    swtpm \
+    swtpm-tools
 ```
+
+`swtpm` provides the emulated TPM 2.0 that Windows 11 requires for installation. `ovmf` ships both the standard and Secure-Boot variants of the UEFI firmware (`OVMF_CODE.fd` and `OVMF_CODE.secboot.fd`).
 
 ## Verify KVM Support
 
@@ -85,21 +89,18 @@ network:
 
 ## Remote Management
 
-### virt-manager over SSH
+### virt-manager over SSH (recommended)
 
-From your workstation:
+Install `virt-manager` **on your workstation/Mac** and point it at the headless server:
 
 ```bash
 virt-manager -c qemu+ssh://user@ms-s1-max/system
 ```
 
-### Enable SSH X11 Forwarding
+`virt-manager` runs locally as a Python/GTK app and talks to `libvirtd` on the server over SSH — no X11 forwarding required.
 
-On the server, edit `/etc/ssh/sshd_config`:
-
-```
-X11Forwarding yes
-```
+!!! note "X11 forwarding is not needed"
+    Earlier drafts of this doc recommended enabling `X11Forwarding yes` in sshd. That's only relevant if you intended to run `virt-manager` *on* the server and tunnel its GUI back, which contradicts the headless model. Leave `X11Forwarding no` on the server.
 
 ## VM Best Practices
 

@@ -26,6 +26,9 @@ Client Request: ads.example.com
 
 ## Docker Compose Setup
 
+!!! info "Pi-hole v6 environment variables"
+    Pi-hole v6 (released 2025-02) renamed its configuration knobs. The old `WEBPASSWORD`, `FTLCONF_LOCAL_IPV4`, and `PIHOLE_DNS_` variables silently no-op on v6 images. The examples below use the v6 `FTLCONF_*` schema, which maps directly to keys in `/etc/pihole/pihole.toml`. If you're pinning to a v5 image (`pihole/pihole:2024.07.0` or earlier), revert to the legacy variables.
+
 ### Basic Setup
 
 ```yaml
@@ -40,12 +43,11 @@ services:
       - "80:80/tcp"
     environment:
       TZ: Europe/Oslo
-      WEBPASSWORD: ${PIHOLE_PASSWORD}
-      FTLCONF_LOCAL_IPV4: ${HOST_IP}
-      PIHOLE_DNS_: 1.1.1.1;1.0.0.1
+      FTLCONF_webserver_api_password: ${PIHOLE_PASSWORD}
+      FTLCONF_dns_listeningMode: all
+      FTLCONF_dns_upstreams: "1.1.1.1;1.0.0.1"
     volumes:
-      - ./etc-pihole:/etc/pihole
-      - ./etc-dnsmasq.d:/etc/dnsmasq.d
+      - /mnt/tank/containers/pihole/etc-pihole:/etc/pihole
     cap_add:
       - NET_ADMIN
     dns:
@@ -64,15 +66,14 @@ services:
     network_mode: host
     environment:
       TZ: Europe/Oslo
-      WEBPASSWORD: ${PIHOLE_PASSWORD}
-      PIHOLE_DNS_: 1.1.1.1;1.0.0.1
-      DHCP_ACTIVE: "true"
-      DHCP_START: 192.168.1.100
-      DHCP_END: 192.168.1.200
-      DHCP_ROUTER: 192.168.1.1
+      FTLCONF_webserver_api_password: ${PIHOLE_PASSWORD}
+      FTLCONF_dns_upstreams: "1.1.1.1;1.0.0.1"
+      FTLCONF_dhcp_active: "true"
+      FTLCONF_dhcp_start: 192.168.1.100
+      FTLCONF_dhcp_end: 192.168.1.200
+      FTLCONF_dhcp_router: 192.168.1.1
     volumes:
-      - ./etc-pihole:/etc/pihole
-      - ./etc-dnsmasq.d:/etc/dnsmasq.d
+      - /mnt/tank/containers/pihole/etc-pihole:/etc/pihole
     cap_add:
       - NET_ADMIN
 ```
@@ -91,14 +92,12 @@ services:
       - "8080:80/tcp"  # Web UI on different port
     environment:
       TZ: Europe/Oslo
-      WEBPASSWORD: ${PIHOLE_PASSWORD}
-      FTLCONF_LOCAL_IPV4: 192.168.1.10
-      PIHOLE_DNS_: 1.1.1.1;1.0.0.1
-      WEB_PORT: 80
-      VIRTUAL_HOST: pihole.local
+      FTLCONF_webserver_api_password: ${PIHOLE_PASSWORD}
+      FTLCONF_dns_listeningMode: all
+      FTLCONF_dns_upstreams: "1.1.1.1;1.0.0.1"
+      FTLCONF_webserver_port: 80
     volumes:
-      - ./etc-pihole:/etc/pihole
-      - ./etc-dnsmasq.d:/etc/dnsmasq.d
+      - /mnt/tank/containers/pihole/etc-pihole:/etc/pihole
     cap_add:
       - NET_ADMIN
     networks:
@@ -265,7 +264,7 @@ services:
 
   pihole:
     environment:
-      PIHOLE_DNS_: cloudflared#5053
+      FTLCONF_dns_upstreams: "cloudflared#5053"
     depends_on:
       - cloudflared
 ```
@@ -281,14 +280,14 @@ services:
     container_name: unbound
     restart: unless-stopped
     volumes:
-      - ./unbound:/opt/unbound/etc/unbound
+      - /mnt/tank/containers/pihole/unbound:/opt/unbound/etc/unbound
     networks:
       pihole_net:
         ipv4_address: 172.20.0.3
 
   pihole:
     environment:
-      PIHOLE_DNS_: 172.20.0.3#5053
+      FTLCONF_dns_upstreams: "172.20.0.3#5053"
 ```
 
 ## Statistics and Logging
@@ -309,7 +308,7 @@ View at **Query Log** in web UI.
 For privacy:
 ```yaml
 environment:
-  FTLCONF_PRIVACYLEVEL: 3  # Anonymous
+  FTLCONF_misc_privacylevel: 3  # Anonymous (Pi-hole v6 schema)
 ```
 
 ## Backup

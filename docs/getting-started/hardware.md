@@ -4,6 +4,8 @@
 
 The MS-S1 MAX is a compact mini-PC suitable for a home server with virtualization capabilities and local AI inference.
 
+Authoritative spec sheet: [minisforum.com/products/ms-s1-max](https://www.minisforum.com/products/ms-s1-max).
+
 ## Why This Hardware
 
 The choice of an APU (Accelerated Processing Unit) over a discrete GPU setup is deliberate:
@@ -12,20 +14,21 @@ The choice of an APU (Accelerated Processing Unit) over a discrete GPU setup is 
 
 **Simplicity**: No PCIe passthrough complexity, no separate power requirements, no thermal challenges from a 300W+ GPU in a compact enclosure.
 
-**Power efficiency**: The APU runs at 55-120W TDP versus 300-450W for high-end discrete GPUs. For a 24/7 home server, this translates to meaningful electricity savings.
+**Power efficiency**: The platform peaks at ~160W and sustains around ~130W at the wall (320W PSU), versus 300-450W just for a high-end discrete GPU. For a 24/7 home server, this translates to meaningful electricity savings.
 
 **Cost effectiveness**: A single unified system versus coordinating a CPU, motherboard, and expensive discrete GPU.
 
-## The Strix Point Advantage
+## The Strix Halo Advantage
 
-The AMD Ryzen AI Max+ 395 represents AMD's most capable APU to date:
+The AMD Ryzen AI Max+ 395 (Strix Halo) represents AMD's most capable APU to date:
 
 - **Zen 5 architecture**: Latest CPU cores with improved IPC
-- **RDNA 3.5 graphics**: 40 compute units, same architecture as discrete RX 7000 series
-- **Unified memory controller**: Both CPU and GPU access the same DDR5 pool
+- **RDNA 3.5 graphics**: 40 compute units, same architecture family as discrete RX 7000 series
+- **Quad-channel LPDDR5X-8000**: 256-bit memory bus delivers ~256 GB/s peak, ~3× a typical desktop DDR5 board
+- **Unified memory controller**: Both CPU and GPU access the same memory pool
 - **AI accelerator**: Dedicated XDNA 2 NPU (though less relevant for LLM inference)
 
-This APU is essentially a laptop chip pushed to desktop power limits - the same silicon in high-end gaming laptops, but configured with maximum memory and thermal headroom.
+This APU is essentially a workstation-class part in a mini-PC form factor — the same silicon in high-end mobile workstations, with maximum memory and thermal headroom.
 
 For detailed architecture information, see [Hardware Architecture](hardware-architecture.md).
 
@@ -33,15 +36,21 @@ For detailed architecture information, see [Hardware Architecture](hardware-arch
 
 | Component | Specification |
 |-----------|---------------|
-| CPU | AMD Ryzen AI Max+ 395 (Strix Point) |
+| CPU | AMD Ryzen AI Max+ 395 (Strix Halo) |
 | Cores/Threads | 16 cores / 32 threads (Zen 5) |
-| GPU | AMD Radeon Graphics (RDNA 3.5, 40 CUs) |
-| GPU ID | gfx1151 |
-| RAM | 128GB DDR5-5600 (dual-channel) |
-| Internal NVMe | 2 TB |
-| Secondary NVMe | 4 TB |
-| TDP | 55-120W configurable |
-| Display | HDMI 2.1, DisplayPort 2.1, USB-C |
+| GPU | AMD Radeon 8060S (RDNA 3.5, 40 CUs) |
+| GPU ID | `gfx1151` |
+| RAM | 128GB LPDDR5X-8000 MT/s, quad-channel, soldered (~256 GB/s peak) |
+| Internal NVMe (slot 1) | 2 TB, PCIe 4.0 x4 |
+| Secondary NVMe (slot 2) | 4 TB, PCIe 4.0 **x1** (slower; ~2 GB/s ceiling) |
+| Networking | 2 × 10GbE (Realtek RTL8127) |
+| Display | HDMI 2.1 FRL, single output (up to 8K@60 / 4K@120) |
+| USB | Front: 1 × USB 3.2 Gen2, 2 × USB4 (40 Gbps), 2 × USB 2.0. Rear: 2 × USB4 V2 (80 Gbps), 1 × USB 3.2 Gen2 |
+| Expansion | PCIe 4.0 x4 slot (full-length x16 connector) |
+| Power | 320W external PSU; ~160W peak / 130W sustained at the wall |
+
+!!! note "Asymmetric NVMe slots"
+    The second M.2 slot is only PCIe 4.0 **x1**, capping it at ~2 GB/s vs the ~8 GB/s available on slot 1. This is fine for ZFS-backed media and cold data, but VM disks and hot databases should live on the primary 2 TB drive.
 
 ### APU for AI Workloads
 
@@ -50,7 +59,7 @@ The integrated RDNA 3.5 GPU shares system memory with the CPU, enabling:
 - **Large model support**: 70B+ parameter models fit in 128GB RAM
 - **No VRAM limitation**: Discrete GPUs typically max at 24GB
 - **Simpler setup**: No PCIe passthrough configuration needed
-- **Lower power**: ~65W vs 300W+ for high-end discrete GPUs
+- **Real memory bandwidth**: LPDDR5X-8000 quad-channel is in a different class than the dual-channel DDR5-5600 of typical desktop boards
 
 ## Trade-offs
 
@@ -59,13 +68,13 @@ The APU approach involves a clear trade-off:
 | Aspect | MS-S1 MAX (APU) | Discrete GPU (RTX 4090) |
 |--------|-----------------|-------------------------|
 | Memory capacity | 128GB | 24GB |
-| Memory bandwidth | ~90 GB/s | ~1 TB/s |
-| Tokens/second | Lower | Higher |
-| Model size support | 70B+ at Q6/Q8 | 70B requires offloading |
-| Power consumption | 55-120W | 300-450W |
+| Memory bandwidth | ~256 GB/s (LPDDR5X-8000 quad-channel) | ~1 TB/s (GDDR6X) |
+| Tokens/second | Moderate | Higher |
+| Model size support | 70B+ at Q6/Q8, 405B at low quant | 70B requires CPU offloading |
+| Power consumption | ~130W sustained system | 300-450W just for the GPU |
 | Setup complexity | Simple | PCIe passthrough needed |
 
-**The practical impact**: Expect 5-15 tokens/second for large models versus 30-60 on discrete GPUs. But you can run models that discrete GPU users cannot run at all without CPU offloading (which makes them even slower).
+**The practical impact**: Expect ~6-9 tok/s on a 70B Q4 model, ~15-20 tok/s on a 32B Q4, and ~50-70 tok/s on an 8B Q4 with ROCm/HIP. Discrete GPUs are faster per token but can't run the larger models at all without CPU offloading (which is much slower than this box).
 
 For bandwidth calculations and deeper technical analysis, see [Hardware Architecture](hardware-architecture.md).
 
@@ -73,18 +82,18 @@ See [BIOS Setup](bios-setup.md) for optimizing APU performance and [GPU Setup](.
 
 ### Storage Layout
 
-#### Internal NVMe (2 TB)
+#### Internal NVMe (2 TB, PCIe 4.0 x4) — host OS + hot data
 
 | Partition | Size | Filesystem | Mount |
 |-----------|------|------------|-------|
 | EFI | 512 MB | FAT32 | `/boot/efi` |
 | Boot | 1 GB | ext4 | `/boot` |
 | Root | 1 TB | ext4 | `/` |
-| Free | ~1 TB | — | ZFS pool |
+| Free | ~1 TB | — | ZFS pool member |
 
-#### Secondary NVMe (4 TB)
+#### Secondary NVMe (4 TB, PCIe 4.0 x1) — bulk ZFS data
 
-Entire disk allocated to ZFS pool.
+Entire disk allocated as a second ZFS pool member. The x1 link is the bottleneck — use this drive for media, backups, model files, and other read-heavy or cold data; keep VM disks and hot databases on the primary drive.
 
 ### Why ext4 for Root?
 

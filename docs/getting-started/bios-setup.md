@@ -2,6 +2,8 @@
 
 MS-S1 MAX specific BIOS configuration for optimal performance with AMD APU workloads.
 
+Authoritative spec sheet: [minisforum.com/products/ms-s1-max](https://www.minisforum.com/products/ms-s1-max).
+
 ## Firmware Version
 
 Run **BIOS 1.06** (released 2026-01-04) or later before installing Ubuntu 26.04. Earlier firmware has known memory training, NVMe, and USB4 v2 stability issues that 26.04's Linux 7.0 kernel exposes more aggressively.
@@ -27,22 +29,8 @@ Power on the system and press the appropriate key during POST:
 
 Memory configuration is critical for APU performance since the integrated GPU shares system RAM.
 
-### XMP/DOCP Profile
-
-Enable memory profiles to run DDR5 at rated speeds:
-
-| Setting | Location | Recommended |
-|---------|----------|-------------|
-| XMP/DOCP | Advanced > Memory | Enabled |
-| Memory Profile | Advanced > Memory | Profile 1 (highest rated) |
-
-The MS-S1 MAX ships with DDR5-5600 memory. Without XMP/DOCP enabled, memory may default to JEDEC speeds (4800 MHz), significantly reducing performance.
-
-**Why memory speed matters:**
-
-- Token generation is memory-bandwidth bound
-- Higher frequency = more bandwidth = faster inference
-- DDR5-5600 vs DDR5-4800 is ~17% bandwidth difference
+!!! info "Soldered LPDDR5X — no XMP/DOCP"
+    The MS-S1 MAX ships with 128GB LPDDR5X-8000 MT/s on a 256-bit (quad-channel) bus, **soldered to the SoC package**. There are no DIMM slots, no XMP/DOCP profile to enable, and memory speed is fixed by firmware. The only memory-related knobs in BIOS that matter on this platform are the UMA frame buffer size (below) and the AMD CBS memory interleaving toggles.
 
 ### UMA Frame Buffer Size
 
@@ -67,20 +55,20 @@ The UMA (Unified Memory Architecture) Frame Buffer allocates a portion of system
 
 ### Memory Interleaving
 
-Ensure memory is running in dual-channel mode:
+Ensure channel and bank interleaving are enabled so the SoC actually uses the 256-bit bus:
 
 | Setting | Location | Recommended |
 |---------|----------|-------------|
 | Channel Interleaving | Advanced > Memory | Auto or Enabled |
 | Bank Interleaving | Advanced > Memory | Auto or Enabled |
 
-Verify dual-channel operation from Linux:
+Verify memory presentation from Linux. Because the LPDDR5X is on-package, `dmidecode` will report it as soldered/embedded (sometimes with non-standard slot strings, depending on firmware):
 
 ```bash
-sudo dmidecode -t memory | grep -E "Number Of Devices|Locator"
+sudo dmidecode -t memory | grep -E "Speed|Locator|Size|Form Factor"
 ```
 
-Both DIMM slots should be populated for dual-channel bandwidth.
+You should see ~8000 MT/s reported and a single 128GB total. There are no socketed DIMM slots to populate.
 
 ## AMD APU Settings
 
@@ -210,12 +198,12 @@ SVM (Secure Virtual Machine) is AMD's virtualization technology, equivalent to I
 | Setting | Location | Recommended |
 |---------|----------|-------------|
 | Boot Mode | Boot | UEFI |
-| Secure Boot | Boot > Security | Enabled (optional) |
+| Secure Boot | Boot > Security | Disabled (recommended for this build — see note below) |
 | Fast Boot | Boot | Disabled |
 | Boot Order | Boot | NVMe first |
 
-!!! note "Secure Boot"
-    Secure Boot can be enabled with Ubuntu but may complicate kernel module loading for out-of-tree drivers. Disable if troubleshooting driver issues.
+!!! note "Secure Boot is disabled for this build"
+    This setup uses out-of-tree DKMS modules (`amdgpu-dkms`, `zfs-dkms`) which must be MOK-signed to load under Secure Boot. The simpler, lower-friction path is to keep Secure Boot **disabled** on this headless server. The host is protected by network controls (UFW, Tailscale-only management), not boot-time integrity. If you specifically need Secure Boot, plan to enroll a MOK before installing ROCm or ZFS.
 
 ## Settings Summary
 
@@ -223,7 +211,6 @@ Quick reference for AI/server workloads:
 
 | Category | Setting | Value |
 |----------|---------|-------|
-| Memory | XMP/DOCP | Enabled |
 | Memory | UMA Frame Buffer | 512 MB (Strix Halo: keep small, use GTT) |
 | AMD | IOMMU | Enabled |
 | AMD | Above 4G Decoding | Enabled |
@@ -232,6 +219,7 @@ Quick reference for AI/server workloads:
 | CPU | SMT | Enabled |
 | Power | AC Power Loss | Power On |
 | Boot | Boot Mode | UEFI |
+| Boot | Secure Boot | Disabled (simpler for amdgpu/ROCm/ZFS DKMS) |
 
 ## Saving and Exit
 

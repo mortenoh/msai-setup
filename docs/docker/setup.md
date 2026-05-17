@@ -12,11 +12,15 @@ sudo install -m 0755 -d /etc/apt/keyrings
 sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
 sudo chmod a+r /etc/apt/keyrings/docker.asc
 
-# Add repository
-echo \
-  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
-  $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
-  sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+# Add repository — fall back to 'noble' if Docker hasn't published a
+# 'resolute' channel yet (common in the first weeks after Ubuntu LTS release).
+CODENAME=$(. /etc/os-release && echo "$VERSION_CODENAME")
+if ! curl -sfI "https://download.docker.com/linux/ubuntu/dists/${CODENAME}/Release" >/dev/null; then
+    echo "Docker repo for '$CODENAME' not published; falling back to noble"
+    CODENAME=noble
+fi
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu ${CODENAME} stable" \
+    | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
 ```
 
 ### Install Packages
@@ -72,21 +76,40 @@ sudo systemctl restart docker
 
 ## Docker and UFW
 
-Docker modifies iptables directly, bypassing UFW.
+Docker modifies iptables directly, bypassing UFW. Published container ports are reachable on every host interface regardless of UFW rules.
 
-### Solution: Disable Docker's iptables
+For this build we use **`ufw-docker`** to make UFW actually filter Docker-published ports, plus **bind sensitive services to `127.0.0.1`** behind the reverse proxy. Setting `"iptables": false` in `daemon.json` is also an option but breaks container networking unless you replace it with your own nftables rules — not recommended.
 
-```json
-{
-  "iptables": false
-}
+### Recommended: install ufw-docker
+
+```bash
+# Pin a release tag rather than tracking master
+sudo wget -O /usr/local/bin/ufw-docker \
+    https://github.com/chaifeng/ufw-docker/raw/v0.5.0/ufw-docker
+sudo chmod +x /usr/local/bin/ufw-docker
+
+# Install ufw-docker's rules block into /etc/ufw/after.rules
+sudo ufw-docker install
+sudo systemctl restart ufw
 ```
 
-Then manage rules manually or use `ufw-docker` utility.
+After install, use UFW rules to allow access to specific container ports:
 
-### Alternative: Accept It
+```bash
+# Example: allow LAN access to Jellyfin on container port 8096
+sudo ufw route allow proto tcp from 192.168.1.0/24 to any port 8096
+```
 
-If your server isn't directly exposed to the internet, the default Docker networking may be acceptable.
+### Bind internal services to localhost
+
+For anything that doesn't need direct external access, bind to `127.0.0.1` in compose and route through your reverse proxy on 80/443:
+
+```yaml
+services:
+  nextcloud:
+    ports:
+      - "127.0.0.1:8080:80"   # not reachable on LAN; Traefik proxies it
+```
 
 ## Project Structure
 

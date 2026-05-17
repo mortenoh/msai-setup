@@ -1,6 +1,8 @@
 # Hardware Architecture
 
-Deep dive into the AMD Strix Point APU architecture and why it's well-suited for local AI inference.
+Deep dive into the AMD Strix Halo APU architecture and why it's well-suited for local AI inference.
+
+Authoritative spec sheet for the Minisforum MS-S1 MAX: [minisforum.com/products/ms-s1-max](https://www.minisforum.com/products/ms-s1-max).
 
 ## APU Overview
 
@@ -20,7 +22,7 @@ Traditional Discrete GPU Setup:
 |  ~90 GB/s   |                   |    ~1 TB/s       |
 +-------------+                   +------------------+
 
-APU Architecture (Strix Point):
+APU Architecture (Strix Halo):
 +--------------------------------------------------+
 |           AMD Ryzen AI Max+ 395                  |
 |  +-------------+          +------------------+   |
@@ -33,20 +35,21 @@ APU Architecture (Strix Point):
 |                      |                           |
 |         +------------v-------------+             |
 |         |   Memory Controller      |             |
+|         |   256-bit bus            |             |
 |         +--------------------------+             |
 +--------------------------------------------------+
                        |
                        v
-          +------------------------+
-          |   DDR5-5600 (128GB)    |
-          |   Dual-channel         |
-          |   ~90 GB/s bandwidth   |
-          +------------------------+
+          +-------------------------------+
+          |  LPDDR5X-8000 (128GB)         |
+          |  Quad-channel, soldered       |
+          |  ~256 GB/s peak bandwidth     |
+          +-------------------------------+
 ```
 
-## Strix Point Architecture
+## Strix Halo Architecture
 
-The Ryzen AI Max+ 395 is built on the Strix Point platform:
+The Ryzen AI Max+ 395 is built on the Strix Halo platform:
 
 ### CPU Complex
 
@@ -75,51 +78,58 @@ The Ryzen AI Max+ 395 is built on the Strix Point platform:
 
 | Specification | Detail |
 |---------------|--------|
-| Type | DDR5-5600 |
-| Channels | Dual-channel |
-| Maximum Capacity | 128GB (2x64GB) |
-| Theoretical Bandwidth | 89.6 GB/s |
-| Practical Bandwidth | ~70-80 GB/s |
+| Type | LPDDR5X-8000 MT/s (soldered, on-package) |
+| Bus width | 256-bit (quad-channel equivalent) |
+| Maximum Capacity | 128GB (single configuration; not user-replaceable) |
+| Theoretical Bandwidth | ~256 GB/s |
+| Practical Bandwidth | ~210-220 GB/s (real-world LLM workloads) |
+
+!!! note "Not a normal desktop board"
+    Strix Halo's memory is soldered LPDDR5X-8000 on a 256-bit bus. There are no DIMM slots, no XMP/DOCP profile to enable, and no way to upgrade RAM later. The trade-off for that constraint is roughly 3× the bandwidth of a dual-channel desktop DDR5 board.
 
 ## Bandwidth Analysis
 
 Memory bandwidth directly affects LLM inference speed. Each token requires reading the entire model from memory:
 
 ```
-Token generation rate = Memory Bandwidth / Model Size
+Token generation rate ≈ Memory Bandwidth / Model Size
 
-Example with 70B Q4 model (~35GB):
-- DDR5-5600: 80 GB/s / 35GB = ~2.3 reads/sec = ~2.3 tokens/sec (theoretical)
-- Actual: 8-15 tokens/sec (parallelism, caching, batching help)
+Example with 70B Q4 model (~40GB):
+- LPDDR5X-8000 quad-channel: ~220 GB/s / 40GB ≈ 5.5 reads/sec ceiling
+- Real-world with ROCm/HIP: ~6-9 tokens/sec
 
-Example with 70B Q8 model (~70GB):
-- DDR5-5600: 80 GB/s / 70GB = ~1.1 reads/sec base
-- Actual: 5-10 tokens/sec
+Example with 32B Q4 model (~20GB):
+- ~220 GB/s / 20GB ≈ 11 reads/sec ceiling
+- Real-world: ~15-20 tokens/sec
+
+Example with 8B Q4 model (~5GB):
+- ~220 GB/s / 5GB ≈ 44 reads/sec ceiling
+- Real-world: ~50-70 tokens/sec
 ```
 
 ### Bandwidth Comparison
 
 | Memory Type | Theoretical | Practical | Use Case |
 |-------------|-------------|-----------|----------|
-| DDR5-5600 (MS-S1 MAX) | 89.6 GB/s | ~75 GB/s | Large models, slow inference |
+| Desktop DDR5-5600 (dual-channel) | ~90 GB/s | ~75 GB/s | Reference; what most home boards run |
+| LPDDR5X-8000 quad-channel (MS-S1 MAX) | ~256 GB/s | ~210-220 GB/s | Large models at usable speeds |
+| Apple M4 Max unified | ~546 GB/s | ~400 GB/s | Faster but pricier and ARM/Metal |
 | GDDR6X (RTX 4090) | 1008 GB/s | ~900 GB/s | Small models, fast inference |
 | HBM3 (H100) | 3350 GB/s | ~3000 GB/s | Enterprise inference |
-| Unified (M4 Max) | 546 GB/s | ~400 GB/s | Balanced approach |
 
-The MS-S1 MAX trades speed for capacity. A 70B model at Q6 (52GB) runs entirely in memory - impossible on a 24GB discrete GPU without CPU offloading (which creates its own bandwidth bottleneck over PCIe at ~32 GB/s).
+The MS-S1 MAX trades raw GPU bandwidth for capacity. A 70B model at Q6 (~52GB) runs entirely in memory — impossible on a 24GB discrete GPU without CPU offloading (which creates its own bandwidth bottleneck over PCIe at ~32 GB/s).
 
 ## Platform Comparison
 
 | Aspect | MS-S1 MAX | Mac Studio M4 Max | GPU Workstation |
 |--------|-----------|-------------------|-----------------|
-| Memory | 128GB DDR5 | 128GB Unified | 64GB + 24GB VRAM |
+| Memory | 128GB LPDDR5X-8000 | 128GB Unified | 64GB DDR5 + 24GB VRAM |
 | GPU Memory | Shared 128GB | Shared 128GB | 24GB dedicated |
-| Memory Bandwidth | ~90 GB/s | ~546 GB/s | ~90 + 1000 GB/s |
+| Memory Bandwidth | ~256 GB/s | ~546 GB/s | ~90 GB/s system + ~1000 GB/s VRAM |
 | Max Model (Q4) | 200B+ | 200B+ | 45B (GPU only) |
 | Max Model (Q8) | 100B+ | 100B+ | 22B (GPU only) |
-| Power Draw | 55-120W | 40-120W | 200-600W |
+| System Power Draw | ~130W sustained | 40-120W | 400-700W |
 | OS | Linux (ROCm) | macOS (Metal) | Linux (CUDA) |
-| Price (2024) | ~$2000 | ~$4000 | ~$5000+ |
 
 ## Unified Memory Explained
 
@@ -139,22 +149,17 @@ With unified memory:
 3. No copying, no PCIe bottleneck
 4. Entire 128GB available for models
 
-The trade-off is bandwidth - DDR5 is slower than GDDR6X. But for large models, having the model fit entirely in GPU-accessible memory is more important than raw bandwidth.
+The trade-off is bandwidth — LPDDR5X is slower than GDDR6X. But for large models, having the model fit entirely in GPU-accessible memory is more important than raw bandwidth.
 
-## Thermal Considerations
+## Thermal &amp; Power
 
-The MS-S1 MAX manages thermals through:
+The MS-S1 MAX uses a 320W external PSU and pulls roughly **160W peak / 130W sustained** at the wall under full load. Cooling and TDP behaviour:
 
 - **Active cooling**: Dual-fan system with vapor chamber
-- **TDP configuration**: BIOS-adjustable from 55W to 120W
-- **Throttling behavior**: CPU/GPU reduce clocks under thermal pressure
+- **Configurable platform power**: BIOS exposes power-limit knobs; sensible 24/7 settings stay well under the PSU's sustained budget
+- **Throttling behaviour**: CPU/GPU reduce clocks under thermal pressure rather than violating power limits
 
-For sustained AI workloads:
-
-- Ambient temperature matters significantly
-- 55W TDP provides stable, quiet operation
-- 120W TDP for maximum performance with higher noise
-- GPU-heavy workloads (inference) stress cooling more than CPU-heavy
+For sustained AI workloads, ambient temperature matters and GPU-heavy inference stresses cooling more than CPU-heavy workloads.
 
 ## Practical Implications
 
@@ -167,9 +172,9 @@ For sustained AI workloads:
 
 ### Limitations
 
-- **Speed**: Expect 5-15 tokens/sec for 70B models
-- **ROCm support**: Requires OEM kernel (6.14+) and ROCm 7.x
-- **No tensor cores**: RDNA 3.5 lacks dedicated AI accelerators
+- **Speed**: ~6-9 tok/s on 70B Q4, ~15-20 on 32B Q4, ~50-70 on 8B Q4 with ROCm/HIP
+- **ROCm support**: Requires modern kernel (Ubuntu 26.04's 7.0 kernel is fine) and ROCm 7.x
+- **No tensor cores**: RDNA 3.5 lacks dedicated matrix-multiply units like NVIDIA's tensor cores
 - **Single GPU**: Cannot scale with additional GPUs
 
 ## Related Documentation

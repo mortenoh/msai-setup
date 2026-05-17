@@ -6,7 +6,7 @@ The foundational C/C++ inference engine for running LLMs efficiently on consumer
 
 llama.cpp provides:
 
-- **Cross-platform support** - macOS (Metal), Linux (CUDA, Vulkan), Windows
+- **Cross-platform support** - Linux (ROCm/HIP, CUDA, Vulkan), macOS (Metal), Windows
 - **GGUF format** - Optimized quantized model format
 - **llama-server** - OpenAI-compatible API server
 - **Low dependencies** - Minimal runtime requirements
@@ -32,7 +32,35 @@ ls build/bin/
 # llama-cli, llama-server, llama-bench, etc.
 ```
 
+### Linux (ROCm/HIP) — recommended for MS-S1 MAX
+
+For the Ryzen AI Max+ 395 (Strix Halo, `gfx1151`), build with HIP for the best prompt-processing throughput. Requires ROCm 7.x installed first — see [ROCm Installation](../gpu/rocm-installation.md).
+
+```bash
+git clone https://github.com/ggml-org/llama.cpp
+cd llama.cpp
+
+# Build with HIP, targeting Strix Halo (gfx1151)
+cmake -B build \
+    -DGGML_HIP=ON \
+    -DAMDGPU_TARGETS=gfx1151 \
+    -DCMAKE_BUILD_TYPE=Release
+cmake --build build --config Release -j$(nproc)
+
+# Binaries land in build/bin/
+ls build/bin/
+```
+
+Runtime environment hints (add to `~/.bashrc` or a service unit):
+
+```bash
+export HIP_VISIBLE_DEVICES=0
+export HSA_OVERRIDE_GFX_VERSION=11.5.1  # gfx1151 — only needed on older ROCm
+```
+
 ### Linux (CUDA)
+
+For NVIDIA hardware (not the MS-S1 MAX):
 
 ```bash
 git clone https://github.com/ggml-org/llama.cpp
@@ -45,7 +73,7 @@ cmake --build build --config Release -j$(nproc)
 
 ### Linux (Vulkan)
 
-For AMD GPUs or cross-platform:
+Cross-vendor fallback. On Strix Halo, prefer ROCm/HIP above — Vulkan works but is typically slower for prompt processing.
 
 ```bash
 cmake -B build -DGGML_VULKAN=ON

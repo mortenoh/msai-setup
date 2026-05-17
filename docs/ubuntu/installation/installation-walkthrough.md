@@ -117,89 +117,58 @@ The default archive mirror is typically appropriate. Change only if:
 
 ### Layout Selection
 
-When prompted, select **Custom storage layout** for security-focused partitioning.
+When prompted, select **Custom storage layout**. Do not use guided/entire-disk — it will reformat the wrong drive on a two-NVMe box.
 
-!!! warning "Automatic Layout Limitations"
-    The automatic options don't separate /tmp, /var, and /home, limiting your ability to apply security mount options.
+### Create Partitions on the Primary 2 TB NVMe
 
-### Create Partitions
-
-Follow the layout from [Disk Partitioning](disk-partitioning.md):
+Follow the canonical layout in [Disk Partitioning](disk-partitioning.md): plain ext4 root, no LUKS, no LVM. The secondary 4 TB NVMe is **left untouched** at installer time; ZFS will claim it post-install.
 
 **EFI System Partition:**
 
-1. Select free space on target disk
+1. Select free space on the primary NVMe
 2. "Add GPT Partition"
-3. Size: 512M
-4. Format: fat32
-5. Mount: /boot/efi
+3. Size: `512M`
+4. Format: `fat32`
+5. Mount: `/boot/efi`
 
 **Boot Partition:**
 
-1. Select remaining free space
+1. Select remaining free space on the primary NVMe
 2. "Add GPT Partition"
-3. Size: 1G
-4. Format: ext4
-5. Mount: /boot
+3. Size: `1G`
+4. Format: `ext4`
+5. Mount: `/boot`
 
-**LUKS Encrypted Volume:**
+**Root Partition:**
 
-1. Select remaining free space
+1. Select remaining free space on the primary NVMe
 2. "Add GPT Partition"
-3. Size: (remaining space or specific amount)
-4. Format: Leave unformatted
-5. Don't set mount point yet
+3. Size: `1024G` (1 TB; installer may round)
+4. Format: `ext4`
+5. Mount: `/`
 
-After creating the partition:
+**Leave the rest unallocated:**
 
-1. Select the new partition
-2. Choose "Create encrypted volume"
-3. **Enter a strong passphrase** (minimum 20 characters recommended)
-4. Confirm the passphrase
-
-**Create Volume Group:**
-
-1. Select the encrypted volume (shows as dm-crypt)
-2. Choose "Create LVM volume group"
-3. Name: `vg-system` (or your preferred name)
-
-**Create Logical Volumes:**
-
-For each volume needed:
-
-1. Select the volume group
-2. "Create logical volume"
-3. Configure:
-
-| Name | Size | Format | Mount |
-|------|------|--------|-------|
-| lv-root | 25G | ext4 | / |
-| lv-home | 50G | ext4 | /home |
-| lv-var | 50G | ext4 | /var |
-| lv-tmp | 5G | ext4 | /tmp |
-| lv-swap | 8G | swap | swap |
+- ~1 TB of free space on the primary NVMe — will become a ZFS pool member.
+- The entire 4 TB secondary NVMe — also a ZFS pool member.
 
 ### Review and Confirm
 
-The storage summary should show:
+The storage summary should look approximately like:
 
 ```
-DEVICE                    TYPE      SIZE  MOUNT
-nvme0n1                   disk      500G
-  nvme0n1p1               part      512M  /boot/efi (fat32)
-  nvme0n1p2               part        1G  /boot (ext4)
-  nvme0n1p3               part      498G
-    cryptroot             crypt     498G
-      vg-system-lv-root   lvm        25G  / (ext4)
-      vg-system-lv-home   lvm        50G  /home (ext4)
-      vg-system-lv-var    lvm        50G  /var (ext4)
-      vg-system-lv-tmp    lvm         5G  /tmp (ext4)
-      vg-system-lv-swap   lvm         8G  swap
-      (free space)                  360G
+nvme0n1                   disk   2.0T
+  nvme0n1p1               part   512M  /boot/efi  (fat32)
+  nvme0n1p2               part   1.0G  /boot       (ext4)
+  nvme0n1p3               part   1.0T  /           (ext4)
+  (free space)                   ~1.0T
+
+nvme1n1                   disk   4.0T
+  (free space)                   4.0T
 ```
 
 !!! danger "Destructive Action"
-    Proceeding will erase the target disk. Verify you're installing to the correct device.
+    Proceeding will erase the selected disks. Verify both drive identities — the slot 1 drive is the 2 TB; the slot 2 drive is the 4 TB and must show **no partitions**.
 
 Select "Done" and confirm when prompted.
 
@@ -212,7 +181,7 @@ Select "Done" and confirm when prompted.
 | Your name | Full name (for GECOS field) |
 | Your server's name | Hostname (e.g., `srv-ubuntu-01`) |
 | Pick a username | Lowercase, no spaces (e.g., `admin`) |
-| Choose a password | Strong password, different from LUKS |
+| Choose a password | Strong password (also used by `sudo`) |
 | Confirm password | Re-enter password |
 
 **Hostname Guidelines:**

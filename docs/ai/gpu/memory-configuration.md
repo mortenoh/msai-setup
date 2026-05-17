@@ -4,7 +4,7 @@ Optimizing memory allocation for AMD APU AI workloads on the MS-S1 MAX.
 
 ## APU Shared Memory Architecture
 
-Unlike discrete GPUs with dedicated VRAM, the AMD Ryzen AI Max+ 395 APU shares system memory between CPU and GPU:
+Unlike discrete GPUs with dedicated VRAM, the AMD Ryzen AI Max+ 395 (Strix Halo) APU shares system memory between CPU and GPU. On the MS-S1 MAX that pool is **128GB LPDDR5X-8000, soldered, on a 256-bit (quad-channel) bus** — roughly 3× the bandwidth of a typical desktop dual-channel DDR5 board.
 
 ```
 Discrete GPU Memory Model:
@@ -26,7 +26,7 @@ APU Shared Memory Model:
 │          │                       │            │
 │          ▼                       ▼            │
 │   ┌───────────────────────────────────────┐   │
-│   │     DDR5 System Memory (128GB)        │   │
+│   │  LPDDR5X-8000 (128GB, quad-channel)   │   │
 │   │   CPU and GPU share the same pool     │   │
 │   └───────────────────────────────────────┘   │
 └───────────────────────────────────────────────┘
@@ -120,20 +120,21 @@ rocm-smi --showmeminfo vram
 
 ## Kernel Parameter Alternative
 
-For persistent VRAM allocation without `amd-debug-tools`, you can set kernel parameters via GRUB. This uses the `amdttm.pages_limit` and `amdttm.page_pool_size` parameters.
+For persistent GTT sizing without `amd-debug-tools`, you can set kernel module parameters via GRUB. The module is `ttm` (the kernel's Translation Table Manager, shared by `amdgpu`/`radeon`); the parameters are `ttm.pages_limit` and `ttm.page_pool_size`.
 
 ### Calculation
 
-Convert the desired GB allocation to the kernel parameter value:
+A page on x86-64 is 4096 bytes. Convert GB to pages:
 
 ```
-pages = (GB * 1024 * 1024) / 4.096
+pages = (GB × 1024 × 1024 × 1024) / 4096
+      = GB × 262144
 ```
 
-For 108GB:
+For 108 GB:
 
 ```
-pages = (108 * 1024 * 1024) / 4.096 = 27,648,000
+pages = 108 × 262144 = 28,311,552
 ```
 
 ### GRUB Configuration
@@ -143,7 +144,7 @@ pages = (108 * 1024 * 1024) / 4.096 = 27,648,000
 sudo nano /etc/default/grub
 
 # Add to GRUB_CMDLINE_LINUX_DEFAULT:
-# amdttm.pages_limit=27648000 amdttm.page_pool_size=27648000
+# ttm.pages_limit=28311552 ttm.page_pool_size=28311552
 ```
 
 ```bash
@@ -151,14 +152,17 @@ sudo update-grub
 sudo reboot
 ```
 
-!!! note "Kernel 6.16.9+"
-    Kernel versions 6.16.9 and later may handle GTT sizing automatically based on available memory, reducing the need for manual configuration.
+!!! note "Verify the module name on your kernel"
+    Recent AMD trees occasionally ship downstream patches that rename or namespace the TTM parameters. If `ttm.pages_limit=…` is rejected at boot, check `modinfo ttm | grep parm` and `modinfo amdgpu | grep parm` for the actual parameter names on your running kernel.
+
+!!! note "Newer kernels may auto-tune"
+    Kernel versions 6.16.9 and later may handle GTT sizing automatically based on available memory, reducing the need for manual configuration. `amd-ttm --set` is still the most reliable way to pin a value.
 
 ## System Memory Considerations
 
 ### The 128GB Advantage
 
-With 128GB DDR5, the MS-S1 MAX can run models that exceed typical discrete GPU memory:
+With 128GB LPDDR5X-8000 (quad-channel), the MS-S1 MAX can run models that exceed typical discrete GPU memory:
 
 | Model Size | Quantization | Memory Required | Fits in 24GB GPU? |
 |------------|--------------|-----------------|-------------------|
@@ -234,38 +238,35 @@ Tokens/second ≈ Memory Bandwidth / Model Size
 
 | Memory Type | Bandwidth | Relative Speed |
 |-------------|-----------|----------------|
-| DDR5-4800 | ~77 GB/s (dual-channel) | Baseline |
-| DDR5-5600 | ~90 GB/s (dual-channel) | +17% |
-| DDR5-6400 | ~102 GB/s (dual-channel) | +32% |
-| GDDR6X (RTX 4090) | ~1008 GB/s | ~11x faster |
-| HBM3 (H100) | ~3350 GB/s | ~37x faster |
+| DDR5-5600 (typical desktop, dual-channel) | ~90 GB/s | Reference for comparison |
+| DDR5-6400 (high-end desktop, dual-channel) | ~102 GB/s | +13% |
+| LPDDR5X-8000 quad-channel (MS-S1 MAX) | ~256 GB/s peak, ~210-220 GB/s real | ~3× a dual-channel DDR5 board |
+| Unified (Apple M4 Max) | ~546 GB/s | ~6× |
+| GDDR6X (RTX 4090) | ~1008 GB/s | ~11× |
+| HBM3 (H100) | ~3350 GB/s | ~37× |
 
-**Practical impact:**
+**Practical impact (Strix Halo on ROCm/HIP):**
 
-| Model | DDR5-5600 APU | RTX 4090 |
-|-------|---------------|----------|
-| 7B Q4 | ~15-20 tok/s | ~100+ tok/s |
-| 70B Q4 | ~2-4 tok/s | N/A (won't fit) |
-| 70B Q2 | ~4-6 tok/s | N/A |
+| Model | MS-S1 MAX (LPDDR5X-8000) | RTX 4090 |
+|-------|--------------------------|----------|
+| 8B Q4 | ~50-70 tok/s | ~100+ tok/s |
+| 32B Q4 | ~15-20 tok/s | fits, faster |
+| 70B Q4 | ~6-9 tok/s | doesn't fit |
+| 70B Q6 | ~4-6 tok/s | doesn't fit |
+| 405B IQ2/IQ1 | ~1-2 tok/s, fits at low quant | doesn't fit |
 
-The APU is slower per token but can run larger models that don't fit in discrete GPUs.
+The APU is slower per token than a top-end discrete GPU, but it runs models that simply don't fit in 24GB VRAM at all.
 
-### Optimizing Bandwidth
+### Verifying Memory Configuration
 
-**Enable XMP/DOCP:**
-
-Memory runs at JEDEC default (4800 MHz) without XMP. Enable in BIOS for rated speed.
+The MS-S1 MAX ships with soldered LPDDR5X — there is no XMP/DOCP to enable and no DIMM slots to populate. Just confirm the kernel sees the rated speed and 128 GB:
 
 ```bash
-# Check current memory speed
+# Check reported memory speed (should be ~8000 MT/s)
 sudo dmidecode -t memory | grep -E "Speed:|Configured Memory Speed:"
-```
 
-**Verify dual-channel:**
-
-```bash
-# Both channels should be populated
-sudo dmidecode -t memory | grep -E "Locator:|Size:"
+# Confirm total capacity and form factor
+sudo dmidecode -t memory | grep -E "Size:|Locator:|Form Factor"
 ```
 
 Single-channel halves available bandwidth.

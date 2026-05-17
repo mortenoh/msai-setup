@@ -56,14 +56,17 @@ apt search ubuntu-security-guide
 # Install OpenSCAP
 sudo apt install openscap-scanner scap-security-guide
 
+# Confirm which Ubuntu datastream the SSG package shipped on this release
+ls /usr/share/xml/scap/ssg/content/ | grep -i ubuntu
+
 # List available profiles
-oscap info /usr/share/xml/scap/ssg/content/ssg-ubuntu2204-ds.xml
+oscap info /usr/share/xml/scap/ssg/content/ssg-ubuntu2604-ds.xml
 
 # Run CIS assessment
 sudo oscap xccdf eval \
     --profile xccdf_org.ssgproject.content_profile_cis_level1_server \
     --report cis-report.html \
-    /usr/share/xml/scap/ssg/content/ssg-ubuntu2204-ds.xml
+    /usr/share/xml/scap/ssg/content/ssg-ubuntu2604-ds.xml
 ```
 
 ### Lynis
@@ -461,7 +464,7 @@ echo "Review full CIS benchmark for complete hardening"
 sudo oscap xccdf eval \
     --profile xccdf_org.ssgproject.content_profile_cis_level1_server \
     --report /var/log/cis-report-$(date +%Y%m%d).html \
-    /usr/share/xml/scap/ssg/content/ssg-ubuntu2204-ds.xml
+    /usr/share/xml/scap/ssg/content/ssg-ubuntu2604-ds.xml
 
 # Lynis report
 sudo lynis audit system --auditor "Security Admin" \
@@ -480,7 +483,7 @@ cat > /etc/cron.weekly/compliance-scan << 'EOF'
 oscap xccdf eval \
     --profile xccdf_org.ssgproject.content_profile_cis_level1_server \
     --report /var/log/compliance/cis-$(date +%Y%m%d).html \
-    /usr/share/xml/scap/ssg/content/ssg-ubuntu2204-ds.xml
+    /usr/share/xml/scap/ssg/content/ssg-ubuntu2604-ds.xml
 EOF
 chmod +x /etc/cron.weekly/compliance-scan
 ```

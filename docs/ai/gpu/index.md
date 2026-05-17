@@ -4,7 +4,7 @@ Configure AMD integrated graphics for AI workloads on the MS-S1 MAX.
 
 ## Overview
 
-The AMD Ryzen AI Max+ 395 APU combines CPU and GPU on a single chip with access to system memory. Unlike discrete GPUs with dedicated VRAM, the integrated RDNA 3.5 graphics shares the 128GB DDR5 system RAM.
+The AMD Ryzen AI Max+ 395 (Strix Halo) APU combines CPU and GPU on a single chip with access to system memory. Unlike discrete GPUs with dedicated VRAM, the integrated RDNA 3.5 graphics shares the 128GB LPDDR5X-8000 quad-channel system memory.
 
 For a comprehensive explanation of the APU architecture, memory subsystem, and design trade-offs, see [Hardware Architecture](../../getting-started/hardware-architecture.md).
 
@@ -15,8 +15,8 @@ For a comprehensive explanation of the APU architecture, memory subsystem, and d
 | Architecture | RDNA 3.5 |
 | Compute Units | 40 CUs |
 | GPU ID | gfx1151 |
-| Memory | Shared 128GB DDR5 |
-| Bandwidth | ~90 GB/s |
+| Memory | Shared 128GB LPDDR5X-8000 (quad-channel, soldered) |
+| Bandwidth | ~256 GB/s peak, ~210-220 GB/s real-world |
 | ROCm Support | Native (Ubuntu 26.04 ships ROCm 7.1 in Universe; gfx1151 supported upstream) |
 
 ## Why APU for LLMs?

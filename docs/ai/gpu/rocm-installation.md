@@ -365,15 +365,21 @@ sudo apt install --reinstall amdgpu-dkms
 
 ### llama.cpp with ROCm
 
-Build llama.cpp with HIP support:
+Build llama.cpp with HIP support. llama.cpp uses CMake now — the old `make GGML_HIP=1` invocation no longer works on current main.
 
 ```bash
-git clone https://github.com/ggerganov/llama.cpp
+git clone https://github.com/ggml-org/llama.cpp
 cd llama.cpp
 
-# Build with HIP (ROCm)
-make GGML_HIP=1
+# Build with HIP, targeting Strix Halo (gfx1151)
+cmake -B build \
+    -DGGML_HIP=ON \
+    -DAMDGPU_TARGETS=gfx1151 \
+    -DCMAKE_BUILD_TYPE=Release
+cmake --build build --config Release -j$(nproc)
 ```
+
+See [llama.cpp](../inference-engines/llama-cpp.md) for runtime environment hints.
 
 ### Ollama with ROCm
 

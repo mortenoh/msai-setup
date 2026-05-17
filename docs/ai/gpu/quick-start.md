@@ -3,7 +3,7 @@
 Single-page path from bare Ubuntu 26.04 LTS to running LLMs on GPU with the AMD Ryzen AI Max+ 395 APU (gfx1151).
 
 !!! info "Tested Environment"
-    Ubuntu 26.04 LTS ("Resolute Raccoon"), Linux 7.0 kernel, ROCm 7.1 (in-distro) or upstream 7.2.x, 128GB DDR5. For detailed configuration of individual components, see the linked pages throughout this guide.
+    Ubuntu 26.04 LTS ("Resolute Raccoon"), Linux 7.0 kernel, ROCm 7.1 (in-distro) or upstream 7.2.x, 128GB LPDDR5X-8000 quad-channel. For detailed configuration of individual components, see the linked pages throughout this guide.
 
 ## 1. Verify Kernel
 
