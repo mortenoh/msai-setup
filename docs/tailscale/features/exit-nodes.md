@@ -14,11 +14,11 @@ Exit nodes route your internet traffic through another device on your Tailscale 
 │   Your Device                       Your Device                             │
 │       │                                 │                                   │
 │       │ (your IP)                       │ (Tailscale)                       │
-│       ▼                                 ▼                                   │
+│       v                                 v                                   │
 │   Internet                          Exit Node                               │
 │                                         │                                   │
 │                                         │ (exit node's IP)                  │
-│                                         ▼                                   │
+│                                         v                                   │
 │                                     Internet                                │
 │                                                                              │
 │   Traffic appears from              Traffic appears from                    │
@@ -89,9 +89,9 @@ sudo tailscale up --exit-node=
 
 ### GUI Applications
 
-- **macOS**: Menu bar → Exit Nodes → Select node
-- **Windows**: System tray → Exit Nodes → Select node
-- **iOS/Android**: App → Use exit node → Select node
+- **macOS**: Menu bar -> Exit Nodes -> Select node
+- **Windows**: System tray -> Exit Nodes -> Select node
+- **iOS/Android**: App -> Use exit node -> Select node
 
 ## Exit Node Configuration
 
@@ -139,7 +139,7 @@ Benefits:
 
 Tailscale partners with Mullvad VPN:
 
-1. Enable in admin console (**Settings** → **Mullvad**)
+1. Enable in admin console (**Settings** -> **Mullvad**)
 2. Select Mullvad exit node from list
 3. Traffic exits through Mullvad servers
 
@@ -165,9 +165,9 @@ You can have multiple exit nodes for redundancy or location options:
 │         └────────────────────────────┴────────────────────────┘             │
 │                                      │                                       │
 │                              Choose based on:                               │
-│                              • Location needs                               │
-│                              • Latency                                      │
-│                              • Availability                                 │
+│                              - Location needs                               │
+│                              - Latency                                      │
+│                              - Availability                                 │
 │                                                                              │
 └──────────────────────────────────────────────────────────────────────────────┘
 ```

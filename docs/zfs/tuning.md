@@ -61,9 +61,9 @@ arcstat 1 5          # 5 samples, 1 second apart
 
 Things to look for:
 
-- `size` near `c_max` → cache is filling the bound; healthy.
+- `size` near `c_max` -> cache is filling the bound; healthy.
 - High `hits / (hits+misses)` ratio (`hit%`) — 95%+ is good for typical workloads.
-- Low hit rate **and** plenty of free RAM → consider raising `zfs_arc_max`.
+- Low hit rate **and** plenty of free RAM -> consider raising `zfs_arc_max`.
 - Low hit rate **and** RAM-constrained workloads (VMs/AI) — leave it where it is; ARC is correctly being held back.
 
 ### `zfs_arc_min`

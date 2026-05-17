@@ -14,14 +14,14 @@ Policy routing allows routing decisions based on criteria beyond destination add
                     ┌─────────────────────────────────────┐
                     │         Policy Routing Database     │
                     ├─────────────────────────────────────┤
-   Packet ──────────│  Rule 1: from 10.0.0.0/8 → table 100│
-                    │  Rule 2: fwmark 1 → table 200       │
-                    │  Rule 3: to 8.8.8.8 → table 300     │
-                    │  Default: → main table              │
+   Packet ──────────│  Rule 1: from 10.0.0.0/8 -> table 100│
+                    │  Rule 2: fwmark 1 -> table 200       │
+                    │  Rule 3: to 8.8.8.8 -> table 300     │
+                    │  Default: -> main table              │
                     └─────────────────────────────────────┘
                                       │
               ┌───────────────────────┼───────────────────────┐
-              ▼                       ▼                       ▼
+              v                       v                       v
         Table 100                Table 200                Table 300
      (via 10.0.0.1)           (via 172.16.0.1)          (via 1.1.1.1)
 ```

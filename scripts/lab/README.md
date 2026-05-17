@@ -69,7 +69,7 @@ Two implementations, same idea:
 - Downloads + verifies SHA256 of `ubuntu-24.04.X-live-server-{amd64,arm64}.iso`
 - Creates a VM (`ms-s1-max-lab`) with EFI firmware
 - Adds 1 primary disk + N lab disks (default 6, 8 GB each)
-- Forwards host `127.0.0.1:2222` → guest `22` over NAT
+- Forwards host `127.0.0.1:2222` -> guest `22` over NAT
 - Runs unattended install via `VBoxManage unattended install` when supported, falls back to interactive (VRDE) for ISOs the bundled templates don't know about
 - Boots headless
 

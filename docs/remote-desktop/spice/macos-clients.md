@@ -139,7 +139,7 @@ Run a Linux VM locally for SPICE access to remote VMs.
 ```
 ┌──────────────┐      ┌──────────────┐      ┌──────────────┐
 │    macOS     │      │  Linux VM    │      │  SPICE VM    │
-│              │─────►│  (local)     │─────►│  (remote)    │
+│              │─────>│  (local)     │─────>│  (remote)    │
 │  VNC Client  │ VNC  │ virt-viewer  │SPICE │              │
 └──────────────┘      └──────────────┘      └──────────────┘
 ```

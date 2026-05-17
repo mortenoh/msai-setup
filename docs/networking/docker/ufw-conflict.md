@@ -29,32 +29,32 @@ Docker and UFW both manipulate iptables, but at different levels:
 ```
 Incoming packet to port 3306
           │
-          ▼
+          v
 ┌─────────────────────────────────┐
 │   PREROUTING chain (nat table)  │
 │                                 │
 │   Docker DNAT rule:             │
-│   DNAT to 172.17.0.2:3306      │◀── Packet redirected HERE
+│   DNAT to 172.17.0.2:3306      │<── Packet redirected HERE
 │                                 │
 └─────────────────────────────────┘
           │
-          ▼ (packet now destined for 172.17.0.2)
+          v (packet now destined for 172.17.0.2)
 ┌─────────────────────────────────┐
 │    Routing Decision: FORWARD    │
 │    (not INPUT - container IP)   │
 └─────────────────────────────────┘
           │
-          ▼
+          v
 ┌─────────────────────────────────┐
 │   FORWARD chain (filter table)  │
 │                                 │
-│   Docker rules: ACCEPT          │◀── Packet accepted HERE
+│   Docker rules: ACCEPT          │<── Packet accepted HERE
 │                                 │
-│   UFW rules: Never evaluated    │◀── UFW is bypassed!
+│   UFW rules: Never evaluated    │<── UFW is bypassed!
 │                                 │
 └─────────────────────────────────┘
           │
-          ▼
+          v
     Container receives packet
 ```
 
@@ -126,7 +126,7 @@ num  target                  prot opt source    destination
 4    DOCKER                  all  --  anywhere  anywhere
 5    ACCEPT                  all  --  anywhere  anywhere
 6    ACCEPT                  all  --  anywhere  anywhere
-7    ufw-before-forward      all  --  anywhere  anywhere  ◀── UFW rules start here
+7    ufw-before-forward      all  --  anywhere  anywhere  <── UFW rules start here
 8    ufw-user-forward        all  --  anywhere  anywhere
 9    ufw-after-forward       all  --  anywhere  anywhere
 ```

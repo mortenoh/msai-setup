@@ -12,20 +12,20 @@ File integrity monitoring (FIM) detects unauthorized changes to system files. Th
 │         (Hashes, permissions, ownership, timestamps)         │
 └─────────────────────────────────────────────────────────────┘
                               │
-                              ▼
+                              v
 ┌─────────────────────────────────────────────────────────────┐
 │                    Periodic Scan                             │
 │           (Compare current state to baseline)                │
 └─────────────────────────────────────────────────────────────┘
                               │
             ┌─────────────────┴─────────────────┐
-            ▼                                   ▼
+            v                                   v
       ┌─────────────┐                   ┌─────────────┐
       │ No Changes  │                   │  Changes    │
       │   (OK)      │                   │  Detected   │
       └─────────────┘                   └─────────────┘
                                                │
-                                               ▼
+                                               v
                                         ┌─────────────┐
                                         │   Alert!    │
                                         │  Investigate│

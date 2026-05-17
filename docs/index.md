@@ -47,7 +47,7 @@ AMD Ryzen AI Max+ 395 (Strix Halo APU):
 | RAM | 128GB LPDDR5X-8000, quad-channel | Fits 70B+ models; ~256 GB/s peak |
 | Architecture | Unified memory | No VRAM bottleneck |
 
-Unlike discrete GPUs limited to 24GB VRAM, the APU shares all 128GB with both CPU and GPU, enabling models that won't fit on any consumer graphics card. The LPDDR5X-8000 quad-channel bus delivers roughly 3× the bandwidth of typical desktop DDR5, which is what makes integrated-GPU inference practical at this scale.
+Unlike discrete GPUs limited to 24GB VRAM, the APU shares all 128GB with both CPU and GPU, enabling models that won't fit on any consumer graphics card. The LPDDR5X-8000 quad-channel bus delivers roughly 3x the bandwidth of typical desktop DDR5, which is what makes integrated-GPU inference practical at this scale.
 
 [:octicons-arrow-right-24: Hardware details](getting-started/hardware.md){ .md-button }
 [:octicons-arrow-right-24: Hardware architecture](getting-started/hardware-architecture.md){ .md-button .md-button--primary }

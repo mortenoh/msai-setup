@@ -246,7 +246,7 @@ Cline: Running npm test...
 User: Rename the User class to Account across all files
 
 Cline: I'll update the following files:
-- src/models/User.ts → Account.ts
+- src/models/User.ts -> Account.ts
 - src/controllers/UserController.ts
 - src/services/UserService.ts
 - tests/User.test.ts
@@ -265,7 +265,7 @@ Cline: I'll analyze the changes...
 
 | Shortcut | Action |
 |----------|--------|
-| `Ctrl+Shift+P` → "Cline" | Open Cline commands |
+| `Ctrl+Shift+P` -> "Cline" | Open Cline commands |
 | `Ctrl+L` | Focus Cline input |
 | `Escape` | Cancel current operation |
 

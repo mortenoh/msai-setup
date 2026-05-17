@@ -10,17 +10,17 @@ The SSH agent holds your private keys in memory, so you don't need to enter pass
 │                                                                           │
 │   ┌────────────┐         ┌────────────┐         ┌────────────┐          │
 │   │    SSH     │         │    SSH     │         │   Remote   │          │
-│   │   Client   │◀───────▶│   Agent    │         │   Server   │          │
+│   │   Client   │<───────>│   Agent    │         │   Server   │          │
 │   └─────┬──────┘         └─────┬──────┘         └─────┬──────┘          │
 │         │                      │                      │                  │
 │         │   1. Request sign    │                      │                  │
-│         │──────────────────────▶                      │                  │
+│         │──────────────────────>                      │                  │
 │         │                      │                      │                  │
 │         │   2. Return signature│                      │                  │
-│         │◀──────────────────────                      │                  │
+│         │<──────────────────────                      │                  │
 │         │                      │                      │                  │
 │         │   3. Send signature  │                      │                  │
-│         │─────────────────────────────────────────────▶                  │
+│         │─────────────────────────────────────────────>                  │
 │         │                      │                      │                  │
 │                                                                           │
 │   Key never leaves agent - only signatures are sent                      │
@@ -188,7 +188,7 @@ Host server
 Local Machine              Server A                Server B
 ┌────────────┐           ┌────────────┐         ┌────────────┐
 │            │           │            │         │            │
-│ SSH Agent  │◀─────────▶│  Forwarded │◀───────▶│   Uses     │
+│ SSH Agent  │<─────────>│  Forwarded │<───────>│   Uses     │
 │ (keys)     │  forward  │   Socket   │  uses   │   Keys     │
 │            │           │            │         │            │
 └────────────┘           └────────────┘         └────────────┘

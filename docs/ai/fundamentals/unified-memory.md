@@ -69,7 +69,7 @@ The MS-S1 MAX wins decisively on (1) and is competitive on (2) against everythin
 | Apple M4 Max unified | ~546 GB/s | ~400 GB/s |
 | RTX 4090 (GDDR6X) | ~1008 GB/s | ~900 GB/s |
 
-The MS-S1 MAX has roughly 3× the bandwidth of a typical desktop board and half the bandwidth of an M4 Max — but with a far cheaper entry price.
+The MS-S1 MAX has roughly 3x the bandwidth of a typical desktop board and half the bandwidth of an M4 Max — but with a far cheaper entry price.
 
 ## How Linux + ROCm Split the Pool
 
@@ -109,19 +109,19 @@ Reserve ~20-25 GB for the OS, ARC ([ZFS ARC capped at 16 GiB](../../zfs/pool-cre
 Rough VRAM requirement for a dense model:
 
 ```
-Weights (GB) ≈ Parameters (B) × Bits / 8
+Weights (GB) ~ Parameters (B) x Bits / 8
 
-  8B Q4:   8 × 4 / 8 =  4 GB base
- 32B Q4:  32 × 4 / 8 = 16 GB base
- 70B Q4:  70 × 4 / 8 = 35 GB base
- 70B Q6:  70 × 6 / 8 = 53 GB base
- 70B Q8:  70 × 8 / 8 = 70 GB base
-405B Q2: 405 × 2 / 8 = 101 GB base (IQ2/IQ1 quants are slightly smaller)
+  8B Q4:   8 x 4 / 8 =  4 GB base
+ 32B Q4:  32 x 4 / 8 = 16 GB base
+ 70B Q4:  70 x 4 / 8 = 35 GB base
+ 70B Q6:  70 x 6 / 8 = 53 GB base
+ 70B Q8:  70 x 8 / 8 = 70 GB base
+405B Q2: 405 x 2 / 8 = 101 GB base (IQ2/IQ1 quants are slightly smaller)
 ```
 
 Add **20-40% on top** for:
 
-- KV cache (linear in context length × layers × heads × head_dim)
+- KV cache (linear in context length x layers x heads x head_dim)
 - Activation memory during inference
 - llama.cpp/Ollama internal buffers
 - Pre-allocation headroom

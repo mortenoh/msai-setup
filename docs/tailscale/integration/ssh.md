@@ -11,11 +11,11 @@ Tailscale SSH provides secure, passwordless SSH access using Tailscale identitie
 │   Traditional SSH                       Tailscale SSH                       │
 │   ─────────────────                     ──────────────                      │
 │                                                                              │
-│   • Manage SSH keys                     • Use Tailscale identity            │
-│   • Configure authorized_keys           • No key management                 │
-│   • Handle key rotation                 • Automatic authentication          │
-│   • Port 22 exposure                    • No port exposure                  │
-│   • Password or key auth                • Identity-based auth               │
+│   - Manage SSH keys                     - Use Tailscale identity            │
+│   - Configure authorized_keys           - No key management                 │
+│   - Handle key rotation                 - Automatic authentication          │
+│   - Port 22 exposure                    - No port exposure                  │
+│   - Password or key auth                - Identity-based auth               │
 │                                                                              │
 │   ssh -i key user@host                  ssh user@host (via Tailscale)      │
 │                                                                              │

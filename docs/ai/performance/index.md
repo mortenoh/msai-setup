@@ -133,23 +133,23 @@ curl http://localhost:8080/metrics
 ```
 Slow Generation?
        │
-       ▼
+       v
 ┌──────────────────┐
 │ Check GPU usage  │
 └────────┬─────────┘
          │
     ┌────┴────┐
     │         │
-    ▼         ▼
+    v         v
   Low?      High?
     │         │
-    ▼         ▼
+    v         v
 ┌─────────┐ ┌─────────┐
 │ GPU not │ │ Memory  │
 │ used    │ │ bound   │
 └────┬────┘ └────┬────┘
      │           │
-     ▼           ▼
+     v           v
 Add more    Use smaller
 GPU layers  quant/model
 ```

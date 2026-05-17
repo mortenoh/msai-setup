@@ -153,7 +153,7 @@ virsh capabilities | grep -A20 '<topology>'
 ```
 
 !!! note "Strix Halo CCX pinning"
-    The Ryzen AI Max+ 395 has **2 × CCX of 8 Zen 5 cores each**, each CCX with its own L3 cache. Crossing the CCX boundary inside a single VM incurs a noticeable L3-miss penalty. For latency-sensitive guests (Windows VM for interactive use, gaming VM if you ever go that route), **pin all vCPUs of one VM to a single CCX**.
+    The Ryzen AI Max+ 395 has **2 x CCX of 8 Zen 5 cores each**, each CCX with its own L3 cache. Crossing the CCX boundary inside a single VM incurs a noticeable L3-miss penalty. For latency-sensitive guests (Windows VM for interactive use, gaming VM if you ever go that route), **pin all vCPUs of one VM to a single CCX**.
 
     Check the CCX layout with `lscpu --extended` — look at the `L3` column; cores sharing an L3 cache value are on the same CCX. Typical layout:
 

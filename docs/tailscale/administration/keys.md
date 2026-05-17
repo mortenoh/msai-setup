@@ -25,7 +25,7 @@ curl -H "Authorization: Bearer tskey-api-xxxxx" \
 
 ### Creating Auth Keys
 
-1. **Admin Console** → **Settings** → **Keys**
+1. **Admin Console** -> **Settings** -> **Keys**
 2. Click **Generate auth key**
 3. Configure options:
    - **Reusable**: Use for multiple devices
@@ -69,7 +69,7 @@ sudo tailscale up --auth-key=tskey-auth-xxxxx --advertise-tags=tag:webserver
 
 ### Creating API Keys
 
-1. **Admin Console** → **Settings** → **Keys**
+1. **Admin Console** -> **Settings** -> **Keys**
 2. Click **Generate API key**
 3. Select scopes
 4. Set expiration
@@ -113,7 +113,7 @@ For applications and integrations:
 
 ### Creating OAuth Clients
 
-1. **Admin Console** → **Settings** → **OAuth clients**
+1. **Admin Console** -> **Settings** -> **OAuth clients**
 2. Click **Create OAuth client**
 3. Configure:
    - Name
@@ -150,7 +150,7 @@ curl -H "Authorization: Bearer <access_token>" \
 By default, device keys expire and require re-authentication.
 
 **Disable expiry** for servers:
-1. **Machines** → Select device
+1. **Machines** -> Select device
 2. **Disable key expiry**
 
 ### Re-authentication
@@ -232,20 +232,20 @@ export TS_AUTHKEY=$(vault kv get -field=authkey secret/tailscale)
 
 ### Auth Keys
 
-1. **Settings** → **Keys**
-2. Find key → **Revoke**
+1. **Settings** -> **Keys**
+2. Find key -> **Revoke**
 3. Existing devices stay connected
 4. New registrations fail
 
 ### API Keys
 
-1. **Settings** → **Keys**
-2. Find API key → **Revoke**
+1. **Settings** -> **Keys**
+2. Find API key -> **Revoke**
 3. API calls with key fail immediately
 
 ### Device Keys
 
-1. **Machines** → Select device
+1. **Machines** -> Select device
 2. **Remove** or **Expire key**
 3. Device disconnects
 

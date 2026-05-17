@@ -7,8 +7,8 @@ Understanding quantization methods and their impact on model size, quality, and 
 Quantization reduces model precision from 16/32-bit floats to lower bit representations:
 
 ```
-Original (FP16):     16 bits per weight  →  100% size, 100% quality
-Quantized (Q4):       4 bits per weight  →  ~25% size, ~95% quality
+Original (FP16):     16 bits per weight  ->  100% size, 100% quality
+Quantized (Q4):       4 bits per weight  ->  ~25% size, ~95% quality
 ```
 
 ## GGUF Quantization Types
@@ -33,16 +33,16 @@ Quantized (Q4):       4 bits per weight  →  ~25% size, ~95% quality
 ```
 Approximate Model Size:
 
-Parameters (B) × Bits / 8 = Size (GB)
+Parameters (B) x Bits / 8 = Size (GB)
 
 70B model:
-- F16:   70 × 16 / 8 = 140 GB
-- Q8_0:  70 × 8 / 8  = 70 GB
-- Q6_K:  70 × 6.5/8  = 57 GB
-- Q5_K_M: 70 × 5.5/8 = 48 GB
-- Q4_K_M: 70 × 4.5/8 = 39 GB + overhead ≈ 43 GB
-- Q3_K_M: 70 × 3.5/8 = 31 GB
-- Q2_K:  70 × 2.5/8  = 22 GB
+- F16:   70 x 16 / 8 = 140 GB
+- Q8_0:  70 x 8 / 8  = 70 GB
+- Q6_K:  70 x 6.5/8  = 57 GB
+- Q5_K_M: 70 x 5.5/8 = 48 GB
+- Q4_K_M: 70 x 4.5/8 = 39 GB + overhead ~ 43 GB
+- Q3_K_M: 70 x 3.5/8 = 31 GB
+- Q2_K:  70 x 2.5/8  = 22 GB
 ```
 
 ### Quality Impact
@@ -162,10 +162,10 @@ Lower quantization = more room for context:
 
 ```
 Do you have memory to spare?
-├─ Yes → Go up one quant level (Q4→Q5 or Q5→Q6)
-└─ No → Is quality critical?
-        ├─ Yes → Use smaller model at higher quant
-        └─ No → Use current quant level
+├─ Yes -> Go up one quant level (Q4->Q5 or Q5->Q6)
+└─ No -> Is quality critical?
+        ├─ Yes -> Use smaller model at higher quant
+        └─ No -> Use current quant level
 ```
 
 ### Practical Guidelines

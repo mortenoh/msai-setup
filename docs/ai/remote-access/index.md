@@ -23,7 +23,7 @@ Remote access enables:
 │         │                │                     │                │
 └─────────┼────────────────┼─────────────────────┼────────────────┘
           │                │                     │
-          ▼                ▼                     ▼
+          v                v                     v
 ┌─────────────────────────────────────────────────────────────────┐
 │                     Access Layer                                │
 │  ┌─────────────────────────┐  ┌─────────────────────────────┐  │
@@ -108,7 +108,7 @@ OLLAMA_HOST=0.0.0.0:11434 ollama serve
 ### Recommended Setup
 
 ```
-Remote Access → Tailscale Serve → Reverse Proxy → Ollama
+Remote Access -> Tailscale Serve -> Reverse Proxy -> Ollama
                 (encryption)       (rate limit)    (localhost)
 ```
 

@@ -11,12 +11,12 @@ SFTP is an interactive file transfer protocol that runs over SSH. Unlike FTP, it
 │   Local Machine                              Remote Server                │
 │   ┌─────────────────┐                       ┌─────────────────┐          │
 │   │                 │    SSH Connection     │                 │          │
-│   │  SFTP Client    │◀─────────────────────▶│  SFTP Server    │          │
+│   │  SFTP Client    │<─────────────────────>│  SFTP Server    │          │
 │   │                 │    (Port 22)          │                 │          │
-│   │  • Browse       │    Encrypted          │  • /home/user   │          │
-│   │  • Upload       │    Authenticated      │  • /var/www     │          │
-│   │  • Download     │                       │                 │          │
-│   │  • Manage       │                       │                 │          │
+│   │  - Browse       │    Encrypted          │  - /home/user   │          │
+│   │  - Upload       │    Authenticated      │  - /var/www     │          │
+│   │  - Download     │                       │                 │          │
+│   │  - Manage       │                       │                 │          │
 │   └─────────────────┘                       └─────────────────┘          │
 │                                                                           │
 └──────────────────────────────────────────────────────────────────────────┘
@@ -201,7 +201,7 @@ For true synchronization, use rsync instead.
 
 ### FileZilla
 
-1. File → Site Manager
+1. File -> Site Manager
 2. Protocol: SFTP
 3. Host, Port, User
 4. Logon Type: Key file
@@ -212,7 +212,7 @@ For true synchronization, use rsync instead.
 1. New Site
 2. Protocol: SFTP
 3. Enter credentials
-4. Advanced → SSH → Authentication → Private key file
+4. Advanced -> SSH -> Authentication -> Private key file
 5. Login
 
 ### Cyberduck (macOS)

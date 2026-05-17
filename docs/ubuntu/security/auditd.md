@@ -17,7 +17,7 @@ The Linux Audit system provides detailed tracking of security-relevant events. I
 │  - mount        │  - modification │  - authentication       │
 └─────────────────────────────────────────────────────────────┘
                               │
-                              ▼
+                              v
 ┌─────────────────────────────────────────────────────────────┐
 │                /var/log/audit/audit.log                      │
 │                                                              │

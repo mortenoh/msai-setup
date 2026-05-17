@@ -12,20 +12,20 @@ Netplan is a utility for network configuration on Linux systems using YAML files
 │                  /etc/netplan/*.yaml                         │
 └─────────────────────────────────────────────────────────────┘
                             │
-                            ▼
+                            v
 ┌─────────────────────────────────────────────────────────────┐
 │                        Netplan                               │
 │              Parses YAML, generates config                   │
 └─────────────────────────────────────────────────────────────┘
                             │
               ┌─────────────┴─────────────┐
-              ▼                           ▼
+              v                           v
 ┌─────────────────────────┐   ┌─────────────────────────┐
 │    systemd-networkd     │   │    NetworkManager       │
 │   (Server default)      │   │   (Desktop default)     │
 └─────────────────────────┘   └─────────────────────────┘
                             │
-                            ▼
+                            v
 ┌─────────────────────────────────────────────────────────────┐
 │                    Linux Kernel                              │
 │              Network interfaces configured                   │

@@ -16,14 +16,14 @@ Tailscale assigns IP addresses from the 100.64.0.0/10 range (CGNAT - Carrier-Gra
 │   └── Reserved for CGNAT (RFC 6598)                                         │
 │                                                                              │
 │   Why CGNAT?                                                                 │
-│   • Unlikely to conflict with your existing networks                        │
-│   • Not routable on the internet                                            │
-│   • Distinct from RFC 1918 private ranges                                   │
+│   - Unlikely to conflict with your existing networks                        │
+│   - Not routable on the internet                                            │
+│   - Distinct from RFC 1918 private ranges                                   │
 │                                                                              │
 │   Common Private Ranges (NOT used by Tailscale):                            │
-│   • 10.0.0.0/8       (16 million IPs)                                      │
-│   • 172.16.0.0/12    (1 million IPs)                                       │
-│   • 192.168.0.0/16   (65,536 IPs)                                          │
+│   - 10.0.0.0/8       (16 million IPs)                                      │
+│   - 172.16.0.0/12    (1 million IPs)                                       │
+│   - 192.168.0.0/16   (65,536 IPs)                                          │
 │                                                                              │
 └──────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -132,8 +132,8 @@ tailscale netcheck
 │      NAT creates bidirectional mapping                                       │
 │                                                                              │
 │   4. Direct Connection (or DERP fallback)                                   │
-│      If hole punch succeeds → direct WireGuard tunnel                       │
-│      If it fails → traffic relayed via DERP                                 │
+│      If hole punch succeeds -> direct WireGuard tunnel                       │
+│      If it fails -> traffic relayed via DERP                                 │
 │                                                                              │
 └──────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -152,15 +152,15 @@ DERP (Designated Encrypted Relay for Packets) is Tailscale's relay system:
 │                                                                              │
 │   Device A                    DERP Server                    Device B       │
 │      │                            │                              │          │
-│      │ ──── encrypted ──────────► │                              │          │
-│      │      WireGuard packet      │ ──── encrypted ────────────► │          │
+│      │ ──── encrypted ──────────> │                              │          │
+│      │      WireGuard packet      │ ──── encrypted ────────────> │          │
 │      │                            │      WireGuard packet        │          │
-│      │ ◄───────────────────────── │ ◄──────────────────────────  │          │
+│      │ <───────────────────────── │ <──────────────────────────  │          │
 │      │                            │                              │          │
 │                                                                              │
-│   • DERP only sees encrypted WireGuard packets                              │
-│   • Cannot decrypt traffic (no access to WireGuard keys)                    │
-│   • Simply forwards packets between clients                                 │
+│   - DERP only sees encrypted WireGuard packets                              │
+│   - Cannot decrypt traffic (no access to WireGuard keys)                    │
+│   - Simply forwards packets between clients                                 │
 │                                                                              │
 └──────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -223,13 +223,13 @@ Tailscale provides automatic DNS:
 │   Format: <device-name>.<tailnet-name>.ts.net                               │
 │                                                                              │
 │   Examples:                                                                  │
-│   • my-server.tailnet.ts.net                                               │
-│   • laptop.tailnet.ts.net                                                  │
-│   • phone.tailnet.ts.net                                                   │
+│   - my-server.tailnet.ts.net                                               │
+│   - laptop.tailnet.ts.net                                                  │
+│   - phone.tailnet.ts.net                                                   │
 │                                                                              │
 │   Short names also work within tailnet:                                     │
-│   • ssh my-server                                                           │
-│   • ping laptop                                                              │
+│   - ssh my-server                                                           │
+│   - ping laptop                                                              │
 │                                                                              │
 └──────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -253,7 +253,7 @@ Route specific domains through Tailscale:
 
 ```bash
 # In admin console, configure split DNS:
-# corp.example.com → Use nameserver at 100.100.100.10
+# corp.example.com -> Use nameserver at 100.100.100.10
 ```
 
 ## Subnet Routes
@@ -274,7 +274,7 @@ Make entire networks accessible through Tailscale:
 │   │ 100.x.1  │────┐                   │  192.168.1.0/24          │          │
 │   └──────────┘    │                   │                          │          │
 │                   │    ┌──────────┐   │  ┌────────┐ ┌────────┐  │          │
-│   ┌──────────┐    ├───►│ Subnet   │───┼─►│ NAS    │ │ Camera │  │          │
+│   ┌──────────┐    ├───>│ Subnet   │───┼─>│ NAS    │ │ Camera │  │          │
 │   │ Phone    │────┤    │ Router   │   │  │ .100   │ │ .150   │  │          │
 │   │ 100.x.2  │    │    │ 100.x.10 │   │  └────────┘ └────────┘  │          │
 │   └──────────┘    │    └──────────┘   │                          │          │
@@ -308,13 +308,13 @@ Route all internet traffic through a Tailscale device:
 │   Without Exit Node              With Exit Node                             │
 │   ─────────────────              ──────────────                             │
 │                                                                              │
-│   You ─► Local ISP ─► Internet   You ─► Tailscale ─► Exit Node ─► Internet │
+│   You ─> Local ISP ─> Internet   You ─> Tailscale ─> Exit Node ─> Internet │
 │          (your IP)                                    (exit node's IP)      │
 │                                                                              │
 │   Use cases:                                                                 │
-│   • Privacy when on untrusted WiFi                                          │
-│   • Access region-locked content                                            │
-│   • Secure browsing through trusted network                                 │
+│   - Privacy when on untrusted WiFi                                          │
+│   - Access region-locked content                                            │
+│   - Secure browsing through trusted network                                 │
 │                                                                              │
 └──────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -336,12 +336,12 @@ sudo tailscale up --exit-node=my-server
 │                    Firewall Requirements                                     │
 │                                                                              │
 │   Outbound (required):                                                       │
-│   • UDP/41641: WireGuard (direct connections)                               │
-│   • TCP/443: HTTPS (coordination server, DERP fallback)                     │
-│   • UDP/3478: STUN (NAT discovery)                                          │
+│   - UDP/41641: WireGuard (direct connections)                               │
+│   - TCP/443: HTTPS (coordination server, DERP fallback)                     │
+│   - UDP/3478: STUN (NAT discovery)                                          │
 │                                                                              │
 │   Inbound (optional, improves connectivity):                                 │
-│   • UDP/41641: Allows incoming direct connections                           │
+│   - UDP/41641: Allows incoming direct connections                           │
 │                                                                              │
 │   Note: Tailscale works without any inbound ports open                      │
 │   (uses DERP relay as fallback)                                             │

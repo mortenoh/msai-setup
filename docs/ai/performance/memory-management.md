@@ -69,9 +69,9 @@ layers_on_gpu = (available_vram - system_reserve) / per_layer_size
 
 Example (70B on 48GB VRAM):
 - 70B Q4 has ~80 layers
-- Each layer ≈ 0.5 GB
+- Each layer ~ 0.5 GB
 - Available: 48 - 4 (reserve) = 44 GB
-- Layers: 44 / 0.5 ≈ 88 → All fit!
+- Layers: 44 / 0.5 ~ 88 -> All fit!
 
 Example (70B on 24GB VRAM):
 - Available: 24 - 4 = 20 GB
@@ -136,7 +136,7 @@ OLLAMA_KEEP_ALIVE=5m
 ### Selection Guide
 
 ```
-Available Memory → Recommended Quantization
+Available Memory -> Recommended Quantization
 
 128GB: 70B Q6_K, or 405B Q2_K
 96GB:  70B Q4_K_M or Q5_K_M
@@ -148,7 +148,7 @@ Available Memory → Recommended Quantization
 
 ## Offloading Strategies
 
-### GPU → CPU Fallback
+### GPU -> CPU Fallback
 
 When model partially fits:
 

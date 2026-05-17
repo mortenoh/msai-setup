@@ -11,12 +11,12 @@ Remote port forwarding exposes a local service to the remote network. Traffic to
 │   Your Machine            SSH Server              Remote User             │
 │   ┌───────────┐          ┌───────────┐          ┌───────────┐           │
 │   │           │          │           │          │           │           │
-│   │  Service  │◀─────────┤   SSH     │◀─────────┤   User    │           │
+│   │  Service  │<─────────┤   SSH     │<─────────┤   User    │           │
 │   │   :3000   │  SSH     │  :8080    │  Connect │           │           │
 │   │           │  Tunnel  │           │          │           │           │
 │   └───────────┘          └───────────┘          └───────────┘           │
 │                                                                           │
-│   Remote User → ssh-server:8080 → SSH → your-localhost:3000             │
+│   Remote User -> ssh-server:8080 -> SSH -> your-localhost:3000             │
 │                                                                           │
 └──────────────────────────────────────────────────────────────────────────┘
 ```

@@ -12,19 +12,19 @@ AppArmor is Ubuntu's mandatory access control (MAC) system. It confines programs
 │              (e.g., read /etc/passwd)                        │
 └─────────────────────────────────────────────────────────────┘
                               │
-                              ▼
+                              v
 ┌─────────────────────────────────────────────────────────────┐
 │                    AppArmor Policy Check                     │
 │                                                              │
 │  Profile: /usr/sbin/nginx                                   │
-│  Rule: /etc/passwd r,    ← Read allowed                     │
-│  Rule: /etc/shadow deny, ← Explicitly denied                │
+│  Rule: /etc/passwd r,    <- Read allowed                     │
+│  Rule: /etc/shadow deny, <- Explicitly denied                │
 │                                                              │
 └─────────────────────────────────────────────────────────────┘
                               │
             ┌─────────────────┴─────────────────┐
             │                                   │
-            ▼                                   ▼
+            v                                   v
       ┌─────────┐                        ┌─────────┐
       │ Allowed │                        │ Denied  │
       │ Access  │                        │ + Log   │

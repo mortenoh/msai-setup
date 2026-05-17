@@ -12,13 +12,13 @@ WireGuard is a modern VPN protocol that Tailscale uses as its underlying transpo
 │                                                                              │
 │   WireGuard (protocol)              Tailscale (product)                     │
 │   ─────────────────────────────────────────────────────────────────         │
-│   • Encryption & tunneling          • Uses WireGuard for tunnels            │
-│   • Manual key exchange             • Automatic key exchange                │
-│   • Manual IP assignment            • Automatic IP assignment               │
-│   • Manual peer configuration       • Automatic peer discovery              │
-│   • No NAT traversal                • Built-in NAT traversal                │
-│   • No access controls              • ACL-based access control              │
-│   • No DNS management               • MagicDNS included                     │
+│   - Encryption & tunneling          - Uses WireGuard for tunnels            │
+│   - Manual key exchange             - Automatic key exchange                │
+│   - Manual IP assignment            - Automatic IP assignment               │
+│   - Manual peer configuration       - Automatic peer discovery              │
+│   - No NAT traversal                - Built-in NAT traversal                │
+│   - No access controls              - ACL-based access control              │
+│   - No DNS management               - MagicDNS included                     │
 │                                                                              │
 │   WireGuard = Engine                Tailscale = Complete Car                │
 │                                                                              │
@@ -122,8 +122,8 @@ Each peer has "allowed IPs" - the IP ranges that can be routed through that peer
 │   Peer: server.tailnet.ts.net                                               │
 │   ─────────────────────────────────────────────────────────────────         │
 │   Allowed IPs:                                                               │
-│     • 100.100.100.2/32    → Server's Tailscale IP                          │
-│     • 192.168.10.0/24     → Subnet router for home network                 │
+│     - 100.100.100.2/32    -> Server's Tailscale IP                          │
+│     - 192.168.10.0/24     -> Subnet router for home network                 │
 │                                                                              │
 │   Traffic to these IPs goes through this peer's WireGuard tunnel            │
 │                                                                              │

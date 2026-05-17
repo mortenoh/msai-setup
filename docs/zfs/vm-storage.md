@@ -117,8 +117,8 @@ The zvol appears at `/dev/zvol/tank/vm/win11` (symlinked to `/dev/zd0` or simila
 
 **Get it wrong** and you'll see one of:
 
-- **Too small** → metadata overhead grows; small reads become amplified.
-- **Too big** → write amplification on small guest IOs (a 4K guest write triggers a read-modify-write of a 64K block on the host).
+- **Too small** -> metadata overhead grows; small reads become amplified.
+- **Too big** -> write amplification on small guest IOs (a 4K guest write triggers a read-modify-write of a 64K block on the host).
 
 ### Use with virt-install
 
@@ -155,7 +155,7 @@ sudo zfs set volsize=300G tank/vm/win11
 
 Then in the guest, extend the partition + filesystem:
 
-- Windows: Disk Management → extend volume.
+- Windows: Disk Management -> extend volume.
 - Linux: `parted /dev/vda resizepart`, `resize2fs` / `xfs_growfs`.
 
 ## libvirt storage pool for zvols
@@ -196,7 +196,7 @@ For one or two VMs the dir + explicit path approach is easier. For many VMs the 
 
 ## TRIM / discard end-to-end
 
-When a guest filesystem deletes data, by default the host doesn't know — ZFS still holds those blocks. To reclaim them, TRIM must propagate from guest → virtio-blk → qemu → host → ZFS.
+When a guest filesystem deletes data, by default the host doesn't know — ZFS still holds those blocks. To reclaim them, TRIM must propagate from guest -> virtio-blk -> qemu -> host -> ZFS.
 
 Required configuration:
 

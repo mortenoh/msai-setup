@@ -300,13 +300,13 @@ Press `f` and type to filter processes:
 
 ```
 # Filter by name
-f → nginx
+f -> nginx
 
 # Filter by user
-f → user:www-data
+f -> user:www-data
 
 # Filter by PID
-f → pid:1234
+f -> pid:1234
 ```
 
 ### Kill Multiple Processes
@@ -323,9 +323,9 @@ Press `m` for compact view - useful for small terminals or tmux panes.
 
 | Key | View |
 |-----|------|
-| `p` → `1` | Default |
-| `p` → `2` | Minimal |
-| `p` → `3` | Detailed |
+| `p` -> `1` | Default |
+| `p` -> `2` | Minimal |
+| `p` -> `3` | Detailed |
 
 ### Mouse Usage
 

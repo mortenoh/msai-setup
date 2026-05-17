@@ -10,16 +10,16 @@ SSH supports multiple authentication methods, often used in combination.
 │                                                                           │
 │   Client                                              Server              │
 │     │                                                   │                 │
-│     │────────── Request Authentication ────────────────▶│                 │
+│     │────────── Request Authentication ────────────────>│                 │
 │     │                                                   │                 │
-│     │◀───────── Available Methods ─────────────────────│                 │
+│     │<───────── Available Methods ─────────────────────│                 │
 │     │          (publickey, password, keyboard)          │                 │
 │     │                                                   │                 │
-│     │────────── Try: Public Key ───────────────────────▶│                 │
-│     │◀──────── Challenge ──────────────────────────────│                 │
-│     │────────── Signed Response ───────────────────────▶│                 │
+│     │────────── Try: Public Key ───────────────────────>│                 │
+│     │<──────── Challenge ──────────────────────────────│                 │
+│     │────────── Signed Response ───────────────────────>│                 │
 │     │                                                   │                 │
-│     │◀──────── Success / Partial Success ──────────────│                 │
+│     │<──────── Success / Partial Success ──────────────│                 │
 │     │          (may require additional auth)            │                 │
 │     │                                                   │                 │
 └──────────────────────────────────────────────────────────────────────────┘
@@ -137,14 +137,14 @@ auth required pam_google_authenticator.so
 │    └───────────┬─────────────┘                                          │
 │                │                                                         │
 │         Signs  │  Signs                                                  │
-│                ▼                                                         │
+│                v                                                         │
 │    ┌───────────────────┐      ┌───────────────────┐                    │
 │    │  User Certificate │      │  Host Certificate │                    │
 │    │  (user's key +    │      │  (host's key +    │                    │
 │    │   CA signature)   │      │   CA signature)   │                    │
 │    └─────────┬─────────┘      └─────────┬─────────┘                    │
 │              │                          │                               │
-│              ▼                          ▼                               │
+│              v                          v                               │
 │         User trusts              Server trusts                          │
 │         server cert              user cert                              │
 │                                                                          │

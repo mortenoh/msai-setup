@@ -8,12 +8,12 @@ Netplan configures DNS through the `nameservers` key, which tells systemd-resolv
 ┌──────────────────────────────────────────────────────────┐
 │                        Application                        │
 │                            │                              │
-│                            ▼                              │
+│                            v                              │
 │                    systemd-resolved                       │
 │                     127.0.0.53:53                         │
 │                            │                              │
 │              ┌─────────────┼─────────────┐               │
-│              ▼             ▼             ▼               │
+│              v             v             v               │
 │         eth0 DNS      eth1 DNS      wg0 DNS             │
 │         1.1.1.1       10.0.0.1      10.10.0.1           │
 │        (global)      (internal)    (vpn.local)          │

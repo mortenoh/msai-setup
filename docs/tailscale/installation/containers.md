@@ -193,7 +193,7 @@ helm upgrade --install tailscale-operator tailscale/tailscale-operator \
 
 Create OAuth credentials in the Tailscale admin console:
 
-1. Go to **Settings** → **OAuth clients**
+1. Go to **Settings** -> **OAuth clients**
 2. Create new OAuth client with appropriate scopes
 3. Use the client ID and secret in the Helm install
 

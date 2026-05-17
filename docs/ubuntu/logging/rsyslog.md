@@ -12,13 +12,13 @@ rsyslog is Ubuntu's traditional syslog daemon, providing text-based logging, rem
 │    (imuxsock, imjournal, imtcp, imudp, imfile)              │
 └─────────────────────────────────────────────────────────────┘
                               │
-                              ▼
+                              v
 ┌─────────────────────────────────────────────────────────────┐
 │                    Processing Rules                          │
 │         (filters, property-based filters, templates)         │
 └─────────────────────────────────────────────────────────────┘
                               │
-                              ▼
+                              v
 ┌─────────────────────────────────────────────────────────────┐
 │                    Output Modules                            │
 │     (omfile, omfwd, omelasticsearch, omkafka)               │

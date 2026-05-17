@@ -27,7 +27,7 @@ VM has private IP accessible from host:
 │  │         virbr0 (NAT)               │ │
 │  │         192.168.122.1              │ │
 │  │              │                      │ │
-│  │              ▼                      │ │
+│  │              v                      │ │
 │  │  ┌─────────────────────────────┐   │ │
 │  │  │      Windows VM             │   │ │
 │  │  │   192.168.122.10:1234       │   │ │
@@ -176,7 +176,7 @@ curl http://win11-vm.tail12345.ts.net:1234/v1/models
 ### Set Static VM IP
 
 In Windows VM:
-1. Network Settings → Ethernet → Edit
+1. Network Settings -> Ethernet -> Edit
 2. IP assignment: Manual
 3. Set IP: 192.168.122.10
 4. Gateway: 192.168.122.1

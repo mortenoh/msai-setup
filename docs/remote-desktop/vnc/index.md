@@ -17,7 +17,7 @@ VNC is the best choice for:
 ┌──────────────────┐                    ┌──────────────────┐
 │   macOS Client   │                    │   Linux Server   │
 │                  │      VNC/RFB       │                  │
-│  RealVNC Viewer  │◄──────────────────►│   TigerVNC       │
+│  RealVNC Viewer  │<──────────────────>│   TigerVNC       │
 │  Screen Sharing  │      Port 5900     │   x11vnc         │
 │  Jump Desktop    │                    │   QEMU VNC       │
 └──────────────────┘                    └──────────────────┘

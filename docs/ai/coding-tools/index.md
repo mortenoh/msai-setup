@@ -61,7 +61,7 @@ AI coding tools can connect to:
                              │
             ┌────────────────┼────────────────┐
             │                │                │
-            ▼                ▼                ▼
+            v                v                v
      ┌──────────┐     ┌──────────┐     ┌──────────┐
      │ Continue │     │   Aider  │     │   Cline  │
      │ (IDE)    │     │  (CLI)   │     │ (VS Code)│
@@ -178,7 +178,7 @@ aider --openai-api-base http://localhost:8080/v1 --model llama3.3
 
 ### For Cline
 
-Settings → Cline → API Provider → Ollama
+Settings -> Cline -> API Provider -> Ollama
 
 ## See Also
 

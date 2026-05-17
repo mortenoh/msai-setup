@@ -11,13 +11,13 @@ sudo (superuser do) enables controlled privilege escalation. Proper configuratio
 │                    User runs: sudo command                   │
 └─────────────────────────────────────────────────────────────┘
                               │
-                              ▼
+                              v
 ┌─────────────────────────────────────────────────────────────┐
 │              PAM Authentication                              │
 │         (verify user's password)                             │
 └─────────────────────────────────────────────────────────────┘
                               │
-                              ▼
+                              v
 ┌─────────────────────────────────────────────────────────────┐
 │              sudoers Policy Check                            │
 │         (is user authorized for this command?)               │
@@ -25,7 +25,7 @@ sudo (superuser do) enables controlled privilege escalation. Proper configuratio
                               │
                     ┌─────────┴─────────┐
                     │                   │
-                    ▼                   ▼
+                    v                   v
               ┌─────────┐         ┌─────────┐
               │ Allowed │         │ Denied  │
               │ Execute │         │  Log &  │

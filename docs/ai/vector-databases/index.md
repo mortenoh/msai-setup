@@ -20,14 +20,14 @@ Vector DB: Finds documents about login issues, auth failures, credential problem
 │                    Vector Database                          │
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
-│   Text → Embedding Model → Vector [0.23, -0.45, ..., 0.89] │
+│   Text -> Embedding Model -> Vector [0.23, -0.45, ..., 0.89] │
 │                              │                              │
 │                              v                              │
 │                     ┌───────────────┐                       │
 │                     │  Index (HNSW) │                       │
 │                     └───────────────┘                       │
 │                              │                              │
-│   Query → Embedding → Nearest Neighbor Search → Results    │
+│   Query -> Embedding -> Nearest Neighbor Search -> Results    │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
 ```

@@ -85,25 +85,25 @@ The Ryzen AI Max+ 395 is built on the Strix Halo platform:
 | Practical Bandwidth | ~210-220 GB/s (real-world LLM workloads) |
 
 !!! note "Not a normal desktop board"
-    Strix Halo's memory is soldered LPDDR5X-8000 on a 256-bit bus. There are no DIMM slots, no XMP/DOCP profile to enable, and no way to upgrade RAM later. The trade-off for that constraint is roughly 3× the bandwidth of a dual-channel desktop DDR5 board.
+    Strix Halo's memory is soldered LPDDR5X-8000 on a 256-bit bus. There are no DIMM slots, no XMP/DOCP profile to enable, and no way to upgrade RAM later. The trade-off for that constraint is roughly 3x the bandwidth of a dual-channel desktop DDR5 board.
 
 ## Bandwidth Analysis
 
 Memory bandwidth directly affects LLM inference speed. Each token requires reading the entire model from memory:
 
 ```
-Token generation rate ≈ Memory Bandwidth / Model Size
+Token generation rate ~ Memory Bandwidth / Model Size
 
 Example with 70B Q4 model (~40GB):
-- LPDDR5X-8000 quad-channel: ~220 GB/s / 40GB ≈ 5.5 reads/sec ceiling
+- LPDDR5X-8000 quad-channel: ~220 GB/s / 40GB ~ 5.5 reads/sec ceiling
 - Real-world with ROCm/HIP: ~6-9 tokens/sec
 
 Example with 32B Q4 model (~20GB):
-- ~220 GB/s / 20GB ≈ 11 reads/sec ceiling
+- ~220 GB/s / 20GB ~ 11 reads/sec ceiling
 - Real-world: ~15-20 tokens/sec
 
 Example with 8B Q4 model (~5GB):
-- ~220 GB/s / 5GB ≈ 44 reads/sec ceiling
+- ~220 GB/s / 5GB ~ 44 reads/sec ceiling
 - Real-world: ~50-70 tokens/sec
 ```
 

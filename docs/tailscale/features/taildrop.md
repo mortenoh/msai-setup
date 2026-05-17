@@ -10,15 +10,15 @@ Taildrop is Tailscale's secure file sharing feature. Transfer files directly bet
 │                                                                              │
 │   ┌─────────────┐                              ┌─────────────┐              │
 │   │   Laptop    │     document.pdf             │   Desktop   │              │
-│   │             │ ─────────────────────────────►│             │              │
+│   │             │ ─────────────────────────────>│             │              │
 │   │             │     Direct, encrypted        │             │              │
 │   └─────────────┘     over Tailscale           └─────────────┘              │
 │                                                                              │
 │   Features:                                                                  │
-│   • End-to-end encrypted                                                    │
-│   • No size limits                                                          │
-│   • No cloud storage involved                                               │
-│   • Works across all platforms                                              │
+│   - End-to-end encrypted                                                    │
+│   - No size limits                                                          │
+│   - No cloud storage involved                                               │
+│   - Works across all platforms                                              │
 │                                                                              │
 └──────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -50,19 +50,19 @@ tailscale file cp report.pdf laptop: desktop: phone:
 
 ### macOS/iOS
 
-1. **Finder/Files**: Right-click file → Share → Tailscale
-2. **Share Sheet**: Any app → Share → Tailscale → Select device
+1. **Finder/Files**: Right-click file -> Share -> Tailscale
+2. **Share Sheet**: Any app -> Share -> Tailscale -> Select device
 3. **Drag and Drop**: Drag file onto Tailscale menu bar icon
 
 ### Windows
 
-1. **File Explorer**: Right-click → Send to → Tailscale
-2. **System Tray**: Right-click Tailscale → Send file
+1. **File Explorer**: Right-click -> Send to -> Tailscale
+2. **System Tray**: Right-click Tailscale -> Send file
 
 ### Android
 
-1. **Share**: Any app → Share → Tailscale
-2. **App**: Open Tailscale → Send files
+1. **Share**: Any app -> Share -> Tailscale
+2. **App**: Open Tailscale -> Send files
 
 ## Receiving Files
 
@@ -90,7 +90,7 @@ tailscale file get --verbose .
 
 Configure automatic receiving:
 
-**macOS**: Tailscale Preferences → Taildrop → Set receive location
+**macOS**: Tailscale Preferences -> Taildrop -> Set receive location
 
 **Linux systemd service**:
 

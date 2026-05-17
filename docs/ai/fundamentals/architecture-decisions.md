@@ -10,12 +10,12 @@ Choose the right deployment approach for your local LLM infrastructure.
 └─────────────────────────────────────────────────────────────┘
                               │
               ┌───────────────┼───────────────┐
-              ▼               ▼               ▼
+              v               v               v
         ┌─────────┐     ┌─────────┐     ┌─────────┐
         │  Native │     │Container│     │   VM    │
         └────┬────┘     └────┬────┘     └────┬────┘
              │               │               │
-             ▼               ▼               ▼
+             v               v               v
     ┌────────────────┐ ┌────────────┐ ┌────────────────┐
     │ Best for:      │ │ Best for:  │ │ Best for:      │
     │ - macOS/MLX    │ │ - Linux    │ │ - Windows apps │
@@ -169,7 +169,7 @@ See [GPU Passthrough](../../virtualization/gpu-passthrough.md) for detailed setu
 
 ```bash
 # Expose LM Studio API from Windows VM
-# In VM: LM Studio → Local Server → Start
+# In VM: LM Studio -> Local Server -> Start
 # API available at http://vm-ip:1234/v1/
 
 # From host or container:

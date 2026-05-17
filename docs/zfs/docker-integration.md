@@ -170,7 +170,7 @@ What to set on each bind-mount target:
 | `tank/media` | 1 M | `lz4` | Large sequential reads. |
 | `tank/ai` | 1 M | `off` | GGUF/safetensors already compressed; skip the test. |
 
-See [Datasets → Per-dataset properties](datasets.md#per-dataset-properties-for-this-build) for the canonical setup commands.
+See [Datasets -> Per-dataset properties](datasets.md#per-dataset-properties-for-this-build) for the canonical setup commands.
 
 ## Permissions
 
@@ -311,7 +311,7 @@ That lives in `/var/lib/docker/` on ext4 root. It's all rebuildable:
 - Networks are recreated by `docker compose up`.
 - Build cache is rebuilt by the next build.
 
-Don't snapshot `/var/lib/docker`. It would be a huge waste of space and confusing on restore. If the host's root filesystem dies, the rebuild path is: reinstall OS → re-import ZFS → `docker compose up -d` for each service, which re-creates containers and re-pulls images. The data is all on ZFS already.
+Don't snapshot `/var/lib/docker`. It would be a huge waste of space and confusing on restore. If the host's root filesystem dies, the rebuild path is: reinstall OS -> re-import ZFS -> `docker compose up -d` for each service, which re-creates containers and re-pulls images. The data is all on ZFS already.
 
 ## Watch out for these footguns
 

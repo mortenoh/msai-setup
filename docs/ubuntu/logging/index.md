@@ -12,7 +12,7 @@ Comprehensive logging is essential for security monitoring, troubleshooting, and
 │     (sshd, nginx, systemd services, custom apps)            │
 └─────────────────────────────────────────────────────────────┘
           │                    │                    │
-          ▼                    ▼                    ▼
+          v                    v                    v
 ┌──────────────┐    ┌──────────────┐    ┌──────────────┐
 │   syslog()   │    │   sd_journal │    │  Direct file │
 │   API call   │    │   API call   │    │   writing    │
@@ -20,14 +20,14 @@ Comprehensive logging is essential for security monitoring, troubleshooting, and
           │                    │                    │
           └────────────────────┼────────────────────┘
                                │
-                               ▼
+                               v
               ┌────────────────────────────────┐
               │       systemd-journald         │
               │    (Binary structured logs)    │
               │   /var/log/journal/             │
               └────────────────────────────────┘
                                │
-                               ▼
+                               v
               ┌────────────────────────────────┐
               │           rsyslog              │
               │      (Text log files)          │
@@ -179,7 +179,7 @@ sudo ausearch -m EXECVE -ua root --interpret | head -50
 |----------|-------------------|
 | journald | 4GB or 10% disk |
 | rsyslog files | 7 rotations, weekly |
-| audit logs | 8MB × 5 files |
+| audit logs | 8MB x 5 files |
 
 ### Compliance Considerations
 

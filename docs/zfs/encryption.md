@@ -10,7 +10,7 @@ This build defaults to **no disk encryption**: the host lives behind UFW/Tailsca
 - You hold **regulated data** (health, financial, customer PII) that needs encryption at rest as a compliance requirement.
 - Specific datasets need extra protection (e.g. `tank/secrets`) while the rest of the pool stays unencrypted.
 
-If you want **full-disk encryption of root**, that's LUKS territory ([Disk Partitioning → Encrypted Alternative](../ubuntu/installation/disk-partitioning.md#encrypted-alternative--luks--lvm)). ZFS native encryption doesn't cover `/boot` or the EFI partition.
+If you want **full-disk encryption of root**, that's LUKS territory ([Disk Partitioning -> Encrypted Alternative](../ubuntu/installation/disk-partitioning.md#encrypted-alternative--luks--lvm)). ZFS native encryption doesn't cover `/boot` or the EFI partition.
 
 ## How it works
 
@@ -258,7 +258,7 @@ sudo zpool set feature@encryption=enabled backup
 If you decide to encrypt:
 
 1. **Encrypt only datasets that need it**, not the entire pool root. Typical: `tank/secrets`, `tank/nextcloud-data` if compliance requires it.
-2. Use **`keyformat=raw` with a key file on `/etc/zfs/keys/`**, backed up in 1Password. The threat model (host stolen → drives readable) is what this protects against.
+2. Use **`keyformat=raw` with a key file on `/etc/zfs/keys/`**, backed up in 1Password. The threat model (host stolen -> drives readable) is what this protects against.
 3. Set up `zfs-load-key@…` systemd units so boot is unattended.
 4. Use `zfs send -w` (or `syncoid --sendoptions=w`) for off-host replication.
 5. Test the recovery path: take a raw send, send it to a different machine, load the key, mount, read. Do this once and document it in your password manager record.

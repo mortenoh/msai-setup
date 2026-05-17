@@ -19,7 +19,7 @@ helm repo add tailscale https://pkgs.tailscale.com/helmcharts
 helm repo update
 
 # Create OAuth client in Tailscale admin console
-# Settings → OAuth clients → Create
+# Settings -> OAuth clients -> Create
 
 # Install operator
 helm upgrade --install tailscale-operator tailscale/tailscale-operator \

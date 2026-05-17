@@ -220,5 +220,5 @@ handlers:
 
 ## Where to go next
 
-- [Modules → systemd](modules.md#ansiblebuiltinsystemd) — the module handlers typically invoke.
+- [Modules -> systemd](modules.md#ansiblebuiltinsystemd) — the module handlers typically invoke.
 - [Playbooks](playbooks.md) — where `notify:` fits in task syntax.

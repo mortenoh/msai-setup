@@ -42,7 +42,7 @@ export PATH="/Applications/Tailscale.app/Contents/MacOS:$PATH"
 
 Tailscale uses a system extension that requires approval:
 
-1. Go to **System Preferences** → **Security & Privacy**
+1. Go to **System Preferences** -> **Security & Privacy**
 2. Click **Allow** for Tailscale extension
 3. May require restart
 
@@ -247,7 +247,7 @@ sudo /usr/local/bin/tailscale up
 
 ```bash
 # Via Apps
-# Navigate to Apps → Available Applications → Tailscale
+# Navigate to Apps -> Available Applications -> Tailscale
 
 # Or via CLI
 sudo tailscale up
@@ -320,7 +320,7 @@ tailscale up
 
 Use the Tailscale package from the package manager:
 
-1. Navigate to **System** → **Package Manager**
+1. Navigate to **System** -> **Package Manager**
 2. Search for "tailscale"
 3. Install the package
 4. Configure through web UI

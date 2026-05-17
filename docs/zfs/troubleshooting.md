@@ -93,7 +93,7 @@ A vdev lost redundancy but reads/writes still work:
 sudo zpool status -v tank
 ```
 
-Identify the bad device and follow [Operations → Disk replacement](operations.md#disk-replacement).
+Identify the bad device and follow [Operations -> Disk replacement](operations.md#disk-replacement).
 
 For a no-redundancy pool (single-disk vdev), there's no DEGRADED state — there's only ONLINE or UNAVAIL. UNAVAIL = the pool is offline; data is unreachable until the disk comes back or is replaced (in which case you restore from backup).
 
@@ -346,7 +346,7 @@ echo 17179869184 | sudo tee /sys/module/zfs/parameters/zfs_arc_max
 sudo update-initramfs -u
 ```
 
-See [Pool Creation → ARC](pool-creation.md#cap-the-arc-size) and [Tuning → ARC](tuning.md#arc-sizing).
+See [Pool Creation -> ARC](pool-creation.md#cap-the-arc-size) and [Tuning -> ARC](tuning.md#arc-sizing).
 
 ## "I can't load encryption keys after a reboot"
 
@@ -358,7 +358,7 @@ sudo zfs load-key tank/secrets
 Causes:
 
 - The key file is missing (`keylocation=file:///...` and the file isn't there).
-- You're typing the wrong passphrase. (There is no recovery — see [Encryption → Lost passphrase](encryption.md#lost-passphrase).)
+- You're typing the wrong passphrase. (There is no recovery — see [Encryption -> Lost passphrase](encryption.md#lost-passphrase).)
 - A `zfs change-key` was performed; the old passphrase no longer works.
 
 Check `keylocation`:

@@ -134,7 +134,7 @@ Adjust per-conversation:
 
 ### Enable API Server
 
-1. Settings → Advanced
+1. Settings -> Advanced
 2. Enable **Local API Server**
 3. Configure port (default: 1337)
 
@@ -165,7 +165,7 @@ curl http://localhost:1337/v1/chat/completions \
 
 ### Managing Extensions
 
-1. Settings → Extensions
+1. Settings -> Extensions
 2. Browse available extensions
 3. Install/update as needed
 
@@ -175,7 +175,7 @@ curl http://localhost:1337/v1/chat/completions \
 
 Change storage location:
 
-1. Settings → Advanced
+1. Settings -> Advanced
 2. Set **Data Folder** path
 
 For ZFS:
@@ -186,7 +186,7 @@ For ZFS:
 
 ### Model Settings
 
-Global defaults in Settings → Models:
+Global defaults in Settings -> Models:
 
 | Setting | Description | Default |
 |---------|-------------|---------|
@@ -208,7 +208,7 @@ Jan uses llama.cpp backend:
 
 Check GPU settings:
 
-1. Settings → Models
+1. Settings -> Models
 2. Set GPU layers (higher = more VRAM)
 
 ## Comparison with Alternatives

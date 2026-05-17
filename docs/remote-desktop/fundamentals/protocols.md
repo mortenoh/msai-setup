@@ -8,7 +8,7 @@ Technical details on how VNC, RDP, and SPICE work under the hood.
 
 ```
 ┌─────────────────┐         ┌─────────────────┐
-│   VNC Client    │◄───────►│   VNC Server    │
+│   VNC Client    │<───────>│   VNC Server    │
 │                 │   RFB   │                 │
 │  - Displays     │ Protocol│  - Captures     │
 │    framebuffer  │         │    screen       │
@@ -51,7 +51,7 @@ Different VNC implementations add features:
 
 ```
 ┌─────────────────┐         ┌─────────────────┐
-│   RDP Client    │◄───────►│   RDP Server    │
+│   RDP Client    │<───────>│   RDP Server    │
 │                 │   RDP   │                 │
 │  - Renders GDI  │ Protocol│  - Intercepts   │
 │    commands     │         │    GDI calls    │
@@ -96,7 +96,7 @@ Microsoft's GPU virtualization extension:
 
 ```
 ┌─────────────────┐         ┌─────────────────┐
-│  SPICE Client   │◄───────►│  SPICE Server   │
+│  SPICE Client   │<───────>│  SPICE Server   │
 │                 │  SPICE  │  (in QEMU)      │
 │  - Display      │ Protocol│                 │
 │  - USB          │         │  ┌───────────┐  │

@@ -44,8 +44,8 @@ projectname_default
 Each compose project is isolated:
 
 ```
-project1_default ←→ project1 services only
-project2_default ←→ project2 services only
+project1_default <--> project1 services only
+project2_default <--> project2 services only
 ```
 
 ## Custom Networks

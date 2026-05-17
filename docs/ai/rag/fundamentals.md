@@ -9,7 +9,7 @@ Understanding the core concepts behind Retrieval-Augmented Generation.
 Transform raw documents into searchable chunks:
 
 ```
-Raw Documents → Parsing → Cleaning → Chunking → Embedding → Storage
+Raw Documents -> Parsing -> Cleaning -> Chunking -> Embedding -> Storage
 ```
 
 **Supported formats:**
@@ -92,7 +92,7 @@ splitter = RecursiveCharacterTextSplitter.from_language(
 Numerical representations of text that capture semantic meaning:
 
 ```
-"The cat sat on the mat" → [0.23, -0.45, 0.12, ..., 0.89]
+"The cat sat on the mat" -> [0.23, -0.45, 0.12, ..., 0.89]
                            └─────── 768 dimensions ───────┘
 ```
 

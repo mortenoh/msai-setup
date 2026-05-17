@@ -12,7 +12,7 @@ SSH keys provide stronger authentication than passwords through public-key crypt
 │   ┌─────────────────┐                       ┌─────────────────┐      │
 │   │                 │                       │                 │      │
 │   │  Private Key    │    Challenge/Response │  Public Key     │      │
-│   │  (id_ed25519)   │◀─────────────────────▶│(authorized_keys)│      │
+│   │  (id_ed25519)   │<─────────────────────>│(authorized_keys)│      │
 │   │  Private: SECRET      │                       │  Public: Shareable   │      │
 │   │                 │                       │                 │      │
 │   └─────────────────┘                       └─────────────────┘      │

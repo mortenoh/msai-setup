@@ -20,12 +20,12 @@ Tailscale provides secure, zero-config access to your VMs from anywhere. This is
 │                                                               │
 │  ┌─────────────┐                        ┌─────────────────┐  │
 │  │   macOS     │                        │   Home Server   │  │
-│  │   Laptop    │◄──────────────────────►│   (Host)        │  │
+│  │   Laptop    │<──────────────────────>│   (Host)        │  │
 │  │             │    WireGuard Tunnel    │                 │  │
 │  │ 100.64.0.1  │    (direct or relay)   │   100.64.0.2    │  │
 │  └─────────────┘                        └────────┬────────┘  │
 │                                                  │            │
-│                                         ┌────────▼────────┐  │
+│                                         ┌────────v────────┐  │
 │                                         │      VMs        │  │
 │                                         │  VNC: 5900      │  │
 │                                         │  RDP: 3389      │  │
@@ -322,7 +322,7 @@ Server (100.64.0.2) - Tailscale installed
   └── Windows VM (NAT, port forward 3389)
 
 From macOS:
-  MS Remote Desktop → server.tail-network.ts.net:3389
+  MS Remote Desktop -> server.tail-network.ts.net:3389
 ```
 
 ### Multi-VM Lab
@@ -334,8 +334,8 @@ Server (100.64.0.2) - Tailscale + Subnet Router
   └── Linux Test (192.168.122.12:5900)
 
 From macOS:
-  VNC → 192.168.122.10:5900 (via subnet route)
-  RDP → 192.168.122.11:3389 (via subnet route)
+  VNC -> 192.168.122.10:5900 (via subnet route)
+  RDP -> 192.168.122.11:3389 (via subnet route)
 ```
 
 ### Enterprise Style

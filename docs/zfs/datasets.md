@@ -111,7 +111,7 @@ zfs set compression=zstd-3 tank/backups
 zfs set compression=off tank/ai
 ```
 
-See [Concepts → Compression](concepts.md#compression). Options:
+See [Concepts -> Compression](concepts.md#compression). Options:
 
 | Value | Speed | Ratio | Use |
 |---|---|---|---|
@@ -129,7 +129,7 @@ zfs set recordsize=16K tank/db
 zfs set recordsize=64K tank/vm
 ```
 
-See [Tuning → `recordsize` per workload](tuning.md#recordsize-per-workload). Only affects writes after the change; existing data keeps its block size until rewritten.
+See [Tuning -> `recordsize` per workload](tuning.md#recordsize-per-workload). Only affects writes after the change; existing data keeps its block size until rewritten.
 
 For zvols use `volblocksize=…` at creation time (and only at creation time — it's immutable). See [VM Storage](vm-storage.md).
 
@@ -193,7 +193,7 @@ zfs set sync=disabled tank/scratch
 zfs set sync=always tank/critical
 ```
 
-`standard` is correct for almost everything. See [Tuning → sync mode](tuning.md#sync-mode).
+`standard` is correct for almost everything. See [Tuning -> sync mode](tuning.md#sync-mode).
 
 ### `primarycache` / `secondarycache`
 

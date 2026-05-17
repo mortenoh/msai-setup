@@ -6,15 +6,15 @@ When troubleshooting network/firewall issues, follow this systematic process:
 
 ```
 1. Define the Problem
-        ↓
+        v
 2. Gather Information
-        ↓
+        v
 3. Isolate the Layer
-        ↓
+        v
 4. Test Hypothesis
-        ↓
+        v
 5. Implement Fix
-        ↓
+        v
 6. Verify Solution
 ```
 

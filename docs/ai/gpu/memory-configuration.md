@@ -4,16 +4,16 @@ Optimizing memory allocation for AMD APU AI workloads on the MS-S1 MAX.
 
 ## APU Shared Memory Architecture
 
-Unlike discrete GPUs with dedicated VRAM, the AMD Ryzen AI Max+ 395 (Strix Halo) APU shares system memory between CPU and GPU. On the MS-S1 MAX that pool is **128GB LPDDR5X-8000, soldered, on a 256-bit (quad-channel) bus** — roughly 3× the bandwidth of a typical desktop dual-channel DDR5 board.
+Unlike discrete GPUs with dedicated VRAM, the AMD Ryzen AI Max+ 395 (Strix Halo) APU shares system memory between CPU and GPU. On the MS-S1 MAX that pool is **128GB LPDDR5X-8000, soldered, on a 256-bit (quad-channel) bus** — roughly 3x the bandwidth of a typical desktop dual-channel DDR5 board.
 
 ```
 Discrete GPU Memory Model:
 ┌─────────────────┐        ┌─────────────────┐
 │      CPU        │  PCIe  │       GPU       │
-│   (128GB RAM)   │◄──────►│   (24GB VRAM)   │
+│   (128GB RAM)   │<──────>│   (24GB VRAM)   │
 └─────────────────┘        └─────────────────┘
         │                          │
-        ▼                          ▼
+        v                          v
    System RAM                 GPU VRAM
    (Model won't fit)         (Model lives here)
 
@@ -21,10 +21,10 @@ APU Shared Memory Model:
 ┌───────────────────────────────────────────────┐
 │           AMD Ryzen AI Max+ 395               │
 │   ┌─────────────┐         ┌─────────────┐     │
-│   │  CPU Cores  │◄───────►│   RDNA 3.5  │     │
+│   │  CPU Cores  │<───────>│   RDNA 3.5  │     │
 │   └──────┬──────┘         └──────┬──────┘     │
 │          │                       │            │
-│          ▼                       ▼            │
+│          v                       v            │
 │   ┌───────────────────────────────────────┐   │
 │   │  LPDDR5X-8000 (128GB, quad-channel)   │   │
 │   │   CPU and GPU share the same pool     │   │
@@ -127,14 +127,14 @@ For persistent GTT sizing without `amd-debug-tools`, you can set kernel module p
 A page on x86-64 is 4096 bytes. Convert GB to pages:
 
 ```
-pages = (GB × 1024 × 1024 × 1024) / 4096
-      = GB × 262144
+pages = (GB x 1024 x 1024 x 1024) / 4096
+      = GB x 262144
 ```
 
 For 108 GB:
 
 ```
-pages = 108 × 262144 = 28,311,552
+pages = 108 x 262144 = 28,311,552
 ```
 
 ### GRUB Configuration
@@ -231,7 +231,7 @@ watch -n 1 'rocm-smi --showmeminfo vram'
 LLM token generation is memory-bandwidth bound. Each token requires reading the entire model from memory:
 
 ```
-Tokens/second ≈ Memory Bandwidth / Model Size
+Tokens/second ~ Memory Bandwidth / Model Size
 ```
 
 ### Bandwidth Comparison
@@ -240,10 +240,10 @@ Tokens/second ≈ Memory Bandwidth / Model Size
 |-------------|-----------|----------------|
 | DDR5-5600 (typical desktop, dual-channel) | ~90 GB/s | Reference for comparison |
 | DDR5-6400 (high-end desktop, dual-channel) | ~102 GB/s | +13% |
-| LPDDR5X-8000 quad-channel (MS-S1 MAX) | ~256 GB/s peak, ~210-220 GB/s real | ~3× a dual-channel DDR5 board |
-| Unified (Apple M4 Max) | ~546 GB/s | ~6× |
-| GDDR6X (RTX 4090) | ~1008 GB/s | ~11× |
-| HBM3 (H100) | ~3350 GB/s | ~37× |
+| LPDDR5X-8000 quad-channel (MS-S1 MAX) | ~256 GB/s peak, ~210-220 GB/s real | ~3x a dual-channel DDR5 board |
+| Unified (Apple M4 Max) | ~546 GB/s | ~6x |
+| GDDR6X (RTX 4090) | ~1008 GB/s | ~11x |
+| HBM3 (H100) | ~3350 GB/s | ~37x |
 
 **Practical impact (Strix Halo on ROCm/HIP):**
 

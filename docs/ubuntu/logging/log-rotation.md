@@ -12,19 +12,19 @@ logrotate manages automatic rotation, compression, and deletion of log files, pr
 │            /etc/cron.daily/logrotate                         │
 └─────────────────────────────────────────────────────────────┘
                               │
-                              ▼
+                              v
 ┌─────────────────────────────────────────────────────────────┐
 │                    logrotate                                 │
 │           Reads /etc/logrotate.conf                          │
 │           Includes /etc/logrotate.d/*                        │
 └─────────────────────────────────────────────────────────────┘
                               │
-                              ▼
+                              v
 ┌─────────────────────────────────────────────────────────────┐
 │                    For each log file:                        │
 │         1. Check rotation criteria (size, time)              │
 │         2. Execute prerotate scripts                         │
-│         3. Rotate: app.log → app.log.1                       │
+│         3. Rotate: app.log -> app.log.1                       │
 │         4. Compress old files                                │
 │         5. Execute postrotate scripts                        │
 │         6. Remove files beyond rotate limit                  │
@@ -426,7 +426,7 @@ sudo logrotate -d /etc/logrotate.d/myapp 2>&1 | grep -i error
 ```bash
 # Calculate space needed
 # Example: 100MB daily log, 30 rotations, 80% compression
-# = 100MB active + (100MB × 30 × 0.2) = 700MB total
+# = 100MB active + (100MB x 30 x 0.2) = 700MB total
 
 # Set conservative limits
 size 100M      # Rotate at 100M

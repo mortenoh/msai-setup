@@ -18,7 +18,7 @@ RDP is the best choice for:
 ┌──────────────────┐                    ┌──────────────────┐
 │   macOS Client   │                    │   Windows VM     │
 │                  │       RDP/TLS      │                  │
-│  MS Remote       │◄──────────────────►│   RDP Server     │
+│  MS Remote       │<──────────────────>│   RDP Server     │
 │  Desktop         │      Port 3389     │   (built-in)     │
 │  Jump Desktop    │                    │                  │
 └──────────────────┘                    └──────────────────┘

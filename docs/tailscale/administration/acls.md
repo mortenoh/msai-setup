@@ -10,14 +10,14 @@ Tailscale Access Control Lists (ACLs) define who can connect to what on your tai
 │                                                                              │
 │   Source (who)                       Destination (what)                     │
 │   ─────────────                      ─────────────────                      │
-│   • Users                            • Devices                              │
-│   • Groups                           • Tags                                 │
-│   • Devices                          • Ports                                │
-│   • Autogroups                       • Services                             │
+│   - Users                            - Devices                              │
+│   - Groups                           - Tags                                 │
+│   - Devices                          - Ports                                │
+│   - Autogroups                       - Services                             │
 │                                                                              │
 │   ACL Rules:                                                                 │
-│   "group:dev" ──────► CAN ACCESS ──────► "tag:dev-server:22"               │
-│   "group:ops" ──────► CAN ACCESS ──────► "tag:server:*"                    │
+│   "group:dev" ──────> CAN ACCESS ──────> "tag:dev-server:22"               │
+│   "group:ops" ──────> CAN ACCESS ──────> "tag:server:*"                    │
 │                                                                              │
 └──────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -92,7 +92,7 @@ Tags identify devices by role:
 sudo tailscale up --advertise-tags=tag:server
 
 # Or via admin console
-# Machines → Select device → Edit tags
+# Machines -> Select device -> Edit tags
 ```
 
 ### Tag Ownership

@@ -100,7 +100,7 @@ all:
           ansible_host: backup.example.com
 ```
 
-When variables conflict, child group wins over parent group, and host wins over group. See [Variables → Precedence](variables.md#variable-precedence).
+When variables conflict, child group wins over parent group, and host wins over group. See [Variables -> Precedence](variables.md#variable-precedence).
 
 ## Inventory variables
 

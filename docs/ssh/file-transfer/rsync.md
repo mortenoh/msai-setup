@@ -18,7 +18,7 @@ Rsync is the most efficient tool for file synchronization and transfer. When use
 │   ┌─────────────────┐                       ┌─────────────────┐          │
 │   │ File: 100 MB    │                       │ File: 100 MB    │          │
 │   │                 │    Only Changed       │ (older version) │          │
-│   │ ████████░░░░░░░ │───────────────────────▶│ ████████████████ │          │
+│   │ ████████░░░░░░░ │───────────────────────>│ ████████████████ │          │
 │   │                 │    Blocks (~1 MB)     │                 │          │
 │   │ (10% changed)   │                       │ (updated)       │          │
 │   └─────────────────┘                       └─────────────────┘          │

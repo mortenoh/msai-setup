@@ -74,8 +74,8 @@ This guide is specifically targeted at the [Minisforum MS-S1 MAX](https://www.mi
 | CPU | AMD Ryzen AI Max+ 395 (Strix Halo, 16C / 32T) |
 | GPU | Radeon 8060S (RDNA 3.5, integrated, `gfx1151`) |
 | RAM | 128GB LPDDR5X-8000, quad-channel (soldered) |
-| Storage | 2 × M.2 NVMe (PCIe 4.0 x4 + x1); 2 TB primary + 4 TB secondary |
-| Networking | 2 × 10GbE (Realtek RTL8127) |
+| Storage | 2 x M.2 NVMe (PCIe 4.0 x4 + x1); 2 TB primary + 4 TB secondary |
+| Networking | 2 x 10GbE (Realtek RTL8127) |
 
 See [Hardware](../../getting-started/hardware.md) for the full spec and design rationale.
 

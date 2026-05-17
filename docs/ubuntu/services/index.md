@@ -15,7 +15,7 @@ Every running service is a potential attack vector:
 │  Each Service = Potential Entry Point                        │
 │                                                              │
 │  [SSH] [HTTP] [DB] [Mail] [DNS] [FTP] [NFS] [Cups]...       │
-│    ↓     ↓     ↓     ↓      ↓     ↓     ↓      ↓            │
+│    v     v     v     v      v     v     v      v            │
 │   Use   Use  Eval  Remove Remove Remove Remove Remove       │
 └─────────────────────────────────────────────────────────────┘
 ```

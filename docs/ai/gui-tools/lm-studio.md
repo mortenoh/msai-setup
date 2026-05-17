@@ -169,7 +169,7 @@ rocm-smi
 
 ### Model Loading
 
-- First load takes time (disk → memory)
+- First load takes time (disk -> memory)
 - Keep frequently used models loaded
 - Use smaller quantizations for faster switching
 
@@ -223,7 +223,7 @@ For full CLI usage, consider [Ollama](../inference-engines/ollama.md) instead.
 
 ### Custom Location
 
-Change in Settings → Storage to use ZFS dataset:
+Change in Settings -> Storage to use ZFS dataset:
 
 ```
 /mnt/tank/ai/models/lm-studio

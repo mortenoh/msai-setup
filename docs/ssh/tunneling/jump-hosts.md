@@ -11,11 +11,11 @@ Jump hosts (bastion hosts) provide controlled access to internal networks. Inste
 │   Internet          DMZ              Internal Network                     │
 │                                                                           │
 │   ┌─────┐      ┌─────────┐      ┌─────────┐  ┌─────────┐                │
-│   │ You │─────▶│ Bastion │─────▶│  Web    │  │   DB    │                │
+│   │ You │─────>│ Bastion │─────>│  Web    │  │   DB    │                │
 │   └─────┘      │  (jump) │      │ Server  │  │ Server  │                │
 │                └─────────┘      └─────────┘  └─────────┘                │
 │                     │           ┌─────────┐  ┌─────────┐                │
-│                     └──────────▶│  App    │  │  Redis  │                │
+│                     └──────────>│  App    │  │  Redis  │                │
 │                                 │ Server  │  │ Server  │                │
 │                                 └─────────┘  └─────────┘                │
 │                                                                           │
@@ -154,7 +154,7 @@ Access internal service through bastion:
 
 ```bash
 ssh -J bastion.example.com -L 5432:localhost:5432 admin@internal-db
-# localhost:5432 → bastion → internal-db:5432
+# localhost:5432 -> bastion -> internal-db:5432
 ```
 
 ### With Config
@@ -182,7 +182,7 @@ ssh -J jump1,jump2 destination
 ```
 
 ```
-You → jump1 → jump2 → destination
+You -> jump1 -> jump2 -> destination
 ```
 
 ### Config for Deep Networks
@@ -206,7 +206,7 @@ Host deep-server
 
 ```bash
 ssh deep-server
-# You → bastion → internal-jump → deep-server
+# You -> bastion -> internal-jump -> deep-server
 ```
 
 ## Bastion Server Setup

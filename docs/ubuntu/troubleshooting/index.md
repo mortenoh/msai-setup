@@ -11,31 +11,31 @@ This section covers diagnosing and resolving common issues on Ubuntu Server 26.0
 │                    Problem Reported                          │
 └─────────────────────────────────────────────────────────────┘
                               │
-                              ▼
+                              v
 ┌─────────────────────────────────────────────────────────────┐
 │                    1. Gather Information                     │
 │         What changed? When did it start? What's affected?   │
 └─────────────────────────────────────────────────────────────┘
                               │
-                              ▼
+                              v
 ┌─────────────────────────────────────────────────────────────┐
 │                    2. Check Logs                             │
 │           journalctl, /var/log/, dmesg                       │
 └─────────────────────────────────────────────────────────────┘
                               │
-                              ▼
+                              v
 ┌─────────────────────────────────────────────────────────────┐
 │                    3. Verify Basics                          │
 │           Service status, disk space, memory, network        │
 └─────────────────────────────────────────────────────────────┘
                               │
-                              ▼
+                              v
 ┌─────────────────────────────────────────────────────────────┐
 │                    4. Isolate the Issue                      │
 │           Narrow down: hardware, software, config, network   │
 └─────────────────────────────────────────────────────────────┘
                               │
-                              ▼
+                              v
 ┌─────────────────────────────────────────────────────────────┐
 │                    5. Test Solutions                         │
 │           Start with least invasive, document changes        │

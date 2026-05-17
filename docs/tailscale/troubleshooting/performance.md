@@ -161,7 +161,7 @@ sudo sysctl -w net.core.wmem_max=26214400
 ### macOS
 
 - Ensure using System Extension (not Network Extension)
-- Check "Tailscale" in System Preferences → Security & Privacy
+- Check "Tailscale" in System Preferences -> Security & Privacy
 
 ### Windows
 

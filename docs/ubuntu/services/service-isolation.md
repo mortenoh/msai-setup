@@ -13,7 +13,7 @@ Even if a service is compromised, isolation limits what attackers can do:
 │                    Compromised Service                       │
 └─────────────────────────────────────────────────────────────┘
           │
-          ▼
+          v
 ┌─────────────────────────────────────────────────────────────┐
 │                   Isolation Layers                           │
 │  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐           │
@@ -26,7 +26,7 @@ Even if a service is compromised, isolation limits what attackers can do:
 │  └─────────────┘ └─────────────┘ └─────────────┘           │
 └─────────────────────────────────────────────────────────────┘
           │
-          ▼
+          v
      Limited damage!
 ```
 

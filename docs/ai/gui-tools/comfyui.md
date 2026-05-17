@@ -205,8 +205,8 @@ A minimal text-to-image workflow connects these nodes:
 
 ```
 Load Checkpoint --> CLIP Text Encode (positive) --> KSampler --> VAE Decode --> Save Image
-                --> CLIP Text Encode (negative) ↗
-                --> Empty Latent Image ↗
+                --> CLIP Text Encode (negative) ->
+                --> Empty Latent Image ->
 ```
 
 ComfyUI ships with default workflows. Load them via **Load Default** or drag a workflow JSON onto the canvas.
@@ -261,7 +261,7 @@ ACE-Step is a 3.5B parameter music generation model capable of producing full so
 
 ```
 Load Checkpoint --> TextEncodeAceStepAudio --> KSampler --> Save Audio
-                --> EmptyAceStepLatentAudio ↗
+                --> EmptyAceStepLatentAudio ->
 ```
 
 **Example prompt:**

@@ -172,7 +172,7 @@ environment:
   - ENABLE_SIGNUP=False
 ```
 
-Or in Admin Settings → General → Disable Signup
+Or in Admin Settings -> General -> Disable Signup
 
 ### User Roles
 
@@ -203,7 +203,7 @@ Or in Admin Settings → General → Disable Signup
 
 Create document collections:
 
-1. **Workspace** → **Documents**
+1. **Workspace** -> **Documents**
 2. Create collection
 3. Upload documents
 4. Reference in chats with `#collection-name`
@@ -219,7 +219,7 @@ Create document collections:
 
 Per-model configuration:
 
-1. **Workspace** → **Models**
+1. **Workspace** -> **Models**
 2. Select model
 3. Configure:
    - System prompt
@@ -261,7 +261,7 @@ Add model aliases:
 
 ### Themes
 
-1. **Settings** → **Interface**
+1. **Settings** -> **Interface**
 2. Choose theme (Light, Dark, System)
 3. Custom CSS available
 
@@ -364,7 +364,7 @@ proxy_set_header Connection "upgrade";
 Open WebUI also provides an API:
 
 ```bash
-# Get API key from Settings → Account → API Keys
+# Get API key from Settings -> Account -> API Keys
 
 curl http://localhost:3000/api/chat/completions \
   -H "Authorization: Bearer sk-xxx" \

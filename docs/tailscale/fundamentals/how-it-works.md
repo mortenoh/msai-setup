@@ -23,9 +23,9 @@ The coordination server (control plane) handles:
 │   │                     CONTROL PLANE                                    │   │
 │   │                  (Tailscale servers)                                 │   │
 │   │                                                                      │   │
-│   │  • Device registration      • Public key exchange                   │   │
-│   │  • ACL distribution         • NAT traversal help                    │   │
-│   │  • DNS configuration        • DERP relay coordination               │   │
+│   │  - Device registration      - Public key exchange                   │   │
+│   │  - ACL distribution         - NAT traversal help                    │   │
+│   │  - DNS configuration        - DERP relay coordination               │   │
 │   │                                                                      │   │
 │   └─────────────────────────────────────────────────────────────────────┘   │
 │                                   │                                          │
@@ -36,7 +36,7 @@ The coordination server (control plane) handles:
 │   │                      DATA PLANE                                      │   │
 │   │                  (direct connections)                                │   │
 │   │                                                                      │   │
-│   │      Device A ◄────── WireGuard tunnel ──────► Device B            │   │
+│   │      Device A <────── WireGuard tunnel ──────> Device B            │   │
 │   │                    encrypted, peer-to-peer                          │   │
 │   │                                                                      │   │
 │   └─────────────────────────────────────────────────────────────────────┘   │
@@ -76,13 +76,13 @@ DERP (Designated Encrypted Relay for Packets) servers relay traffic when direct 
 │   Scenario 1: Direct Connection (preferred)                                 │
 │                                                                              │
 │   ┌──────────┐                                    ┌──────────┐              │
-│   │ Device A │◄───────── direct path ────────────►│ Device B │              │
+│   │ Device A │<───────── direct path ────────────>│ Device B │              │
 │   └──────────┘            ~10ms                   └──────────┘              │
 │                                                                              │
 │   Scenario 2: DERP Relay (fallback)                                         │
 │                                                                              │
 │   ┌──────────┐      ┌──────────┐      ┌──────────┐                         │
-│   │ Device A │─────►│  DERP    │◄─────│ Device B │                         │
+│   │ Device A │─────>│  DERP    │<─────│ Device B │                         │
 │   └──────────┘      │  Relay   │      └──────────┘                         │
 │                     └──────────┘                                            │
 │                        ~50ms                                                │
@@ -106,16 +106,16 @@ DERP is used when:
 └──────┬──────┘                    └────────┬────────┘
        │                                    │
        │  1. tailscale up                   │
-       │─────────────────────────────────►  │
+       │─────────────────────────────────>  │
        │                                    │
        │  2. Auth URL                       │
-       │  ◄─────────────────────────────────│
+       │  <─────────────────────────────────│
        │                                    │
        │  3. User authenticates (browser)   │
-       │─────────────────────────────────►  │
+       │─────────────────────────────────>  │
        │                                    │
        │  4. Device registered              │
-       │  ◄─────────────────────────────────│
+       │  <─────────────────────────────────│
        │     - Assigned 100.x.x.x IP        │
        │     - Receives peer list           │
        │     - Gets ACL policies            │
@@ -137,12 +137,12 @@ The coordination server distributes public keys to authorized peers:
 Device A                 Coordination              Device B
    │                        │                         │
    │  Public Key A          │                         │
-   │───────────────────────►│                         │
+   │───────────────────────>│                         │
    │                        │   Public Key B          │
-   │                        │◄────────────────────────│
+   │                        │<────────────────────────│
    │                        │                         │
    │   Peer list + keys     │   Peer list + keys      │
-   │◄───────────────────────│────────────────────────►│
+   │<───────────────────────│────────────────────────>│
    │                        │                         │
 ```
 
@@ -156,8 +156,8 @@ Tailscale uses multiple techniques to establish direct connections:
 │                                                                              │
 │   1. STUN (Session Traversal Utilities for NAT)                            │
 │      ┌────────┐                              ┌────────┐                     │
-│      │Device A│──── What's my public IP? ───►│  STUN  │                     │
-│      └────────┘◄─── 203.0.113.1:45678 ───────│ Server │                     │
+│      │Device A│──── What's my public IP? ───>│  STUN  │                     │
+│      └────────┘<─── 203.0.113.1:45678 ───────│ Server │                     │
 │                                              └────────┘                     │
 │                                                                              │
 │   2. UDP Hole Punching                                                       │
@@ -219,7 +219,7 @@ Your laptop                                          Your server
      │                                                   │
      │ tailscale0: 100.100.1.1                          │ tailscale0: 100.100.1.2
      │         │                                        │         │
-     │         └────── WireGuard UDP ──────────────────►│         │
+     │         └────── WireGuard UDP ──────────────────>│         │
      │                 (encrypted)                      │         │
      │                                                  │         │
      └─── Physical: Home Router ─── Internet ─── DC Router ──────┘
@@ -230,11 +230,11 @@ Your laptop                                          Your server
 ```
 Your laptop              DERP Relay              Your server
      │                       │                        │
-     │ ────── encrypted ────►│                        │
-     │                       │ ────── encrypted ─────►│
+     │ ────── encrypted ────>│                        │
+     │                       │ ────── encrypted ─────>│
      │                       │                        │
-     │◄───── encrypted ──────│                        │
-     │                       │◄───── encrypted ───────│
+     │<───── encrypted ──────│                        │
+     │                       │<───── encrypted ───────│
 ```
 
 ## Security Model
@@ -251,7 +251,7 @@ Your laptop              DERP Relay              Your server
 ┌──────────────────────────────────────────────────────────────────────────────┐
 │                    Authentication Flow                                       │
 │                                                                              │
-│   User ───► Identity Provider ───► Tailscale ───► Device Access            │
+│   User ───> Identity Provider ───> Tailscale ───> Device Access            │
 │             (Google, Okta,         (verifies      (grants network           │
 │              Microsoft, etc.)       identity)      membership)              │
 │                                                                              │

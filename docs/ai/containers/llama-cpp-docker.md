@@ -343,9 +343,9 @@ docker exec llama-server cat /logs/llama-server.log
 docker logs llama-server
 
 # Common issues:
-# - Model file not found → check volume mount
-# - Out of memory → reduce -ngl or use smaller model
-# - GPU not available → check nvidia-smi or rocm-smi
+# - Model file not found -> check volume mount
+# - Out of memory -> reduce -ngl or use smaller model
+# - GPU not available -> check nvidia-smi or rocm-smi
 ```
 
 ### GPU Not Detected

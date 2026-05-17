@@ -10,13 +10,13 @@ Select the right model for your use case, hardware, and quality requirements.
 └─────────────────────────────────────────────────────────────┘
                               │
         ┌─────────────────────┼─────────────────────┐
-        ▼                     ▼                     ▼
+        v                     v                     v
    ┌─────────┐          ┌─────────┐          ┌─────────┐
    │  Code   │          │  Chat   │          │  Docs   │
    │ Assist  │          │  /QA    │          │ Process │
    └────┬────┘          └────┬────┘          └────┬────┘
         │                    │                    │
-        ▼                    ▼                    ▼
+        v                    v                    v
 ┌────────────────┐   ┌────────────────┐   ┌────────────────┐
 │ DeepSeek Coder │   │ Llama 3.3 70B  │   │ Qwen 2.5 72B   │
 │ Qwen 2.5 Coder │   │ Qwen 2.5 72B   │   │ (Long context) │

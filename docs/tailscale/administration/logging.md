@@ -35,7 +35,7 @@ log stream --predicate 'subsystem == "com.tailscale.ipn"'
 Get-EventLog -LogName Application -Source Tailscale -Newest 50
 
 # Or open Event Viewer GUI
-# Application and Services Logs → Tailscale
+# Application and Services Logs -> Tailscale
 ```
 
 ### Docker

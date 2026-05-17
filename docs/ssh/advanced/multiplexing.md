@@ -13,9 +13,9 @@ Connection multiplexing allows multiple SSH sessions to share a single TCP conne
 ┌──────────────────────────────────────────────────────────────────────────┐
 │                     Without Multiplexing                                  │
 │                                                                           │
-│   ssh user@host    ────────── [TCP + Auth + Crypto] ──────▶  Session 1   │
-│   ssh user@host    ────────── [TCP + Auth + Crypto] ──────▶  Session 2   │
-│   ssh user@host    ────────── [TCP + Auth + Crypto] ──────▶  Session 3   │
+│   ssh user@host    ────────── [TCP + Auth + Crypto] ──────>  Session 1   │
+│   ssh user@host    ────────── [TCP + Auth + Crypto] ──────>  Session 2   │
+│   ssh user@host    ────────── [TCP + Auth + Crypto] ──────>  Session 3   │
 │                                                                           │
 │   3 connections, 3 authentications, 3 key exchanges                      │
 │                                                                           │
@@ -23,8 +23,8 @@ Connection multiplexing allows multiple SSH sessions to share a single TCP conne
 │                     With Multiplexing                                     │
 │                                                                           │
 │   ssh user@host    ────────── [TCP + Auth + Crypto] ──────┐              │
-│   ssh user@host    ──────────────────────────────────────▶│  Sessions    │
-│   ssh user@host    ──────────────────────────────────────▶│  1, 2, 3    │
+│   ssh user@host    ──────────────────────────────────────>│  Sessions    │
+│   ssh user@host    ──────────────────────────────────────>│  1, 2, 3    │
 │                                                           │              │
 │   1 connection, 1 authentication, shared over socket      │              │
 │                                                           └──────────────┘

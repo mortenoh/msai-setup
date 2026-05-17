@@ -218,7 +218,7 @@ TS_OUTBOUND_HTTP_PROXY_LISTEN=:1056
 
 ### Generating Keys
 
-In admin console at **Settings** → **Keys**:
+In admin console at **Settings** -> **Keys**:
 
 1. Click **Generate auth key**
 2. Configure options:

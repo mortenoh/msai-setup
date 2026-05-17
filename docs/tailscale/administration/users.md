@@ -72,7 +72,7 @@ Grant specific capabilities:
 
 ### Invite New Users
 
-1. Go to **Users** → **Invite users**
+1. Go to **Users** -> **Invite users**
 2. Enter email addresses
 3. Users receive invitation email
 4. They authenticate with their IdP
@@ -81,7 +81,7 @@ Grant specific capabilities:
 
 For Google Workspace or Microsoft 365:
 
-1. **Settings** → **User access**
+1. **Settings** -> **User access**
 2. Enable "Allow any user with a @domain.com email"
 3. No individual invitations needed
 
@@ -91,7 +91,7 @@ For Google Workspace or Microsoft 365:
 
 Configure maximum devices per user:
 
-1. **Settings** → **User access**
+1. **Settings** -> **User access**
 2. Set "Device limit per user"
 
 ### Personal vs Shared Devices
@@ -108,7 +108,7 @@ Configure maximum devices per user:
 Automatic user provisioning:
 
 ```
-Identity Provider ──► SCIM ──► Tailscale
+Identity Provider ──> SCIM ──> Tailscale
                               (creates/removes users)
 ```
 
@@ -126,7 +126,7 @@ Invite/remove users through admin console.
 ### Remove User Access
 
 1. Go to **Users**
-2. Click user → **Remove access**
+2. Click user -> **Remove access**
 3. User's devices disconnected
 
 ### Remove Devices Only

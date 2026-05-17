@@ -69,9 +69,9 @@ errors: No known data errors
 
 Unhealthy result (one of):
 
-- `scrub repaired X in ...` with non-zero CKSUM counts → a leaf disk had bad blocks; ZFS healed them from redundancy. **If redundancy exists**, this is "do nothing right now but watch the disk".
-- `state: DEGRADED` → a vdev lost a leaf; reads work from remaining redundancy but you need to act.
-- `errors: <N> data errors, see ...` → some files are permanently lost because no redundancy was available to repair them.
+- `scrub repaired X in ...` with non-zero CKSUM counts -> a leaf disk had bad blocks; ZFS healed them from redundancy. **If redundancy exists**, this is "do nothing right now but watch the disk".
+- `state: DEGRADED` -> a vdev lost a leaf; reads work from remaining redundancy but you need to act.
+- `errors: <N> data errors, see ...` -> some files are permanently lost because no redundancy was available to repair them.
 
 For the MS-S1 MAX's no-redundancy pool, any CKSUM errors are immediately problematic — there's nothing to heal from. The repair path is to identify the affected files, restore them from off-host backup, and decide whether to replace the failing disk.
 

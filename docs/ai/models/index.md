@@ -12,7 +12,7 @@ Understanding model selection, formats, and acquisition for local LLM inference.
 │  (hub.hf.co)     │    (ollama.com)      │   (vendors)      │
 └────────┬─────────┴──────────┬───────────┴────────┬─────────┘
          │                    │                    │
-         ▼                    ▼                    ▼
+         v                    v                    v
 ┌────────────────────────────────────────────────────────────┐
 │                     Model Formats                          │
 ├────────────────────────────────────────────────────────────┤
@@ -21,7 +21,7 @@ Understanding model selection, formats, and acquisition for local LLM inference.
 │   Ollama)       │   transformers)   │   conversion req)   │
 └────────┬────────┴─────────┬─────────┴──────────┬───────────┘
          │                  │                    │
-         ▼                  ▼                    ▼
+         v                  v                    v
 ┌────────────────────────────────────────────────────────────┐
 │                   Inference Engines                        │
 ├────────────────────────────────────────────────────────────┤

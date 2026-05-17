@@ -12,13 +12,13 @@ Ubuntu Livepatch applies critical kernel security fixes without requiring a rebo
 │              (with vulnerable code)                          │
 └─────────────────────────────────────────────────────────────┘
                               │
-                              ▼
+                              v
 ┌─────────────────────────────────────────────────────────────┐
 │                   Livepatch Module                           │
 │          (Contains fixed function code)                      │
 └─────────────────────────────────────────────────────────────┘
                               │
-                              ▼
+                              v
 ┌─────────────────────────────────────────────────────────────┐
 │                    Running Kernel                            │
 │   (Vulnerable function redirected to fixed function)         │

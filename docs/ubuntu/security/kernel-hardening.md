@@ -13,9 +13,9 @@ sysctl modifies kernel parameters at runtime:
 │                    Kernel Space                              │
 ├─────────────────────────────────────────────────────────────┤
 │  /proc/sys/kernel/  │  /proc/sys/net/  │  /proc/sys/fs/    │
-│  • Core kernel      │  • Networking    │  • Filesystem     │
-│  • Security         │  • IPv4/IPv6     │  • File handles   │
-│  • Randomization    │  • Protocols     │  • Quotas         │
+│  - Core kernel      │  - Networking    │  - Filesystem     │
+│  - Security         │  - IPv4/IPv6     │  - File handles   │
+│  - Randomization    │  - Protocols     │  - Quotas         │
 └─────────────────────────────────────────────────────────────┘
 ```
 

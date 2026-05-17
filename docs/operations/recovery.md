@@ -6,16 +6,16 @@ A short list of "something broke; what do I do?" with pointers to the canonical 
 
 | Scenario | First action | Canonical procedure |
 |---|---|---|
-| Accidentally deleted a file or directory | Find the most recent snapshot, copy it back | [ZFS Snapshots → Reading from a snapshot](../zfs/snapshots.md#reading-from-a-snapshot) |
-| Bad service upgrade — Nextcloud / Authentik / etc. | Stop service, rollback its dataset, restart | [Docker Integration → Snapshot before risky operations](../zfs/docker-integration.md#snapshot-before-risky-operations) |
-| Bad VM-side change — Windows Update broke the guest | Stop VM, rollback its dataset, start | [VM Storage → When the VM corrupts its filesystem](../zfs/vm-storage.md#when-the-vm-corrupts-its-filesystem) |
+| Accidentally deleted a file or directory | Find the most recent snapshot, copy it back | [ZFS Snapshots -> Reading from a snapshot](../zfs/snapshots.md#reading-from-a-snapshot) |
+| Bad service upgrade — Nextcloud / Authentik / etc. | Stop service, rollback its dataset, restart | [Docker Integration -> Snapshot before risky operations](../zfs/docker-integration.md#snapshot-before-risky-operations) |
+| Bad VM-side change — Windows Update broke the guest | Stop VM, rollback its dataset, start | [VM Storage -> When the VM corrupts its filesystem](../zfs/vm-storage.md#when-the-vm-corrupts-its-filesystem) |
 | Container won't start | `docker compose down && up --force-recreate` — data is on ZFS, not in the container | [Docker Integration](../zfs/docker-integration.md) |
-| ZFS pool reports DEGRADED / disk error | Read `zpool status -v`, plan disk replacement | [ZFS Operations → Disk replacement](../zfs/operations.md#disk-replacement) |
-| ZFS pool won't import after reboot | Manual `zpool import`, check zfs-import services | [ZFS Troubleshooting → I rebooted and the pool isn't there](../zfs/troubleshooting.md#i-rebooted-and-the-pool-isnt-there) |
+| ZFS pool reports DEGRADED / disk error | Read `zpool status -v`, plan disk replacement | [ZFS Operations -> Disk replacement](../zfs/operations.md#disk-replacement) |
+| ZFS pool won't import after reboot | Manual `zpool import`, check zfs-import services | [ZFS Troubleshooting -> I rebooted and the pool isn't there](../zfs/troubleshooting.md#i-rebooted-and-the-pool-isnt-there) |
 | Host OS broken; ZFS pool fine | Reinstall Ubuntu, re-import pool, restore services | [Rebuild Checklist](rebuild-checklist.md) |
-| Disk failure on the no-redundancy pool | Replace disk, restore from off-host backup | [Backup &amp; Recovery → Off-site target](backup.md#off-site-target) + [Rebuild Checklist](rebuild-checklist.md) |
-| Pool metadata corruption (FAULTED) | Try read-only import; rewind with `-F`; restore from backup if needed | [ZFS Troubleshooting → Pool is FAULTED / UNAVAIL](../zfs/troubleshooting.md#pool-is-faulted--unavail) |
-| Lost ZFS encryption passphrase | No recovery is possible | [ZFS Encryption → Lost passphrase](../zfs/encryption.md#lost-passphrase) |
+| Disk failure on the no-redundancy pool | Replace disk, restore from off-host backup | [Backup &amp; Recovery -> Off-site target](backup.md#off-site-target) + [Rebuild Checklist](rebuild-checklist.md) |
+| Pool metadata corruption (FAULTED) | Try read-only import; rewind with `-F`; restore from backup if needed | [ZFS Troubleshooting -> Pool is FAULTED / UNAVAIL](../zfs/troubleshooting.md#pool-is-faulted--unavail) |
+| Lost ZFS encryption passphrase | No recovery is possible | [ZFS Encryption -> Lost passphrase](../zfs/encryption.md#lost-passphrase) |
 | Database (Postgres / MariaDB) corruption | Rollback DB dataset, or restore from SQL dump | See [Database from snapshot](#database-from-snapshot-or-sql-dump) below |
 | Forgot SSH access (locked out) | Console-rescue path or single-user GRUB boot | See [Locked-out recovery](#locked-out-of-ssh) below |
 | Tailscale stopped working | Re-auth, check ACLs | [Tailscale Troubleshooting](../tailscale/troubleshooting/index.md) |
@@ -77,7 +77,7 @@ If `ssh user@host` stops working after a config change:
 3. **Boot via GRUB recovery mode** if the SSH service won't start. Edit the kernel cmdline at GRUB to append `single` or `init=/bin/bash`, drop to a root shell, fix the config.
 4. **As a last resort, boot from a Ubuntu live USB**, mount the root filesystem, and edit `/etc/ssh/sshd_config` directly.
 
-See [PAM → Recovery if root gets locked out](../ubuntu/system/pam.md) for the faillock specifics.
+See [PAM -> Recovery if root gets locked out](../ubuntu/system/pam.md) for the faillock specifics.
 
 ## Recovery drill schedule
 

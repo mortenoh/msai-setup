@@ -16,7 +16,7 @@ Dynamic port forwarding creates a SOCKS proxy that routes all traffic through th
 │   │           │  Tunnel  │           │  Traffic │           │           │
 │   └───────────┘          └───────────┘          └───────────┘           │
 │                                                                           │
-│   Browser → SOCKS proxy → SSH → google.com, github.com, etc.            │
+│   Browser -> SOCKS proxy -> SSH -> google.com, github.com, etc.            │
 │                                                                           │
 └──────────────────────────────────────────────────────────────────────────┘
 ```
@@ -55,7 +55,7 @@ ssh -D 1080 -f -N user@server.example.com
 
 ### Firefox
 
-1. Settings → Network Settings → Settings
+1. Settings -> Network Settings -> Settings
 2. Manual proxy configuration
 3. SOCKS Host: `127.0.0.1`, Port: `1080`
 4. SOCKS v5
@@ -71,7 +71,7 @@ google-chrome --proxy-server="socks5://127.0.0.1:1080"
 
 ### System-Wide (macOS)
 
-System Preferences → Network → Advanced → Proxies:
+System Preferences -> Network -> Advanced -> Proxies:
 - Check "SOCKS Proxy"
 - Server: 127.0.0.1:1080
 

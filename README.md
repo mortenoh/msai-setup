@@ -23,14 +23,14 @@ Authoritative spec: [Minisforum MS-S1 MAX product page](https://www.minisforum.c
 | CPU | AMD Ryzen AI Max+ 395 (Strix Halo, Zen 5, 16C / 32T) |
 | GPU | AMD Radeon 8060S Graphics (RDNA 3.5, 40 CUs, integrated, `gfx1151`) |
 | RAM | Up to 128GB LPDDR5X-8000 MT/s, quad-channel (soldered, ~256 GB/s peak) |
-| Storage | 2 × M.2 NVMe (PCIe 4.0 x4 + x1); up to 16 TB total (RAID 0/1 supported) |
-| Networking | 2 × 10GbE (Realtek RTL8127) |
+| Storage | 2 x M.2 NVMe (PCIe 4.0 x4 + x1); up to 16 TB total (RAID 0/1 supported) |
+| Networking | 2 x 10GbE (Realtek RTL8127) |
 | Display | HDMI 2.1 FRL (up to 8K@60 / 4K@120), single output |
-| USB | Front: 1 × USB 3.2 Gen2, 2 × USB4 (40 Gbps), 2 × USB 2.0. Rear: 2 × USB4 V2 (80 Gbps), 1 × USB 3.2 Gen2 |
+| USB | Front: 1 x USB 3.2 Gen2, 2 x USB4 (40 Gbps), 2 x USB 2.0. Rear: 2 x USB4 V2 (80 Gbps), 1 x USB 3.2 Gen2 |
 | Expansion | PCIe 4.0 x4 slot (full-length x16 connector) |
 | Power | 320W PSU; ~160W peak / 130W sustained at the wall |
 
-The APU architecture enables running 70B+ parameter LLMs that wouldn't fit in discrete GPU VRAM (typically 24GB max). LPDDR5X-8000 on a 256-bit (quad-channel) bus gives roughly 3× the memory bandwidth of a typical desktop DDR5 board, which is what makes inference on the integrated GPU practical.
+The APU architecture enables running 70B+ parameter LLMs that wouldn't fit in discrete GPU VRAM (typically 24GB max). LPDDR5X-8000 on a 256-bit (quad-channel) bus gives roughly 3x the memory bandwidth of a typical desktop DDR5 board, which is what makes inference on the integrated GPU practical.
 
 ## Documentation Sections
 

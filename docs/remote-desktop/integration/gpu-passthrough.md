@@ -53,7 +53,7 @@ Search for "HDMI dummy plug" or "display emulator":
 ### How It Works
 
 ```
-GPU ──► Dummy Plug ──► GPU initializes display
+GPU ──> Dummy Plug ──> GPU initializes display
                        RDP/streaming now works
 ```
 
@@ -81,9 +81,9 @@ Sunshine is a self-hosted game streaming server. Moonlight is the client.
 ┌───────────────┐         ┌───────────────────────┐
 │ macOS Client  │         │     Windows VM        │
 │               │         │                       │
-│  Moonlight    │◄───────►│  Sunshine Server      │
+│  Moonlight    │<───────>│  Sunshine Server      │
 │               │  Stream │  (uses GPU encoder)   │
-│               │         │        ▲              │
+│               │         │        ^              │
 └───────────────┘         │        │              │
                           │   ┌────┴────┐         │
                           │   │   GPU   │         │
@@ -212,7 +212,7 @@ Components:
 - Moonlight on macOS
 
 Connection:
-macOS ──Tailscale──► Sunshine ──► VM Display
+macOS ──Tailscale──> Sunshine ──> VM Display
 ```
 
 ### Workstation VM Setup
@@ -224,7 +224,7 @@ Components:
 - RDP enabled
 
 Connection:
-macOS ──Tailscale──► RDP ──► VM
+macOS ──Tailscale──> RDP ──> VM
 (GPU available for CUDA/rendering, RDP for display)
 ```
 

@@ -321,7 +321,7 @@ Output shows security score and recommendations:
 [x] PrivateTmp=                  Service has access to private tmp
 [ ] ProtectSystem=               Service has full access to the file system   0.5
 ...
-→ Overall exposure level for nginx.service: 7.2 MEDIUM
+-> Overall exposure level for nginx.service: 7.2 MEDIUM
 ```
 
 ### Example: Hardened Web Service

@@ -104,7 +104,7 @@ tailscale status
 # Peer should be listed
 
 # 2. Check ACLs
-# Admin console → Access controls
+# Admin console -> Access controls
 # Verify rules allow your connection
 
 # 3. Test connectivity
@@ -149,7 +149,7 @@ sudo tailscale up --accept-routes
 sudo tailscale up --accept-dns
 
 # Verify MagicDNS enabled in admin console
-# DNS → MagicDNS → Enabled
+# DNS -> MagicDNS -> Enabled
 
 # Check resolv.conf
 cat /etc/resolv.conf
@@ -254,7 +254,7 @@ sudo tailscale up --ssh
 
 ```bash
 # Check ACL allows your user
-# Admin console → Access controls → ssh section
+# Admin console -> Access controls -> ssh section
 
 # Verify Unix user exists on target
 id username
@@ -308,7 +308,7 @@ sudo modprobe tun
 
 ### macOS: "System Extension Blocked"
 
-1. System Preferences → Security & Privacy
+1. System Preferences -> Security & Privacy
 2. Click "Allow" for Tailscale
 3. Restart Tailscale
 

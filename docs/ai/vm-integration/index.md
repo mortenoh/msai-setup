@@ -33,7 +33,7 @@ VM-based LLM deployment enables:
 │  │  │  ┌───────────────────────────────────────────────┐  │ │   │
 │  │  │  │              LM Studio                         │  │ │   │
 │  │  │  │         (OpenAI-compatible API)               │  │ │   │
-│  │  │  │           :1234 → API endpoint                │  │ │   │
+│  │  │  │           :1234 -> API endpoint                │  │ │   │
 │  │  │  └───────────────────────────────────────────────┘  │ │   │
 │  │  │  ┌───────────────────────────────────────────────┐  │ │   │
 │  │  │  │         AMD/NVIDIA GPU (Passthrough)          │  │ │   │
@@ -45,9 +45,9 @@ VM-based LLM deployment enables:
 │                              │                                   │
 │  ┌───────────────────────────┴────────────────────────────────┐ │
 │  │                       Clients                               │ │
-│  │  • Host applications                                        │ │
-│  │  • Docker containers (via host network)                     │ │
-│  │  • Other VMs                                                │ │
+│  │  - Host applications                                        │ │
+│  │  - Docker containers (via host network)                     │ │
+│  │  - Other VMs                                                │ │
 │  └─────────────────────────────────────────────────────────────┘ │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -96,7 +96,7 @@ Download from [lmstudio.ai](https://lmstudio.ai) in the Windows VM.
 
 ### 4. Start API Server
 
-In LM Studio: Local Server → Start Server
+In LM Studio: Local Server -> Start Server
 
 ### 5. Access from Host
 

@@ -21,10 +21,10 @@ Do you need public access (anyone on internet)?
 │   │
 │   └── Do you own a domain?
 │       │
-│       ├── YES → Reverse Proxy + DDNS
+│       ├── YES -> Reverse Proxy + DDNS
 │       │         or Cloudflare Tunnel
 │       │
-│       └── NO → Tailscale Funnel
+│       └── NO -> Tailscale Funnel
 │                (free subdomain)
 │
 └── NO (only you/trusted users)
@@ -32,9 +32,9 @@ Do you need public access (anyone on internet)?
     └── Is Tailscale blocked?
         (corporate WiFi, etc.)
         │
-        ├── YES → Self-hosted WireGuard VPN
+        ├── YES -> Self-hosted WireGuard VPN
         │
-        └── NO → Tailscale (recommended)
+        └── NO -> Tailscale (recommended)
 ```
 
 ## Tailscale (Recommended)
@@ -135,7 +135,7 @@ PersistentKeepalive = 25
 ### Port Forwarding Required
 
 ```
-Router: Forward UDP 51820 → homeserver:51820
+Router: Forward UDP 51820 -> homeserver:51820
 ```
 
 ## DDNS (Dynamic DNS)
@@ -210,8 +210,8 @@ Router Settings:
 # Behind reverse proxy (Traefik/Caddy)
 # Only expose 80 and 443
 Forward:
-  - 80 → traefik:80    # HTTP (redirect to HTTPS)
-  - 443 → traefik:443  # HTTPS
+  - 80 -> traefik:80    # HTTP (redirect to HTTPS)
+  - 443 -> traefik:443  # HTTPS
 ```
 
 ### Check Port Status
@@ -232,7 +232,7 @@ Zero-exposure alternative using Cloudflare's network.
 ### How It Works
 
 ```
-Internet → Cloudflare → Tunnel → Your Server
+Internet -> Cloudflare -> Tunnel -> Your Server
            (edge)       (outbound only)
 
 No ports exposed. Tunnel connects outbound.
@@ -320,15 +320,15 @@ Internet
 
 3. **Configure DNS**
    ```
-   A     @           → your-public-ip (or CNAME to DDNS)
-   CNAME service1    → @
-   CNAME service2    → @
+   A     @           -> your-public-ip (or CNAME to DDNS)
+   CNAME service1    -> @
+   CNAME service2    -> @
    ```
 
 4. **Port forward** on router
    ```
-   TCP 80  → traefik:80
-   TCP 443 → traefik:443
+   TCP 80  -> traefik:80
+   TCP 443 -> traefik:443
    ```
 
 5. **Configure Traefik/Caddy** with Let's Encrypt
@@ -375,7 +375,7 @@ Solutions:
 
 ```yaml
 # Pi-hole local DNS
-yourdomain.com → 192.168.1.100
+yourdomain.com -> 192.168.1.100
 ```
 
 ### CGNAT Detection
@@ -383,7 +383,7 @@ yourdomain.com → 192.168.1.100
 ```bash
 # Your public IP
 curl ifconfig.me
-# → 100.64.x.x or 10.x.x.x = CGNAT
+# -> 100.64.x.x or 10.x.x.x = CGNAT
 
 # Your router's WAN IP
 # Check router admin page

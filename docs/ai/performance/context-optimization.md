@@ -16,11 +16,11 @@ Context length determines:
 ### KV Cache Growth
 
 ```
-KV Cache Size ≈ 2 × num_layers × context_length × hidden_size × bytes_per_param
+KV Cache Size ~ 2 x num_layers x context_length x hidden_size x bytes_per_param
 
 Example (70B model, FP16 KV cache):
-- 80 layers × 8192 context × 8192 hidden × 2 bytes × 2 (K+V)
-- ≈ 21 GB for 8K context
+- 80 layers x 8192 context x 8192 hidden x 2 bytes x 2 (K+V)
+- ~ 21 GB for 8K context
 
 Scaling:
 - 4K context:  ~10 GB KV cache

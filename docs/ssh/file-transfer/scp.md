@@ -11,7 +11,7 @@ SCP (Secure Copy Protocol) copies files between hosts over SSH. Simple, secure, 
 │   Local Machine                              Remote Server                │
 │   ┌─────────────────┐                       ┌─────────────────┐          │
 │   │                 │      SSH Tunnel       │                 │          │
-│   │   file.txt     ─┼──────────────────────▶│    file.txt     │          │
+│   │   file.txt     ─┼──────────────────────>│    file.txt     │          │
 │   │                 │      Encrypted        │                 │          │
 │   └─────────────────┘                       └─────────────────┘          │
 │                                                                           │

@@ -17,7 +17,7 @@ Wake-on-LAN (WoL) allows powering on a computer remotely by sending a special ne
 │  Client                           Server (powered off)           │
 │  ┌──────────┐                    ┌──────────────────────┐       │
 │  │          │   Magic Packet     │                      │       │
-│  │ Wake     │ ──────────────────▶│  NIC (still powered) │       │
+│  │ Wake     │ ──────────────────>│  NIC (still powered) │       │
 │  │ Tool     │   FF FF FF FF FF   │  detects packet      │       │
 │  │          │   AA:BB:CC:DD:EE   │  triggers power on   │       │
 │  └──────────┘   (MAC x 16)       └──────────────────────┘       │

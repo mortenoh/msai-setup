@@ -17,7 +17,7 @@ MCP provides a standardized way for LLMs to:
 │                                                             │
 │   ┌──────────────┐                    ┌──────────────┐     │
 │   │   AI Host    │                    │  MCP Server  │     │
-│   │ (Claude, etc)│◄──── Protocol ────►│  (Your App)  │     │
+│   │ (Claude, etc)│<──── Protocol ────>│  (Your App)  │     │
 │   └──────────────┘                    └──────────────┘     │
 │          │                                   │              │
 │          v                                   v              │

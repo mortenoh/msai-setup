@@ -76,14 +76,14 @@ Install appropriate GPU drivers in Windows:
 ### Verify GPU
 
 In LM Studio:
-- Check Settings → Hardware
+- Check Settings -> Hardware
 - GPU should be detected with full VRAM
 
 ## Model Download
 
 ### In VM
 
-1. Open LM Studio → Search
+1. Open LM Studio -> Search
 2. Download models (e.g., Llama 3.3 70B Q4_K_M)
 3. Models download to Windows storage
 
@@ -97,7 +97,7 @@ sudo apt install samba
 # Configure /etc/samba/smb.conf
 
 # In Windows, map network drive
-# \\host-ip\models → Z:\
+# \\host-ip\models -> Z:\
 ```
 
 ## API Server Configuration
@@ -204,9 +204,9 @@ LM Studio can be configured to start server on launch in settings.
 
 Allow inbound connections:
 
-1. Windows Defender Firewall → Advanced Settings
-2. Inbound Rules → New Rule
-3. Port → TCP 1234
+1. Windows Defender Firewall -> Advanced Settings
+2. Inbound Rules -> New Rule
+3. Port -> TCP 1234
 4. Allow connection
 5. Apply to all profiles
 
@@ -273,7 +273,7 @@ echo 49152 > /proc/sys/vm/nr_hugepages
 
 ### Slow Performance
 
-- Check GPU is being used (Task Manager → GPU)
+- Check GPU is being used (Task Manager -> GPU)
 - Verify all GPU layers are allocated
 - Check for thermal throttling
 

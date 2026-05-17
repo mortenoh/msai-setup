@@ -89,12 +89,12 @@ ssh user@my-server  # Using MagicDNS name
 │              ┌────────────────────┼────────────────────┐                    │
 │              │ Key exchange       │ ACL distribution   │                    │
 │              │ NAT traversal      │ Device registration│                    │
-│              ▼                    ▼                    ▼                    │
+│              v                    v                    v                    │
 │        ┌──────────┐        ┌──────────┐        ┌──────────┐                │
-│        │ Device A │◄──────►│ Device B │◄──────►│ Device C │                │
+│        │ Device A │<──────>│ Device B │<──────>│ Device C │                │
 │        │ 100.x.x.1│        │ 100.x.x.2│        │ 100.x.x.3│                │
 │        └──────────┘        └──────────┘        └──────────┘                │
-│              ▲                    ▲                    ▲                    │
+│              ^                    ^                    ^                    │
 │              └────────────────────┴────────────────────┘                    │
 │                     Direct WireGuard connections                            │
 │                     (data plane - peer to peer)                             │

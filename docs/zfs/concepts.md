@@ -219,9 +219,9 @@ On every read:
 1. Read the block.
 2. Compute its checksum.
 3. Compare against the checksum recorded in the parent.
-4. If they match → return data.
-5. If they don't and the vdev has redundancy → read the redundant copy, return that, **and rewrite the bad copy** so it's healed.
-6. If they don't and there's no redundancy → return an I/O error to the caller, log it to `zpool status`.
+4. If they match -> return data.
+5. If they don't and the vdev has redundancy -> read the redundant copy, return that, **and rewrite the bad copy** so it's healed.
+6. If they don't and there's no redundancy -> return an I/O error to the caller, log it to `zpool status`.
 
 A `zpool scrub` is just a full background traversal of every block, exercising this check on data that hasn't been read recently.
 
@@ -241,7 +241,7 @@ You almost never need to change this from the default unless you're enabling ded
 ARC = Adaptive Replacement Cache. It's smarter than a simple LRU — it tracks both recently-used (MRU) and frequently-used (MFU) blocks, and rebalances dynamically.
 
 - Caches **decompressed** blocks by default (`primarycache=all`). For datasets where you only want metadata cached (e.g. media archives that don't benefit from data caching), set `primarycache=metadata`.
-- Default size: up to ~50% of system RAM. On a 128 GB box that's 64 GB, which is too much for a system running VMs + Ollama. **Cap it.** See [Pool Creation → ARC](pool-creation.md#cap-the-arc-size).
+- Default size: up to ~50% of system RAM. On a 128 GB box that's 64 GB, which is too much for a system running VMs + Ollama. **Cap it.** See [Pool Creation -> ARC](pool-creation.md#cap-the-arc-size).
 - Inspect:
 
   ```bash

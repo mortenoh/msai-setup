@@ -179,7 +179,7 @@ network:
 With bridged networking, VM traffic doesn't go through host's IP stack for forwarding:
 
 ```
-External Host ──▶ br0 (bridge) ──▶ vnet0 ──▶ VM
+External Host ──> br0 (bridge) ──> vnet0 ──> VM
                        │
                        └─ Host's IP stack (not involved in VM traffic)
 ```

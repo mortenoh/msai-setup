@@ -24,7 +24,7 @@ The AMD Ryzen AI Max+ 395 (Strix Halo) represents AMD's most capable APU to date
 
 - **Zen 5 architecture**: Latest CPU cores with improved IPC
 - **RDNA 3.5 graphics**: 40 compute units, same architecture family as discrete RX 7000 series
-- **Quad-channel LPDDR5X-8000**: 256-bit memory bus delivers ~256 GB/s peak, ~3× a typical desktop DDR5 board
+- **Quad-channel LPDDR5X-8000**: 256-bit memory bus delivers ~256 GB/s peak, ~3x a typical desktop DDR5 board
 - **Unified memory controller**: Both CPU and GPU access the same memory pool
 - **AI accelerator**: Dedicated XDNA 2 NPU (though less relevant for LLM inference)
 
@@ -43,9 +43,9 @@ For detailed architecture information, see [Hardware Architecture](hardware-arch
 | RAM | 128GB LPDDR5X-8000 MT/s, quad-channel, soldered (~256 GB/s peak) |
 | Internal NVMe (slot 1) | 2 TB, PCIe 4.0 x4 |
 | Secondary NVMe (slot 2) | 4 TB, PCIe 4.0 **x1** (slower; ~2 GB/s ceiling) |
-| Networking | 2 × 10GbE (Realtek RTL8127) |
+| Networking | 2 x 10GbE (Realtek RTL8127) |
 | Display | HDMI 2.1 FRL, single output (up to 8K@60 / 4K@120) |
-| USB | Front: 1 × USB 3.2 Gen2, 2 × USB4 (40 Gbps), 2 × USB 2.0. Rear: 2 × USB4 V2 (80 Gbps), 1 × USB 3.2 Gen2 |
+| USB | Front: 1 x USB 3.2 Gen2, 2 x USB4 (40 Gbps), 2 x USB 2.0. Rear: 2 x USB4 V2 (80 Gbps), 1 x USB 3.2 Gen2 |
 | Expansion | PCIe 4.0 x4 slot (full-length x16 connector) |
 | Power | 320W external PSU; ~160W peak / 130W sustained at the wall |
 

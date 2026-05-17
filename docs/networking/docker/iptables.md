@@ -13,23 +13,23 @@ Docker creates several custom chains:
 │                      nat table                               │
 ├─────────────────────────────────────────────────────────────┤
 │  PREROUTING                                                  │
-│    └──▶ DOCKER (DNAT for published ports)                   │
+│    └──> DOCKER (DNAT for published ports)                   │
 │                                                              │
 │  OUTPUT                                                      │
-│    └──▶ DOCKER                                              │
+│    └──> DOCKER                                              │
 │                                                              │
 │  POSTROUTING                                                 │
-│    └──▶ MASQUERADE (for container outbound)                 │
+│    └──> MASQUERADE (for container outbound)                 │
 └─────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────┐
 │                     filter table                             │
 ├─────────────────────────────────────────────────────────────┤
 │  FORWARD                                                     │
-│    ├──▶ DOCKER-USER (your custom rules go here)            │
-│    ├──▶ DOCKER-ISOLATION-STAGE-1                           │
-│    ├──▶ DOCKER (per-container rules)                       │
-│    └──▶ DOCKER-ISOLATION-STAGE-2                           │
+│    ├──> DOCKER-USER (your custom rules go here)            │
+│    ├──> DOCKER-ISOLATION-STAGE-1                           │
+│    ├──> DOCKER (per-container rules)                       │
+│    └──> DOCKER-ISOLATION-STAGE-2                           │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -102,12 +102,12 @@ sudo iptables -L DOCKER-ISOLATION-STAGE-2 -n -v
 ```
 1. Packet arrives at eth0:8080
 2. PREROUTING chain (nat table)
-   └─▶ DOCKER chain: DNAT to 172.17.0.2:80
+   └─> DOCKER chain: DNAT to 172.17.0.2:80
 3. Routing decision: forward to docker0
 4. FORWARD chain (filter table)
-   ├─▶ DOCKER-USER: your rules (RETURN = continue)
-   ├─▶ DOCKER-ISOLATION-STAGE-1: isolation check
-   └─▶ DOCKER: ACCEPT (container rule)
+   ├─> DOCKER-USER: your rules (RETURN = continue)
+   ├─> DOCKER-ISOLATION-STAGE-1: isolation check
+   └─> DOCKER: ACCEPT (container rule)
 5. Packet delivered to container
 ```
 
@@ -117,9 +117,9 @@ sudo iptables -L DOCKER-ISOLATION-STAGE-2 -n -v
 1. Container sends to external IP
 2. Routing: forward through eth0
 3. FORWARD chain
-   └─▶ Default rules allow established
+   └─> Default rules allow established
 4. POSTROUTING chain (nat table)
-   └─▶ MASQUERADE: source NAT to host IP
+   └─> MASQUERADE: source NAT to host IP
 5. Packet exits eth0
 ```
 
@@ -129,8 +129,8 @@ sudo iptables -L DOCKER-ISOLATION-STAGE-2 -n -v
 1. Container A sends to Container B
 2. Routing: stays on docker0 bridge
 3. FORWARD chain
-   ├─▶ DOCKER-USER
-   └─▶ DOCKER: ACCEPT
+   ├─> DOCKER-USER
+   └─> DOCKER: ACCEPT
 4. Packet delivered to Container B
 ```
 
@@ -139,8 +139,8 @@ sudo iptables -L DOCKER-ISOLATION-STAGE-2 -n -v
 ```
 1. Container A (net1) sends to Container B (net2)
 2. FORWARD chain
-   └─▶ DOCKER-ISOLATION-STAGE-1: jump to STAGE-2
-       └─▶ DOCKER-ISOLATION-STAGE-2: DROP
+   └─> DOCKER-ISOLATION-STAGE-1: jump to STAGE-2
+       └─> DOCKER-ISOLATION-STAGE-2: DROP
 3. Packet blocked
 ```
 

@@ -14,19 +14,19 @@ Secure Boot creates a chain of trust from firmware to operating system:
 │              (Contains Platform Key - PK)                    │
 └─────────────────────────────────────────────────────────────┘
                               │
-                              ▼ Verifies
+                              v Verifies
 ┌─────────────────────────────────────────────────────────────┐
 │                    GRUB Bootloader                           │
 │                 (Signed with Microsoft key)                  │
 └─────────────────────────────────────────────────────────────┘
                               │
-                              ▼ Verifies
+                              v Verifies
 ┌─────────────────────────────────────────────────────────────┐
 │                     Linux Kernel                             │
 │                 (Signed with Canonical key)                  │
 └─────────────────────────────────────────────────────────────┘
                               │
-                              ▼ Verifies (when enabled)
+                              v Verifies (when enabled)
 ┌─────────────────────────────────────────────────────────────┐
 │                   Kernel Modules                             │
 │              (Must be signed or MOK enrolled)                │

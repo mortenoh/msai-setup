@@ -66,18 +66,18 @@ Handles:
 ```
 Client                                          Server
    │                                               │
-   │──────────── TCP Connect (port 22) ───────────▶│
+   │──────────── TCP Connect (port 22) ───────────>│
    │                                               │
-   │◀─────────── Protocol Version Exchange ────────│
+   │<─────────── Protocol Version Exchange ────────│
    │              SSH-2.0-OpenSSH_8.9              │
    │                                               │
-   │◀──────────── Key Exchange Init ───────────────│
+   │<──────────── Key Exchange Init ───────────────│
    │              (algorithms, keys)               │
    │                                               │
    │────────────── Key Exchange ───────────────────│
    │              (Diffie-Hellman)                 │
    │                                               │
-   │◀─────────── Server Host Key ──────────────────│
+   │<─────────── Server Host Key ──────────────────│
    │              (verify fingerprint)             │
    │                                               │
    │═══════════ Encrypted Channel Established ═════│
@@ -85,12 +85,12 @@ Client                                          Server
    │────────────── User Authentication ────────────│
    │              (key, password, etc.)            │
    │                                               │
-   │◀─────────── Authentication Success ───────────│
+   │<─────────── Authentication Success ───────────│
    │                                               │
    │────────────── Channel Open ───────────────────│
    │              (session, forwarding)            │
    │                                               │
-   │◀══════════════ Interactive Session ══════════▶│
+   │<══════════════ Interactive Session ══════════>│
    │                                               │
 ```
 
@@ -133,13 +133,13 @@ After key exchange, all data is encrypted.
 ### How It Works
 
 ```
-Plaintext ──▶ [Cipher + Session Key] ──▶ Ciphertext
+Plaintext ──> [Cipher + Session Key] ──> Ciphertext
                                               │
-                                              ▼
+                                              v
                                          [Network]
                                               │
-                                              ▼
-Plaintext ◀── [Cipher + Session Key] ◀── Ciphertext
+                                              v
+Plaintext <── [Cipher + Session Key] <── Ciphertext
 ```
 
 ## Message Authentication (MAC)

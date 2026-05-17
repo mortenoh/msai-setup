@@ -12,21 +12,21 @@ Fail2ban scans log files and bans IPs that show malicious signs—too many passw
 │     /var/log/auth.log, /var/log/nginx/error.log, etc.       │
 └─────────────────────────────────────────────────────────────┘
                               │
-                              ▼
+                              v
 ┌─────────────────────────────────────────────────────────────┐
 │                    Fail2ban Filter                           │
 │           (Regex patterns match failures)                    │
 │      e.g., "Failed password for .* from <HOST>"              │
 └─────────────────────────────────────────────────────────────┘
                               │
-                              ▼
+                              v
 ┌─────────────────────────────────────────────────────────────┐
 │                    Jail Configuration                        │
 │        maxretry=5, findtime=10m, bantime=1h                 │
 │        If 5 failures in 10 minutes, ban for 1 hour          │
 └─────────────────────────────────────────────────────────────┘
                               │
-                              ▼
+                              v
 ┌─────────────────────────────────────────────────────────────┐
 │                    Ban Action                                │
 │         iptables/nftables rule blocks IP                     │

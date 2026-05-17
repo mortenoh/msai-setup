@@ -22,7 +22,7 @@ Continue.dev provides:
 
 ### JetBrains
 
-1. Open Settings → Plugins
+1. Open Settings -> Plugins
 2. Search "Continue"
 3. Click Install
 

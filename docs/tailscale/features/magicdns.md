@@ -95,7 +95,7 @@ For Google Workspace or Microsoft 365 users:
 Set nameservers for all DNS queries:
 
 ```
-Admin Console → DNS → Global nameservers
+Admin Console -> DNS -> Global nameservers
 ```
 
 Add your preferred DNS servers:
@@ -117,15 +117,15 @@ Route specific domains to specific nameservers:
 │   *.home.local           192.168.1.1        Home network DNS                │
 │   (everything else)      1.1.1.1            Public DNS                      │
 │                                                                              │
-│   Queries for corp.example.com → internal nameserver                        │
-│   Queries for github.com → public DNS                                       │
+│   Queries for corp.example.com -> internal nameserver                        │
+│   Queries for github.com -> public DNS                                       │
 │                                                                              │
 └──────────────────────────────────────────────────────────────────────────────┘
 ```
 
 Configure in admin console:
 
-1. Go to **DNS** → **Nameservers**
+1. Go to **DNS** -> **Nameservers**
 2. Click **Add nameserver**
 3. Select **Restricted to domain**
 4. Enter domain and nameserver IP
@@ -149,7 +149,7 @@ ping server.corp.example.com
 ping server  # Automatically tries server.corp.example.com
 ```
 
-Configure in admin console under **DNS** → **Search domains**.
+Configure in admin console under **DNS** -> **Search domains**.
 
 ## Override Local DNS
 
@@ -301,7 +301,7 @@ Run your own DNS server on Tailscale:
 curl -sSL https://install.pi-hole.net | bash
 
 # Add as nameserver in Tailscale
-# Admin Console → DNS → Add nameserver
+# Admin Console -> DNS -> Add nameserver
 # IP: 100.100.100.X (Pi-hole's Tailscale IP)
 ```
 
@@ -332,8 +332,8 @@ MagicDNS provides:
 
 | Record Type | Example |
 |-------------|---------|
-| A | `my-server.tailnet.ts.net → 100.100.100.5` |
-| AAAA | `my-server.tailnet.ts.net → fd7a:115c:...` |
-| PTR | `100.100.100.5 → my-server.tailnet.ts.net` |
+| A | `my-server.tailnet.ts.net -> 100.100.100.5` |
+| AAAA | `my-server.tailnet.ts.net -> fd7a:115c:...` |
+| PTR | `100.100.100.5 -> my-server.tailnet.ts.net` |
 
 No CNAME, MX, or TXT records (use external DNS for those).

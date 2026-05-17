@@ -16,7 +16,7 @@ Local port forwarding makes a remote service accessible on your local machine. T
 │   │           │  Tunnel  │           │  Connect │           │           │
 │   └───────────┘          └───────────┘          └───────────┘           │
 │                                                                           │
-│   Browser → localhost:8080 → SSH → webserver:80                         │
+│   Browser -> localhost:8080 -> SSH -> webserver:80                         │
 │                                                                           │
 └──────────────────────────────────────────────────────────────────────────┘
 ```
@@ -69,7 +69,7 @@ ssh -L 5432:database.internal:5432 user@bastion.example.com
 ```
 
 ```
-Your Machine → Bastion → database.internal:5432
+Your Machine -> Bastion -> database.internal:5432
 ```
 
 ### Different Local Port

@@ -389,5 +389,5 @@ ansible.builtin.shell: 'echo "{{ msg }}"'   # single-quote the outer, double-quo
 ## Where to go next
 
 - [Variables](variables.md) — what's available inside `{{ }}`.
-- [Modules → `template:`](modules.md) — the module parameters.
+- [Modules -> `template:`](modules.md) — the module parameters.
 - [Vault](vault.md) — how to use encrypted values inside templates.

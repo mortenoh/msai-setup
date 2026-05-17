@@ -49,7 +49,7 @@ These attach to the **pool**, not to datasets. Set at create time; many can be c
 
 The log2 of the smallest IO unit ZFS will use to a vdev. `ashift=12` = 4 KiB blocks, the right setting for any 512e / 4Kn / NVMe disk you'll encounter today.
 
-**Cannot be changed**. Set wrong → recreate the pool. Always set it explicitly even though current OpenZFS picks 12 by default — being explicit means you'll spot mistakes faster.
+**Cannot be changed**. Set wrong -> recreate the pool. Always set it explicitly even though current OpenZFS picks 12 by default — being explicit means you'll spot mistakes faster.
 
 ### `autotrim=on`
 
@@ -78,7 +78,7 @@ These set the **defaults** for the root dataset (`tank`); child datasets inherit
 
 ### `compression=lz4`
 
-See [Concepts → Compression](concepts.md#compression). `lz4` is the right default; safe everywhere, cheap on Zen 5. Override per-dataset only when you know better (e.g. `compression=off` for `tank/ai` where GGUF files are already compressed; `compression=zstd-3` for `tank/backups`).
+See [Concepts -> Compression](concepts.md#compression). `lz4` is the right default; safe everywhere, cheap on Zen 5. Override per-dataset only when you know better (e.g. `compression=off` for `tank/ai` where GGUF files are already compressed; `compression=zstd-3` for `tank/backups`).
 
 ### `atime=off`
 
@@ -224,7 +224,7 @@ systemctl status zfs-import-cache.service zfs-mount.service zfs.target
 sudo zpool export tank && sudo zpool import tank   # round-trip to confirm the import works
 ```
 
-If you ever boot and the pool isn't imported, see [Troubleshooting → Pool Import Failures](troubleshooting.md#pool-import-failures).
+If you ever boot and the pool isn't imported, see [Troubleshooting -> Pool Import Failures](troubleshooting.md#pool-import-failures).
 
 ## What this pool is *not*
 

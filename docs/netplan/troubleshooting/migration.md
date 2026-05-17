@@ -341,7 +341,7 @@ sudo reboot
 
 ### Interface Names Changed
 
-Old: `eth0` → New: `enp5s0`
+Old: `eth0` -> New: `enp5s0`
 
 ```yaml
 # Use match to handle any name

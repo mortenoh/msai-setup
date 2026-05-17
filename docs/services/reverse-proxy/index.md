@@ -13,15 +13,15 @@ A reverse proxy routes incoming traffic to the appropriate backend services, han
 ```
 Internet
     │
-    ▼ (443)
+    v (443)
 ┌────────────────┐
 │ Reverse Proxy  │
 │   SSL/TLS      │
 └────────────────┘
     │
-    ├──► app1:8080
-    ├──► app2:3000
-    └──► app3:5000
+    ├──> app1:8080
+    ├──> app2:3000
+    └──> app3:5000
 ```
 
 ## Options Comparison
@@ -55,7 +55,7 @@ Internet
 Automatic certificate management via ACME (Let's Encrypt):
 
 ```
-Request → Let's Encrypt → Certificate → Auto-renewal
+Request -> Let's Encrypt -> Certificate -> Auto-renewal
 ```
 
 Requirements:
@@ -67,14 +67,14 @@ Requirements:
 
 **Host-based:**
 ```
-app1.domain.com → service1
-app2.domain.com → service2
+app1.domain.com -> service1
+app2.domain.com -> service2
 ```
 
 **Path-based:**
 ```
-domain.com/app1 → service1
-domain.com/app2 → service2
+domain.com/app1 -> service1
+domain.com/app2 -> service2
 ```
 
 ### Docker Labels (Traefik)

@@ -8,11 +8,11 @@ This guide covers system-wide resource allocation strategy for a multi-workload 
 
 | Resource | Total | Notes |
 |----------|-------|-------|
-| CPU | 16 cores / 32 threads | Zen 5 (Strix Halo), 2 × CCX |
+| CPU | 16 cores / 32 threads | Zen 5 (Strix Halo), 2 x CCX |
 | Memory | 128GB LPDDR5X-8000 | Quad-channel, ~256 GB/s peak; unified CPU/GPU |
 | GPU CUs | 40 | RDNA 3.5 (`gfx1151`), shared memory |
 | Storage | 2 TB (PCIe 4.0 x4) + 4 TB (PCIe 4.0 x1) | Slot 2 is the slow one — keep VM disks on slot 1 |
-| Networking | 2 × 10GbE (Realtek RTL8127) | |
+| Networking | 2 x 10GbE (Realtek RTL8127) | |
 
 ### Allocation Strategy
 

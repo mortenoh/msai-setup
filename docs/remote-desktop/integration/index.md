@@ -31,7 +31,7 @@ Remote desktop protocols work alongside other infrastructure. This section cover
 Access your home lab VMs from anywhere:
 
 ```
-[macOS Laptop] ──Tailscale──► [Home Server] ──► [VMs]
+[macOS Laptop] ──Tailscale──> [Home Server] ──> [VMs]
     RDP/VNC                     Tailscale      VNC/RDP/SPICE
 ```
 
@@ -42,7 +42,7 @@ Solution: [Tailscale Integration](tailscale.md)
 Remote desktop to a Windows VM with GPU passthrough:
 
 ```
-[macOS] ──────► [Windows VM + GPU]
+[macOS] ──────> [Windows VM + GPU]
    ?               Direct display to nothing
 ```
 
@@ -68,19 +68,19 @@ Solution: Tailscale for all, protocol per VM type
 ┌─────────────────────────────────────────────────────────┐
 │                      Internet                            │
 │                          │                               │
-│                          X  ← Blocked                    │
+│                          X  <- Blocked                    │
 │                                                          │
 └─────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────┐
 │                   Tailscale Network                      │
 │                                                          │
-│  [macOS Client] ◄──────────────────► [Home Server]      │
+│  [macOS Client] <──────────────────> [Home Server]      │
 │       100.x.x.1        WireGuard          100.x.x.2     │
 │                        Encrypted                         │
 │                                                          │
 │                            │                             │
-│                            ▼                             │
+│                            v                             │
 │                     [VMs on Server]                      │
 │                      VNC/RDP/SPICE                       │
 │                                                          │

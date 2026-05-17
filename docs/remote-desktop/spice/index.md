@@ -47,7 +47,7 @@ Despite macOS challenges, SPICE excels at:
 ┌──────────────────┐                    ┌──────────────────┐
 │   SPICE Client   │                    │   QEMU/KVM       │
 │                  │      SPICE         │                  │
-│  virt-viewer     │◄──────────────────►│   SPICE Server   │
+│  virt-viewer     │<──────────────────>│   SPICE Server   │
 │  remote-viewer   │   Multiple         │   (in QEMU)      │
 │  Web Console     │   Channels         │                  │
 │                  │                    │  ┌────────────┐  │

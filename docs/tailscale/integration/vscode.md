@@ -13,7 +13,7 @@ Use VS Code's Remote Development extensions with Tailscale for secure access to 
 │                                                                              │
 │   ┌─────────────────┐                        ┌─────────────────┐           │
 │   │    VS Code      │                        │    VS Code      │           │
-│   │    (UI)         │◄─────────────────────► │    Server       │           │
+│   │    (UI)         │<─────────────────────> │    Server       │           │
 │   └─────────────────┘    Tailscale SSH       └─────────────────┘           │
 │                          (encrypted)                   │                    │
 │                                                        │                    │
@@ -89,17 +89,17 @@ Host my-server
 ```bash
 # Command palette
 Remote-SSH: Connect to Host...
-→ Select host
-→ Open Folder
-→ /path/to/project
+-> Select host
+-> Open Folder
+-> /path/to/project
 ```
 
 ### Opening Workspace
 
 ```bash
 # Connect to host, then:
-File → Open Workspace from File...
-→ Select .code-workspace file
+File -> Open Workspace from File...
+-> Select .code-workspace file
 ```
 
 ### Terminal
@@ -145,7 +145,7 @@ Some extensions run on the remote:
 - Debuggers
 - Linters
 
-Install these on the remote side via Extensions panel → "Install in SSH: hostname"
+Install these on the remote side via Extensions panel -> "Install in SSH: hostname"
 
 ### Local Extensions
 
@@ -162,7 +162,7 @@ VS Code automatically forwards ports:
 ┌──────────────────────────────────────────────────────────────────────────────┐
 │   Remote server running app on port 3000                                     │
 │                                                                              │
-│   VS Code detects → Offers to forward → Access at localhost:3000            │
+│   VS Code detects -> Offers to forward -> Access at localhost:3000            │
 │                                                                              │
 └──────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -270,7 +270,7 @@ rm -rf ~/.vscode-server/
 
 ```bash
 # Reinstall extension on remote
-# In VS Code: Extensions → Right-click → Install in SSH: hostname
+# In VS Code: Extensions -> Right-click -> Install in SSH: hostname
 ```
 
 ### Slow Performance

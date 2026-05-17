@@ -14,10 +14,10 @@
 │                                                                              │
 │   Local Service                         Local Service                       │
 │       │                                     │                                │
-│       ▼                                     ▼                                │
+│       v                                     v                                │
 │   tailscale serve                       tailscale funnel                    │
 │       │                                     │                                │
-│       ▼                                     ▼                                │
+│       v                                     v                                │
 │   Your Tailnet                          Public Internet                     │
 │   (private)                             (anyone can access)                 │
 │                                                                              │
@@ -115,7 +115,7 @@ Funnel exposes services to the public internet.
 
 ```bash
 # In admin console:
-# DNS → Enable HTTPS Certificates
+# DNS -> Enable HTTPS Certificates
 # Also enable Funnel in settings
 
 # Then on device:
@@ -365,7 +365,7 @@ ss -tlnp | grep :443
 
 ```bash
 # Verify HTTPS is enabled in admin console
-# DNS → Enable HTTPS Certificates
+# DNS -> Enable HTTPS Certificates
 
 # Check certificate status
 tailscale cert my-server.tailnet.ts.net
@@ -378,7 +378,7 @@ tailscale cert --cert-file=cert.pem --key-file=key.pem my-server.tailnet.ts.net
 
 ```bash
 # Check Funnel is enabled in admin console
-# Settings → Enable Funnel
+# Settings -> Enable Funnel
 
 # Verify funnel status
 tailscale funnel status

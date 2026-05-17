@@ -24,7 +24,7 @@ This script does the full setup end-to-end:
 - Downloads Ubuntu 26.04 LTS server ISO and **verifies its SHA256** against the official `SHA256SUMS` file
 - Creates a VM named `ms-s1-max-lab` with EFI firmware (matches the real MS-S1 MAX install path)
 - Creates an 80 GB primary disk + **6 lab data disks** (8 GB each) for the ZFS exercises
-- Forwards host port 2222 → guest SSH for headless management
+- Forwards host port 2222 -> guest SSH for headless management
 - Kicks off an **unattended install** using `VBoxManage unattended install`
 - Starts the VM in headless mode
 
@@ -171,9 +171,9 @@ Use this path if you want to see what's happening in the GUI rather than trustin
 
 In VirtualBox Manager:
 
-- **OS**: Linux → Ubuntu (64-bit)
+- **OS**: Linux -> Ubuntu (64-bit)
 - **Memory**: 4 GB minimum (8 GB if you want ARC headroom)
-- **Boot**: EFI enabled (Settings → System → Motherboard → Enable EFI)
+- **Boot**: EFI enabled (Settings -> System -> Motherboard -> Enable EFI)
 - **Storage**: Initial disk **80 GB**, dynamically allocated, attached to the SATA controller. This is the "OS disk".
 
 ### 2. Install Ubuntu Server 26.04 LTS
@@ -182,7 +182,7 @@ Use the [normal Ubuntu installation walkthrough](../ubuntu/installation/installa
 
 ### 3. Add extra virtual disks
 
-Power off the VM. In VirtualBox Manager → Storage:
+Power off the VM. In VirtualBox Manager -> Storage:
 
 - Add a new SATA controller if you don't have spare ports, **or** use the existing one. SATA has 30 ports — plenty.
 - Add 6-8 extra virtual disks, all dynamically allocated, all the same size for now (start with 8 GB each — small but enough). Call them `lab-disk-01.vdi` through `lab-disk-08.vdi`.
@@ -282,7 +282,7 @@ Note: `zpool list` shows the **raw** size (sum of both disks). `df -h /mnt/lab` 
 
 In VirtualBox:
 
-1. With the VM running, go to Settings → Storage and detach `lab-disk-02.vdi` (right-click on the controller line → Remove Attachment, or use **VBoxManage storagectl --remove** from the host CLI).
+1. With the VM running, go to Settings -> Storage and detach `lab-disk-02.vdi` (right-click on the controller line -> Remove Attachment, or use **VBoxManage storagectl --remove** from the host CLI).
 2. Back in the VM: `sudo zpool status lab`
 
 You'll see the missing disk listed as `UNAVAIL` or `REMOVED`. The pool is still online — reads and writes continue.
@@ -291,7 +291,7 @@ Re-attach the disk and let ZFS resilver:
 
 ```bash
 sudo zpool online lab "$DISK2"
-sudo zpool status lab        # should now show DEGRADED → resilvering → ONLINE
+sudo zpool status lab        # should now show DEGRADED -> resilvering -> ONLINE
 ```
 
 Watch the resilver run:
@@ -330,7 +330,7 @@ zpool list lab
 zfs list lab
 ```
 
-For 3×8 GB disks in raidz1 you should see ~16 GB usable (2/3 efficiency).
+For 3x8 GB disks in raidz1 you should see ~16 GB usable (2/3 efficiency).
 
 Compare with `zpool status -v` and `zpool iostat -v lab 1` while you write data:
 
@@ -568,7 +568,7 @@ In VirtualBox, add two new virtual disks named to match the real hardware:
 - `lab-primary-2tb.vdi` — 100 GB (we're not going to make 2 TB virtual disks)
 - `lab-secondary-4tb.vdi` — 200 GB
 
-You only need the relative sizing right — primary ≈ half of secondary. The absolute sizes don't matter for the procedure.
+You only need the relative sizing right — primary ~ half of secondary. The absolute sizes don't matter for the procedure.
 
 ### Partition the primary (mimic the real install)
 

@@ -2,7 +2,7 @@
 
 This file is the architectural intent for the project. Implementation details live in `docs/`. If you're new, read this then `docs/getting-started/`.
 
-Hardware: [Minisforum MS-S1 MAX](https://www.minisforum.com/products/ms-s1-max) — AMD Ryzen AI Max+ 395 (Strix Halo), Radeon 8060S iGPU (RDNA 3.5, `gfx1151`), 128 GB LPDDR5X-8000 quad-channel, 2 × M.2 NVMe (PCIe 4.0 x4 + x1), 2 × 10GbE.
+Hardware: [Minisforum MS-S1 MAX](https://www.minisforum.com/products/ms-s1-max) — AMD Ryzen AI Max+ 395 (Strix Halo), Radeon 8060S iGPU (RDNA 3.5, `gfx1151`), 128 GB LPDDR5X-8000 quad-channel, 2 x M.2 NVMe (PCIe 4.0 x4 + x1), 2 x 10GbE.
 
 Target OS: **Ubuntu Server 26.04 LTS** ("Resolute Raccoon"), headless.
 
@@ -17,7 +17,7 @@ Target OS: **Ubuntu Server 26.04 LTS** ("Resolute Raccoon"), headless.
 
 ## Hardware assumptions (one-line each)
 
-- One CPU: 16-core / 32-thread Zen 5 in 2 × CCX layout.
+- One CPU: 16-core / 32-thread Zen 5 in 2 x CCX layout.
 - One GPU: integrated Radeon 8060S, 40 CUs, gfx1151. **Owned by the host** for ROCm.
 - One RAM pool: 128 GB LPDDR5X-8000, soldered, quad-channel (~256 GB/s peak).
 - Two NVMe slots, **unequal speeds**: slot 1 is PCIe 4.0 x4 (~8 GB/s), slot 2 is PCIe 4.0 x1 (~2 GB/s).
@@ -36,7 +36,7 @@ Target OS: **Ubuntu Server 26.04 LTS** ("Resolute Raccoon"), headless.
 
 ### Secondary 4 TB NVMe (slot 2, PCIe 4.0 x1) — bulk cold data
 
-Entire disk → ZFS pool member.
+Entire disk -> ZFS pool member.
 
 ### ZFS pool `tank`
 
@@ -76,7 +76,7 @@ Detailed properties live in `docs/zfs/datasets.md`.
 - **Off-site (block)**: syncoid over Tailscale to a remote ZFS host.
 - **Off-site (file)**: restic to B2 or S3, encrypted, for Nextcloud user data and photos.
 
-Rebuild path: install Ubuntu → re-import pool → re-deploy compose stacks → re-define VMs (XML was captured before tear-down). Detailed in `docs/operations/rebuild-checklist.md`.
+Rebuild path: install Ubuntu -> re-import pool -> re-deploy compose stacks -> re-define VMs (XML was captured before tear-down). Detailed in `docs/operations/rebuild-checklist.md`.
 
 ## Things this build intentionally avoids
 

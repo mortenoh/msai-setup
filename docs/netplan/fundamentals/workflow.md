@@ -6,15 +6,15 @@ When managing network configuration, especially remotely, follow this workflow:
 
 ```
 1. Edit YAML file
-        ↓
+        v
 2. Validate syntax
-        ↓
+        v
 3. Test with timeout (netplan try)
-        ↓
+        v
 4. Confirm or rollback
-        ↓
+        v
 5. Make permanent (netplan apply)
-        ↓
+        v
 6. Verify configuration
 ```
 

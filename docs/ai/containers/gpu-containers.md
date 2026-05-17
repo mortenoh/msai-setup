@@ -361,8 +361,8 @@ ls -la /dev/kfd /dev/dri/*
 nvidia-smi
 
 # Use matching container image
-# Driver 535+ → CUDA 12.x images
-# Driver 525+ → CUDA 11.8 images
+# Driver 535+ -> CUDA 12.x images
+# Driver 525+ -> CUDA 11.8 images
 docker run --gpus all nvidia/cuda:12.1-base nvidia-smi
 ```
 

@@ -9,12 +9,12 @@ Running Docker, KVM, and LXC on the same host creates complex iptables interacti
                           │
         ┌─────────────────┼─────────────────┐
         │                 │                 │
-        ▼                 ▼                 ▼
+        v                 v                 v
     ┌───────┐        ┌───────┐        ┌───────┐
     │ UFW   │        │Docker │        │libvirt│
     └───┬───┘        └───┬───┘        └───┬───┘
         │                │                │
-        ▼                ▼                ▼
+        v                v                v
     ufw-*            DOCKER-*         LIBVIRT_*
     chains           chains           chains
 ```

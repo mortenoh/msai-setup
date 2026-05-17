@@ -165,7 +165,7 @@ DenyGroups notssh
 ```
 
 !!! note "Processing Order"
-    Order: DenyUsers → AllowUsers → DenyGroups → AllowGroups
+    Order: DenyUsers -> AllowUsers -> DenyGroups -> AllowGroups
 
 ## Session Settings
 

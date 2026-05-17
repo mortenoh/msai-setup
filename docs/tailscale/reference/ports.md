@@ -33,7 +33,7 @@ Primary data transport:
 ┌──────────────────────────────────────────────────────────────────────────────┐
 │   Your Device                                              Peer Device      │
 │   ┌─────────────┐        UDP 41641                   ┌─────────────┐       │
-│   │ WireGuard   │◄──────────────────────────────────►│ WireGuard   │       │
+│   │ WireGuard   │<──────────────────────────────────>│ WireGuard   │       │
 │   │ :41641      │        encrypted                   │ :41641      │       │
 │   └─────────────┘                                    └─────────────┘       │
 │                                                                              │
@@ -53,14 +53,14 @@ Communication with Tailscale servers:
 ┌──────────────────────────────────────────────────────────────────────────────┐
 │   Your Device                                    Tailscale Servers          │
 │   ┌─────────────┐        TCP 443                 ┌───────────────────┐     │
-│   │ tailscaled  │───────────────────────────────►│ controlplane.     │     │
+│   │ tailscaled  │───────────────────────────────>│ controlplane.     │     │
 │   └─────────────┘        HTTPS                   │ tailscale.com     │     │
 │                                                   └───────────────────┘     │
 │   Used for:                                                                 │
-│   • Authentication                                                          │
-│   • Key exchange                                                            │
-│   • Configuration sync                                                      │
-│   • DERP relay fallback                                                     │
+│   - Authentication                                                          │
+│   - Key exchange                                                            │
+│   - Configuration sync                                                      │
+│   - DERP relay fallback                                                     │
 └──────────────────────────────────────────────────────────────────────────────┘
 ```
 

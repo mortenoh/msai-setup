@@ -11,32 +11,32 @@ This page covers diagnosing and resolving network connectivity problems on Ubunt
 │                    1. Is interface up?                       │
 │                    ip link show                              │
 └─────────────────────────────────────────────────────────────┘
-                              │ No → Fix interface
-                              ▼ Yes
+                              │ No -> Fix interface
+                              v Yes
 ┌─────────────────────────────────────────────────────────────┐
 │                    2. Has IP address?                        │
 │                    ip addr show                              │
 └─────────────────────────────────────────────────────────────┘
-                              │ No → Fix DHCP/static config
-                              ▼ Yes
+                              │ No -> Fix DHCP/static config
+                              v Yes
 ┌─────────────────────────────────────────────────────────────┐
 │                    3. Can reach gateway?                     │
 │                    ping gateway-ip                           │
 └─────────────────────────────────────────────────────────────┘
-                              │ No → Check cable/switch/config
-                              ▼ Yes
+                              │ No -> Check cable/switch/config
+                              v Yes
 ┌─────────────────────────────────────────────────────────────┐
 │                    4. Can reach internet?                    │
 │                    ping 8.8.8.8                              │
 └─────────────────────────────────────────────────────────────┘
-                              │ No → Check routing
-                              ▼ Yes
+                              │ No -> Check routing
+                              v Yes
 ┌─────────────────────────────────────────────────────────────┐
 │                    5. DNS working?                           │
 │                    ping google.com                           │
 └─────────────────────────────────────────────────────────────┘
-                              │ No → Fix DNS
-                              ▼ Yes
+                              │ No -> Fix DNS
+                              v Yes
 ┌─────────────────────────────────────────────────────────────┐
 │                    6. Application issue                      │
 │             Check firewall, service config                   │
