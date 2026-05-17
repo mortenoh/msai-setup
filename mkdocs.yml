@@ -131,12 +131,17 @@ nav:
     - ZFS Storage:
       - zfs/index.md
       - Concepts: zfs/concepts.md
+      - VirtualBox Lab: zfs/virtualbox-lab.md
       - Partitioning: zfs/partitioning.md
       - Pool Creation: zfs/pool-creation.md
+      - Encryption: zfs/encryption.md
       - Datasets: zfs/datasets.md
       - Snapshots: zfs/snapshots.md
       - VM Storage: zfs/vm-storage.md
       - Docker Integration: zfs/docker-integration.md
+      - Tuning: zfs/tuning.md
+      - Operations: zfs/operations.md
+      - Troubleshooting: zfs/troubleshooting.md
     - Bcachefs:
       - bcachefs/index.md
       - Concepts: bcachefs/concepts.md
