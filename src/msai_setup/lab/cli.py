@@ -219,20 +219,3 @@ def restore(
     typer.echo(f"restored to snapshot {name or '(most recent)'}")
 
 
-@lab_app.command()
-def ssh() -> None:
-    """SSH into the lab VM using the lab keypair."""
-    cfg = load_config()
-    priv_key = cfg.ssh_public_key_path.with_suffix("")
-    if not priv_key.exists():
-        typer.echo(f"lab key missing at {priv_key}; run `msai create <name>` first.", err=True)
-        raise typer.Exit(code=1)
-    cmd = [
-        "ssh", "-p", str(cfg.ssh_forward_port),
-        "-i", str(priv_key),
-        "-o", "StrictHostKeyChecking=accept-new",
-        "-o", "UserKnownHostsFile=/dev/null",
-        f"{cfg.vm_user}@{cfg.ssh_host}",
-    ]
-    import os
-    os.execvp(cmd[0], cmd)  # replace this process with ssh

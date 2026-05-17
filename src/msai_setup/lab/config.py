@@ -50,14 +50,16 @@ _HOST_ARCH = _detect_arch()
 # match. The defaults below auto-pick the right ISO+ostype based on the
 # host architecture; override anything via env vars if you want.
 if _HOST_ARCH == "arm64":
-    _DEFAULT_ISO_FILENAME = "ubuntu-24.04.3-live-server-arm64.iso"
-    _DEFAULT_ISO_BASE = "https://cdimage.ubuntu.com/releases/24.04/release"
-    _DEFAULT_OSTYPE = "Ubuntu24_LTS_arm64"
+    _DEFAULT_ISO_FILENAME = "ubuntu-26.04-live-server-arm64.iso"
+    _DEFAULT_ISO_BASE = "https://cdimage.ubuntu.com/releases/26.04/release"
+    # VBox 7.2 doesn't ship an Ubuntu26_LTS_arm64 ostype yet; the generic
+    # ARM64 Ubuntu type is fine - it only affects hardware hints, not boot.
+    _DEFAULT_OSTYPE = "Ubuntu_arm64"
     _DEFAULT_PLATFORM = "arm"
 else:
-    _DEFAULT_ISO_FILENAME = "ubuntu-24.04.4-live-server-amd64.iso"
-    _DEFAULT_ISO_BASE = "https://releases.ubuntu.com/24.04"
-    _DEFAULT_OSTYPE = "Ubuntu24_LTS_64"
+    _DEFAULT_ISO_FILENAME = "ubuntu-26.04-live-server-amd64.iso"
+    _DEFAULT_ISO_BASE = "https://releases.ubuntu.com/26.04"
+    _DEFAULT_OSTYPE = "Ubuntu_64"
     _DEFAULT_PLATFORM = "x86"
 
 
@@ -106,7 +108,7 @@ class LabConfig:
     # the tools and workflow, not pinning the Ubuntu point release.
     host_arch: str = _HOST_ARCH
     platform: str = _env("VBOX_PLATFORM", _DEFAULT_PLATFORM)
-    ubuntu_release: str = _env("UBUNTU_RELEASE", "24.04")
+    ubuntu_release: str = _env("UBUNTU_RELEASE", "26.04")
     ubuntu_iso_filename: str = _env("UBUNTU_ISO_FILENAME", _DEFAULT_ISO_FILENAME)
     ubuntu_iso_base_url: str = _env("UBUNTU_ISO_BASE_URL", _DEFAULT_ISO_BASE)
     vm_ostype: str = _env("VM_OSTYPE", _DEFAULT_OSTYPE)
