@@ -1,0 +1,137 @@
+---
+# Deploy a minimal compose stack as an end-to-end test that the
+# bind-mount-into-ZFS pattern works.
+#
+# Stack: Traefik (reverse proxy) + whoami (a tiny container that prints request
+# headers). Reaches the lab VM on HTTP; no TLS in the lab.
+#
+# When you run this against the real MS-S1 MAX, replace whoami with your real
+# services (Nextcloud, Jellyfin, ...). The pattern is identical: bind into a
+# per-service dataset under /mnt/tank/containers/<svc>/.
+
+- hosts: lab
+  become: true
+  gather_facts: true
+
+  vars:
+    compose_root: /mnt/tank/containers
+    services:
+      - traefik
+      - whoami
+
+  tasks:
+    - name: services — create compose root if not present
+      ansible.builtin.file:
+        path: "{{ compose_root }}/{{ item }}"
+        state: directory
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: "0755"
+      loop: "{{ services }}"
+
+    - name: services — drop the proxy network compose file
+      ansible.builtin.copy:
+        dest: "{{ compose_root }}/traefik/docker-compose.yml"
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: "0644"
+        content: |
+          # Managed by Ansible: scripts/lab/ansible/playbooks/services.yml
+          services:
+            traefik:
+              image: traefik:v3.2
+              container_name: traefik
+              restart: unless-stopped
+              ports:
+                - "80:80"
+                - "127.0.0.1:8080:8080"   # dashboard on localhost only
+              volumes:
+                - /var/run/docker.sock:/var/run/docker.sock:ro
+                - ./traefik.yml:/etc/traefik/traefik.yml:ro
+              networks:
+                - proxy
+
+          networks:
+            proxy:
+              external: true
+
+    - name: services — drop traefik.yml
+      ansible.builtin.copy:
+        dest: "{{ compose_root }}/traefik/traefik.yml"
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: "0644"
+        content: |
+          # Managed by Ansible: scripts/lab/ansible/playbooks/services.yml
+          api:
+            insecure: true
+            dashboard: true
+
+          entryPoints:
+            web:
+              address: ":80"
+
+          providers:
+            docker:
+              exposedByDefault: false
+              network: proxy
+
+          log:
+            level: INFO
+          accessLog: {}
+
+    - name: services — drop the whoami compose file
+      ansible.builtin.copy:
+        dest: "{{ compose_root }}/whoami/docker-compose.yml"
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: "0644"
+        content: |
+          # Managed by Ansible: scripts/lab/ansible/playbooks/services.yml
+          services:
+            whoami:
+              image: traefik/whoami:latest
+              container_name: whoami
+              restart: unless-stopped
+              labels:
+                - "traefik.enable=true"
+                - "traefik.http.routers.whoami.rule=Host(`whoami.localhost`) || PathPrefix(`/whoami`)"
+                - "traefik.http.routers.whoami.entrypoints=web"
+                - "traefik.http.services.whoami.loadbalancer.server.port=80"
+              networks:
+                - proxy
+
+          networks:
+            proxy:
+              external: true
+
+    - name: services — create the proxy network
+      community.docker.docker_network:
+        name: proxy
+        state: present
+
+    - name: services — bring up traefik
+      community.docker.docker_compose_v2:
+        project_src: "{{ compose_root }}/traefik"
+        state: present
+        pull: missing
+
+    - name: services — bring up whoami
+      community.docker.docker_compose_v2:
+        project_src: "{{ compose_root }}/whoami"
+        state: present
+        pull: missing
+
+    - name: services — smoke test (header path)
+      ansible.builtin.uri:
+        url: "http://127.0.0.1/whoami"
+        return_content: true
+        status_code: 200
+      register: smoke
+      retries: 6
+      delay: 5
+      until: smoke.status == 200
+
+    - name: services — smoke test output
+      ansible.builtin.debug:
+        msg: "{{ smoke.content.split('\n')[:5] }}"
