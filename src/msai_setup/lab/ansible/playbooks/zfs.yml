@@ -100,11 +100,8 @@
         content: |
           options zfs zfs_arc_max={{ arc_max_bytes }}
 
-    - name: zfs — apply ARC cap live
-      ansible.builtin.copy:
-        dest: /sys/module/zfs/parameters/zfs_arc_max
-        content: "{{ arc_max_bytes }}"
-        mode: "0644"
+    - name: zfs — apply ARC cap live (sysfs, can't use copy module)
+      ansible.builtin.shell: "echo {{ arc_max_bytes }} > /sys/module/zfs/parameters/zfs_arc_max"
       changed_when: false
 
     - name: zfs — check if pool already exists
