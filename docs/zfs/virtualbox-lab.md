@@ -13,117 +13,78 @@ The lab progresses from "first pool" through "topology comparisons", "snapshots 
 
 VirtualBox is the easiest path on macOS/Windows hosts. If you have a Linux box, KVM/libvirt works equally well — substitute `virt-install` for the VirtualBox UI steps.
 
-## Two ways to set up the lab VM
+## Setting up the lab VM
 
-There's a one-shot automation script at the top level of this repo at `scripts/zfs-lab-vm.sh` (covered below). Use that if you just want a working lab in 10 minutes. Use the manual GUI flow further down if you want to see what each step looks like in the VirtualBox Manager.
-
-## Automated setup — `scripts/zfs-lab-vm.sh`
-
-This script does the full setup end-to-end:
-
-- Downloads Ubuntu 26.04 LTS server ISO and **verifies its SHA256** against the official `SHA256SUMS` file
-- Creates a VM named `ms-s1-max-lab` with EFI firmware (matches the real MS-S1 MAX install path)
-- Creates an 80 GB primary disk + **6 lab data disks** (8 GB each) for the ZFS exercises
-- Forwards host port 2222 -> guest SSH for headless management
-- Kicks off an **unattended install** using `VBoxManage unattended install`
-- Starts the VM in headless mode
+The repo ships a small Python CLI (`msai`) that wraps `VBoxManage` so you can create the lab VM with one command. The VM comes with a primary disk and 6 spare SATA "lab" disks — exactly what the exercises below assume.
 
 ```bash
-cd /path/to/this/repo
-
-# One-shot create — downloads ISO, builds VM, starts install
-./scripts/zfs-lab-vm.sh create
-
-# Wait for the install to finish and SSH to come up
-./scripts/zfs-lab-vm.sh wait-ssh
-
-# SSH in (password is what you set; default is in the script)
-ssh -p 2222 morten@127.0.0.1
-
-# After Ubuntu finishes installing and reboots, detach the install ISO
-# so subsequent boots go straight to disk
-./scripts/zfs-lab-vm.sh post-install
-
-# Snapshot the fresh install so you can return to it between exercises
-./scripts/zfs-lab-vm.sh snapshot fresh-install
+# From the msai-setup repo root
+uv sync                       # one-time install of the msai CLI
+uv run msai create zfs-lab    # ~3-4 minutes: builds VM, installs Ubuntu 26.04, comes up with SSH key-auth
+uv run msai list              # confirm it's running
+uv run msai ssh               # opens a shell on the lab VM
 ```
 
-Between lab exercises (you've created a pool, played with it, and want a clean slate):
+That's enough to start Lab 1 below. You don't need the Ansible playbook for the exercises — they walk through `zpool create` by hand, on purpose.
+
+### A few CLI cheats while you work
 
 ```bash
-./scripts/zfs-lab-vm.sh reset       # rollback to the most recent snapshot
+# Power
+uv run msai stop zfs-lab
+uv run msai start zfs-lab
+
+# Snapshot the VirtualBox VM between experiments
+VBoxManage snapshot zfs-lab take pre-experiment --pause
+
+# Restore to the last snapshot when an exercise blew up
+VBoxManage snapshot zfs-lab restorecurrent
+
+# Throw it away entirely
+uv run msai lab destroy
 ```
 
-When you're done with the lab entirely:
+### Optional — run the ZFS playbook to see the "production" layout
+
+If you want to see what a "real" pool + dataset layout looks like before doing the exercises by hand, run the Ansible playbook once:
 
 ```bash
-./scripts/zfs-lab-vm.sh destroy     # poweroff + unregister + delete all disks
+uv run msai lab apply zfs    # creates `tank` pool across 6 disks + dataset hierarchy
 ```
 
-All defaults are tunable via env vars — see `./scripts/zfs-lab-vm.sh help`. Common overrides:
+Then `zpool destroy tank` and start over manually for the labs. The point is to *do* the commands, not just read them.
+
+### What this build does for you
+
+For reference, the equivalent `VBoxManage` calls (substitute your instance name for `<vm>`):
 
 ```bash
-VM_PASSWORD='something-better' \
-VM_MEMORY_MB=16384 \
-LAB_DISK_COUNT=8 LAB_DISK_SIZE_MB=16000 \
-./scripts/zfs-lab-vm.sh create
-```
-
-### What the script does, step by step
-
-For reference, here are the actual `VBoxManage` invocations the script runs. You can also paste these one at a time to learn the CLI:
-
-```bash
-# 1. Create the VM (UEFI, NAT networking, headless)
-VBoxManage createvm --name ms-s1-max-lab --ostype Ubuntu_64 --register
-VBoxManage modifyvm ms-s1-max-lab \
+# Create the VM (UEFI on amd64; arm-firmware on Apple Silicon)
+VBoxManage createvm --name <vm> --register
+VBoxManage modifyvm <vm> \
     --memory 8192 --cpus 4 --vram 32 \
     --firmware efi64 \
     --nic1 nat \
+    --natpf1 "ssh,tcp,127.0.0.1,2222,,22" \
     --rtcuseutc on \
     --audio-driver none
-VBoxManage modifyvm ms-s1-max-lab \
-    --natpf1 "ssh,tcp,127.0.0.1,2222,,22"
 
-# 2. Create disks (one primary + 6 lab disks)
-VBoxManage createmedium disk --filename target/ms-s1-max-lab-primary.vdi --size 80000 --format VDI
-for i in 01 02 03 04 05 06; do
-    VBoxManage createmedium disk --filename "target/ms-s1-max-lab-lab-${i}.vdi" --size 8000 --format VDI
-done
-
-# 3. Storage controllers (SATA for data; IDE for the install ISO)
-VBoxManage storagectl ms-s1-max-lab --name SATA --add sata --controller IntelAhci --portcount 30 --bootable on
-VBoxManage storagectl ms-s1-max-lab --name IDE  --add ide
-
-# 4. Attach disks
-VBoxManage storageattach ms-s1-max-lab --storagectl SATA --port 0 --device 0 \
-    --type hdd --medium target/ms-s1-max-lab-primary.vdi --nonrotational on --discard on
+# Primary disk + 6 lab disks on the SATA controller
+VBoxManage storagectl <vm> --name SATA --add sata --controller IntelAhci --portcount 30 --bootable on
+VBoxManage createmedium disk --filename "target/<vm>-primary.vdi" --size 80000 --format VDI
+VBoxManage storageattach <vm> --storagectl SATA --port 0 --device 0 \
+    --type hdd --medium "target/<vm>-primary.vdi" --nonrotational on --discard on
 for i in 1 2 3 4 5 6; do
-    pad=$(printf "%02d" $i)
-    VBoxManage storageattach ms-s1-max-lab --storagectl SATA --port $i --device 0 \
-        --type hdd --medium "target/ms-s1-max-lab-lab-${pad}.vdi" --nonrotational on --discard on
+    pad=$(printf "%02d" "$i")
+    VBoxManage createmedium disk --filename "target/<vm>-lab-${pad}.vdi" --size 8000 --format VDI
+    VBoxManage storageattach <vm> --storagectl SATA --port "$i" --device 0 \
+        --type hdd --medium "target/<vm>-lab-${pad}.vdi" --nonrotational on --discard on
 done
 
-# 5. Attach install ISO
-VBoxManage storageattach ms-s1-max-lab --storagectl IDE --port 0 --device 0 \
-    --type dvddrive --medium target/ubuntu-26.04-live-server-amd64.iso
-
-# 6. Configure unattended install
-VBoxManage unattended install ms-s1-max-lab \
-    --iso target/ubuntu-26.04-live-server-amd64.iso \
-    --user morten --password 'changeme' \
-    --full-user-name 'Morten Hansen' \
-    --hostname ms-s1-max-lab.local \
-    --install-additions \
-    --time-zone Europe/Oslo \
-    --locale en_US.UTF-8
-
-# 7. Start headless
-VBoxManage startvm ms-s1-max-lab --type headless
-
-# 8. After install completes (a reboot or two), detach the ISO
-VBoxManage storageattach ms-s1-max-lab --storagectl IDE --port 0 --device 0 --medium none
+VBoxManage startvm <vm> --type headless
 ```
+
+On Apple Silicon the wrapper adds `--platform-architecture arm` at createvm time, sets `--ostype Ubuntu_arm64`, and uses `qemuramfb` instead of `vboxvga` — see `docs/virtualbox/apple-silicon.md` for the full ARM-specific recipe.
 
 ### Other useful VBoxManage commands
 
@@ -131,65 +92,41 @@ VBoxManage storageattach ms-s1-max-lab --storagectl IDE --port 0 --device 0 --me
 # List VMs / show details
 VBoxManage list vms
 VBoxManage list runningvms
-VBoxManage showvminfo ms-s1-max-lab
-VBoxManage showvminfo ms-s1-max-lab --machinereadable    # parseable
+VBoxManage showvminfo <vm>
+VBoxManage showvminfo <vm> --machinereadable    # parseable
 
 # Live VM control
-VBoxManage controlvm ms-s1-max-lab pause
-VBoxManage controlvm ms-s1-max-lab resume
-VBoxManage controlvm ms-s1-max-lab reset                  # hard reset (Ctrl+Alt+Del-style)
-VBoxManage controlvm ms-s1-max-lab acpipowerbutton        # graceful shutdown
-VBoxManage controlvm ms-s1-max-lab poweroff               # pull the plug
+VBoxManage controlvm <vm> pause
+VBoxManage controlvm <vm> resume
+VBoxManage controlvm <vm> reset                  # hard reset (Ctrl+Alt+Del-style)
+VBoxManage controlvm <vm> acpipowerbutton        # graceful shutdown
+VBoxManage controlvm <vm> poweroff               # pull the plug
 
 # Snapshots (lifecycle of the VM image itself, not ZFS snapshots)
-VBoxManage snapshot ms-s1-max-lab take pre-experiment --pause
-VBoxManage snapshot ms-s1-max-lab list
-VBoxManage snapshot ms-s1-max-lab restorecurrent          # restore most recent
-VBoxManage snapshot ms-s1-max-lab restore pre-experiment  # restore by name
-VBoxManage snapshot ms-s1-max-lab delete pre-experiment
+VBoxManage snapshot <vm> take pre-experiment --pause
+VBoxManage snapshot <vm> list
+VBoxManage snapshot <vm> restorecurrent          # restore most recent
+VBoxManage snapshot <vm> restore pre-experiment  # restore by name
+VBoxManage snapshot <vm> delete pre-experiment
 
 # Hotplug a disk (e.g. to simulate adding a replacement drive)
 VBoxManage createmedium disk --filename target/extra.vdi --size 8000 --format VDI
-VBoxManage storageattach ms-s1-max-lab --storagectl SATA --port 7 --device 0 \
+VBoxManage storageattach <vm> --storagectl SATA --port 7 --device 0 \
     --type hdd --medium target/extra.vdi --hotpluggable on --nonrotational on
 
 # Detach a disk (simulate failure)
-VBoxManage storageattach ms-s1-max-lab --storagectl SATA --port 7 --device 0 --medium none
+VBoxManage storageattach <vm> --storagectl SATA --port 7 --device 0 --medium none
 
 # Resize a disk
 VBoxManage modifymedium disk target/extra.vdi --resize 16000
 
 # Unregister + delete everything
-VBoxManage unregistervm ms-s1-max-lab --delete
+VBoxManage unregistervm <vm> --delete
 ```
 
-## Manual setup — VirtualBox Manager GUI
+## Inside the VM — install ZFS and identify the lab disks
 
-Use this path if you want to see what's happening in the GUI rather than trusting a script.
-
-### 1. Create the VM
-
-In VirtualBox Manager:
-
-- **OS**: Linux -> Ubuntu (64-bit)
-- **Memory**: 4 GB minimum (8 GB if you want ARC headroom)
-- **Boot**: EFI enabled (Settings -> System -> Motherboard -> Enable EFI)
-- **Storage**: Initial disk **80 GB**, dynamically allocated, attached to the SATA controller. This is the "OS disk".
-
-### 2. Install Ubuntu Server 26.04 LTS
-
-Use the [normal Ubuntu installation walkthrough](../ubuntu/installation/installation-walkthrough.md). For the lab, you can take the "guided / use entire disk" path — root layout doesn't matter; you're only here to play with ZFS on the *other* virtual disks.
-
-### 3. Add extra virtual disks
-
-Power off the VM. In VirtualBox Manager -> Storage:
-
-- Add a new SATA controller if you don't have spare ports, **or** use the existing one. SATA has 30 ports — plenty.
-- Add 6-8 extra virtual disks, all dynamically allocated, all the same size for now (start with 8 GB each — small but enough). Call them `lab-disk-01.vdi` through `lab-disk-08.vdi`.
-
-You're going to deliberately treat these as if they were physical drives.
-
-### 4. Boot, install ZFS
+SSH in (`uv run msai ssh`) and prepare the toolchain:
 
 ```bash
 sudo apt update
@@ -204,14 +141,12 @@ sudo zfs version
 
 You should see "no pools available" — that's expected; we'll create them in a minute.
 
-### 5. Identify the lab disks
-
 ```bash
 lsblk -o NAME,SIZE,MODEL,SERIAL,TYPE
-ls -la /dev/disk/by-id/ | grep -v part | grep -v '\-\-'
+ls -la /dev/disk/by-id/ | grep ata-VBOX_HARDDISK | grep -v part
 ```
 
-VirtualBox sets the disk serial to the filename you chose, prefixed with `VBOX_HARDDISK`. So you'll see paths like:
+VirtualBox sets the disk serial automatically. The primary OS disk (the one you booted from) is `sda`; the six lab disks are `sdb`-`sdg`. By-id paths look like:
 
 ```
 /dev/disk/by-id/ata-VBOX_HARDDISK_VB12345678-12345678 -> ../../sdb
@@ -219,7 +154,7 @@ VirtualBox sets the disk serial to the filename you chose, prefixed with `VBOX_H
 ...
 ```
 
-Set up an env variable to keep the rest of the commands readable:
+Set env vars so the rest of the commands stay readable:
 
 ```bash
 DISK1=/dev/disk/by-id/ata-VBOX_HARDDISK_VB12345678-12345678
@@ -669,14 +604,27 @@ You've now rehearsed the whole production storage setup on disposable virtual ha
 
 ## Tear-down
 
-When you're done:
+When you're done with an exercise but want to keep the VM:
 
 ```bash
 sudo zpool destroy tank
 sudo zpool list
 ```
 
-Or just shut down the VM and snapshot it before each experiment — VirtualBox VM snapshots let you reset to "fresh Ubuntu, ZFS installed" in seconds.
+When you're done with the VM entirely:
+
+```bash
+# From your Mac, not the VM
+uv run msai lab destroy
+```
+
+Between exercises, the lighter pattern is to snapshot the VM:
+
+```bash
+VBoxManage snapshot zfs-lab take fresh-zfs --pause
+# ... do an exercise that blows things up ...
+VBoxManage snapshot zfs-lab restorecurrent       # back to "ZFS installed, no pool"
+```
 
 ## What this lab doesn't cover
 

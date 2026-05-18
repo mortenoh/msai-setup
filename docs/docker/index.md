@@ -29,6 +29,7 @@ All persistent data lives on ZFS via bind mounts.
 ## Sections
 
 - [Docker Setup](setup.md) — Install Docker on Ubuntu 26.04 (with `resolute -> noble` fallback) and configure the daemon
+- [Docker vs LXC](docker-vs-lxc.md) — When to pick which on this build
 - [Docker Compose](compose.md) — Compose Spec, project structure, common patterns
 - [Resource Limits](resources.md) — Container memory, CPU, GPU, and device constraints
 - [Development Stacks](development-stacks.md) — Postgres, Redis, Elasticsearch, etc. for dev

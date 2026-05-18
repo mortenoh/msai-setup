@@ -131,6 +131,7 @@ nav:
     - ZFS Storage:
       - zfs/index.md
       - Concepts: zfs/concepts.md
+      - Learning Path: zfs/learning-path.md
       - VirtualBox Lab: zfs/virtualbox-lab.md
       - Partitioning: zfs/partitioning.md
       - Pool Creation: zfs/pool-creation.md
@@ -169,6 +170,7 @@ nav:
     - Docker:
       - docker/index.md
       - Docker Setup: docker/setup.md
+      - Docker vs LXC: docker/docker-vs-lxc.md
       - Docker Compose: docker/compose.md
       - Resource Limits: docker/resources.md
       - Development Stacks: docker/development-stacks.md
@@ -281,6 +283,7 @@ nav:
         - ssh/server/index.md
         - Configuration: ssh/server/configuration.md
         - Hardening: ssh/server/hardening.md
+        - Playbook Walkthrough: ssh/server/playbook-walkthrough.md
       - File Transfer:
         - ssh/file-transfer/index.md
         - SCP: ssh/file-transfer/scp.md
