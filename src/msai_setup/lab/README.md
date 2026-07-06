@@ -208,149 +208,29 @@ echo 17179869184 | sudo tee /sys/module/zfs/parameters/zfs_arc_max
 
 ---
 
-## 3. Root on ZFS — migrate the running system (ZFSBootMenu)
+## 3. Root on ZFS — rehearsing the real install (in progress)
 
-Section 2 taught you pools, datasets, snapshots and rollback on *spare* disks.
-This section does the real thing the MS-S1 MAX build is about: it takes the
-lab VM's **running, ext4-rooted Ubuntu** and migrates it **in place** onto a
-**root-on-ZFS + [ZFSBootMenu](https://zfsbootmenu.org/)** layout with **two
-independent pools** — exactly the architecture described in
-[`START.md`](../../../START.md) and
-[`docs/ubuntu/installation/`](../../../docs/ubuntu/installation/installation-walkthrough.md).
-The OS itself ends up on ZFS, so a bad upgrade becomes a one-command boot-environment
-rollback instead of a reinstall.
+An earlier version of this section had the lab **convert** its already-running,
+ext4-rooted VM to root-on-ZFS via an rsync-based migration. That was a
+convenient shortcut to prove the ZFS/ZFSBootMenu mechanics work (and it did —
+boot-environment rollback was verified end to end, including across a real
+reboot) — but it doesn't rehearse what you'll actually do on the real MS-S1 MAX.
+The real hardware install is a **fresh** install: boot a live/rescue
+environment and `debootstrap` straight into `rpool/ROOT/ubuntu` — there's no
+ext4 stage to convert away from at any point (see the
+[installation walkthrough](../../../docs/ubuntu/installation/installation-walkthrough.md)).
 
-### Why a migration, not autoinstall
-
-Ubuntu Server's autoinstall (Subiquity) has no root-on-ZFS path, and its
-`storage.layout: zfs` shortcut produces Subiquity's *own* GRUB + bpool/rpool
-layout — not ZFSBootMenu, and not the two-independent-pool split this project
-teaches. So the lab keeps the proven autoinstall bootstrap exactly as-is (that's
-how `msai create` got you a working ext4 VM in ~3 minutes) and then **converts**
-that running system to root-on-ZFS with an rsync-into-ZFS + chroot + bootloader
-migration — the same technique you'd use to move any existing box onto ZFS
-without reinstalling.
-
-### The two migration disks — how disk allocation works
-
-The migration needs two disks to stand in for the MS-S1 MAX's two physical NVMe
-drives (a fast 4 TB and a slow 2 TB). Rather than borrow two of the six ZFS
-*practice* disks from section 2 (which would force an ordering constraint
-between the two exercises), `msai create` provisions **two extra dedicated
-disks** just for this:
-
-| Disk | Size | Role | Stands in for |
-|---|---|---|---|
-| `sdb`..`sdg` | 8 GB × 6 | section 2 ZFS practice | (throwaway practice) |
-| `sdh` | 24 GB | migration **fast** disk → `rpool` (EFI + root + home) | the fast 4 TB NVMe |
-| `sdi` | 16 GB | migration **slow** disk → `tank` (bulk/cold data) | the slow 2 TB NVMe |
-
-The two migration disks are deliberately different sizes, and larger than the
-practice disks: the playbook auto-identifies them as the two largest disks and
-treats the **larger** as the fast/`rpool` drive and the **smaller** as the
-slow/`tank` drive — mirroring the real "bigger drive is the fast one" asymmetry.
-Because they're additional disks, **the section 2 practice and this migration
-don't interfere** — run them in either order. (Tune counts/sizes with
-`MIGRATION_DISK_COUNT`, `MIGRATION_FAST_DISK_SIZE_MB`, `MIGRATION_SLOW_DISK_SIZE_MB`.)
-
-### Try it — migrate to root-on-ZFS
-
-One command runs the whole migration and then verifies it:
-
-```bash
-msai lab migrate
-```
-
-That drives the `zfs-root-migrate.yml` playbook, which mirrors the manual
-[installation walkthrough](../../../docs/ubuntu/installation/installation-walkthrough.md)
-step for step — only it copies the *running* system in instead of debootstrapping
-a fresh one:
-
-1. Auto-identifies the two migration disks by stable `/dev/disk/by-id/...` paths.
-2. Partitions the fast disk (512 MB EFI + rest → `rpool`) and the slow disk
-   (whole → `tank`), using the exact `sgdisk` scheme from
-   [disk-partitioning.md](../../../docs/ubuntu/installation/disk-partitioning.md).
-3. `zpool create`s both pools with the canonical flags (`ashift=12`,
-   `autotrim=on`, `acltype=posixacl`, `xattr=sa`, `compression=lz4`,
-   `relatime=on`) and creates `rpool/ROOT/ubuntu` (`canmount=noauto`) + `rpool/home`.
-4. `rsync -aHAXx`'s the live root into `rpool/ROOT/ubuntu` (one-file-system, so
-   `/proc /sys /dev /run` and the target mount itself are skipped — no infinite
-   recursion).
-5. chroots in, installs `zfs-dracut`, and rebuilds the dracut initramfs so it can
-   import `rpool` and mount `root=zfs:rpool/ROOT/ubuntu`.
-6. Installs **ZFSBootMenu** into the ESP, sets `org.zfsbootmenu:commandline`,
-   registers the EFI boot entry with `efibootmgr`, and writes an EFI-only fstab.
-
-Then `msai lab migrate` **verifies** the result and **proves boot-environment
-rollback** (see below). On success:
-
-```
-PASS: rpool + tank both ONLINE and healthy
-PASS: rpool/ROOT/ubuntu is canmount=noauto, mountpoint=/ (root; shown as /mnt under altroot)
-PASS: BE holds a complete Ubuntu system with a ZFS-aware (dracut) initramfs
-PASS: target /etc/fstab is EFI-only (no ext4 root)
-PASS: ZFSBootMenu EFI binary present on the ESP (+ removable-media fallback)
-PASS: efibootmgr entry 'ZFSBootMenu' is registered in firmware NVRAM
-PASS: boot-environment rollback works: snapshot -> change -> rollback -> change gone
-ALL-VERIFY-CHECKS-PASSED
-```
-
-### Try it — verify the boot-environment rollback
-
-This is the whole point of root-on-ZFS, so `msai lab migrate` exercises it for
-real. On the still-running source system, `rpool/ROOT/ubuntu` is just a dataset
-(not the live root), so the migration can mount it and drive the exact rollback
-ZFSBootMenu performs from its boot menu:
-
-```bash
-# (this is what the verifier runs for you; you can repeat it by hand)
-# The migration leaves rpool imported at /mnt; if not, import it first:
-#   sudo zpool import -f -N -R /mnt rpool && sudo zfs mount rpool/ROOT/ubuntu
-
-sudo zfs snapshot rpool/ROOT/ubuntu@before          # snapshot the boot environment
-sudo touch /mnt/etc/broke-something                 # make a change
-sudo zfs rollback rpool/ROOT/ubuntu@before          # roll the whole BE back
-ls /mnt/etc/broke-something                          # gone — the change is undone
-```
-
-On the real MS-S1 MAX you'd do this from the ZFSBootMenu screen instead
-(`Ctrl+S` → pick the snapshot → roll back), turning a bad `apt upgrade` into a
-one-keystroke recovery. Same mechanism, offline.
-
-To prove the change really persists on disk (survives a reboot) before you roll
-it back, snapshot + make the change, `sudo reboot` the whole VM, re-import
-(`sudo zpool import -f -N -R /mnt rpool`), confirm the change is still there, then
-`zfs rollback` and confirm it's gone. A real reboot is the honest durability test
-here because export/re-import within one boot is unreliable on this lab's
-experimental ZFS-on-newer-kernel build (see the note below).
-
-### A note on actually booting ZFSBootMenu in the lab
-
-On the **real x86_64 MS-S1 MAX**, run the playbook with its default
-`do_reboot=true` (or `msai lab migrate --reboot`) and the firmware boots the
-prebuilt ZFSBootMenu EFI straight into the new ZFS root.
-
-In the **VirtualBox lab on Apple Silicon**, the guest is aarch64, and VirtualBox's
-aarch64 EFI firmware **cannot execute the ZFSBootMenu EFI image** — it rejects it
-with `pe_kernel_check_no_relocation: Inner kernel image contains base relocations,
-which we do not support`. That's a VirtualBox firmware limitation, not a problem
-with the migration: the pools, the ZFS-aware initramfs, the ZFSBootMenu binary and
-the `efibootmgr` entry are all built and registered correctly (the firmware does
-try the `ZFSBootMenu` NVRAM entry first — it just can't load it). Everything the
-architecture depends on is therefore verified **offline** by `msai lab migrate`,
-which is why it doesn't reboot the VM by default. On x86_64 there is no such limit.
-
-One more lab-only quirk: this VM runs OpenZFS on a newer kernel than OpenZFS
-officially supports (`dmesg` prints `Using ZFS with kernel ... is EXPERIMENTAL`),
-and on it a freshly created pool can wedge `zpool export` with `pool is busy`
-(even `-f`) until the next reboot. The verifier therefore never relies on
-exporting/re-importing a pool within one boot — it adopts the pool the migration
-left imported and proves rollback in place, and the playbook's own final export
-is best-effort. None of this affects the real x86_64 target, where `zpool export`
-works normally and the box reboots straight into ZFSBootMenu.
+So the migrate-based shortcut was removed. This section will come back once the
+lab can rehearse the *real* process: boot the VM from the live-server ISO
+(instead of letting `autoinstall` drive a normal Subiquity install), get SSH
+into the **live environment itself** — Subiquity's `early-commands` hook can
+authorize a key there before any target OS exists — and drive the same manual
+process a human would follow: identify disks, partition, `zpool create` both
+pools, `debootstrap` a fresh system into `rpool/ROOT/ubuntu`, chroot, install
+ZFSBootMenu, reboot into it.
 
 > **Deeper reading**:
-> - [installation-walkthrough.md](../../../docs/ubuntu/installation/installation-walkthrough.md) — the full manual root-on-ZFS install this playbook automates
+> - [installation-walkthrough.md](../../../docs/ubuntu/installation/installation-walkthrough.md) — the manual process this section will automate
 > - [disk-partitioning.md](../../../docs/ubuntu/installation/disk-partitioning.md) — the canonical two-pool partition scheme
 > - [boot-issues.md](../../../docs/ubuntu/troubleshooting/boot-issues.md) — ZFSBootMenu recovery, hotkeys, boot environments
 

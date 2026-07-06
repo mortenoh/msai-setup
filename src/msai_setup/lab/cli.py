@@ -8,7 +8,6 @@ from typing import Annotated
 import typer
 
 from msai_setup.lab import apply as apply_mod
-from msai_setup.lab import migrate as migrate_mod
 from msai_setup.lab import pipeline as pipeline_mod
 from msai_setup.lab import state as state_mod
 from msai_setup.lab import vbox as vbox_mod
@@ -72,47 +71,6 @@ def apply(
     for v in extra_var or []:
         extras.extend(["-e", v])
     apply_mod.run_apply(chosen, extras)
-
-
-@lab_app.command()
-def migrate(
-    reboot: Annotated[
-        bool,
-        typer.Option(
-            "--reboot/--no-reboot",
-            help=(
-                "Reboot into ZFSBootMenu at the end (real-hardware/x86_64 path). "
-                "Default off: in the VirtualBox lab the migration is verified offline "
-                "instead, since VBox's aarch64 firmware cannot execute the ZBM EFI."
-            ),
-        ),
-    ] = False,
-    skip_verify: Annotated[
-        bool,
-        typer.Option("--skip-verify", help="Skip offline verification + rollback proof."),
-    ] = False,
-    extra_var: Annotated[
-        list[str] | None,
-        typer.Option(
-            "--extra-var", "-e",
-            help="Forwarded as -e to ansible-playbook (e.g. -e fast_disk=/dev/disk/by-id/...).",
-        ),
-    ] = None,
-    verbose: _VerboseOption = False,
-) -> None:
-    """Migrate the lab VM to root-on-ZFS + ZFSBootMenu, then verify it.
-
-    Runs the zfs-root-migrate playbook (partition two dedicated disks, create
-    rpool + tank, rsync the live system into rpool/ROOT/ubuntu, build a ZFS-aware
-    initramfs, install ZFSBootMenu, register the EFI entry, EFI-only fstab), then
-    proves the result offline — both pools healthy, boot environment complete,
-    and boot-environment rollback working end to end.
-    """
-    _configure_logging(verbose)
-    extras: list[str] = []
-    for v in extra_var or []:
-        extras.extend(["-e", v])
-    migrate_mod.run_migrate(do_reboot=reboot, skip_verify=skip_verify, extra_args=extras)
 
 
 @lab_app.command()

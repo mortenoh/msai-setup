@@ -92,9 +92,9 @@ def main() -> None:
     vbox.create_disk(cfg.primary_disk_path, size_mb=cfg.primary_disk_size_mb)
     for i in range(1, cfg.lab_disk_count + 1):
         vbox.create_disk(cfg.lab_disk_path(i), size_mb=cfg.lab_disk_size_mb)
-    # Dedicated root-on-ZFS migration disks, appended after the practice disks
-    # (see config.py / zfs-root-migrate.yml). These are additional to the 6
-    # practice disks, so the README's ZFS walkthrough is untouched.
+    # Dedicated root-on-ZFS install disks, appended after the practice disks
+    # (see config.py). These are additional to the 6 practice disks, so the
+    # README's ZFS walkthrough is untouched.
     for i in range(1, cfg.migration_disk_count + 1):
         vbox.create_disk(cfg.migration_disk_path(i), size_mb=cfg.migration_disk_size_mb(i))
 

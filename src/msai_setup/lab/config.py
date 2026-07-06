@@ -107,20 +107,26 @@ class LabConfig:
     lab_disk_count: int = _env_int("LAB_DISK_COUNT", 6)
     lab_disk_size_mb: int = _env_int("LAB_DISK_SIZE_MB", 8000)
 
-    # Root-on-ZFS migration disks (see ansible/playbooks/zfs-root-migrate.yml).
+    # Root-on-ZFS install disks, standing in for the MS-S1 MAX's two physical
+    # NVMe drives (see docs/ubuntu/installation/disk-partitioning.md).
     #
     # These are DEDICATED, ADDITIONAL disks appended after the `lab_disk_count`
     # practice disks — they do NOT consume any of the 6 disks the README's ZFS
     # walkthrough (section 2) uses, so both exercises coexist in one VM with no
-    # ordering constraint between them. They stand in for the MS-S1 MAX's two
-    # physical NVMe drives during the ext4 -> root-on-ZFS migration:
+    # ordering constraint between them.
     #   index 1 = "fast" drive -> rpool (larger, EFI + pool member)
     #   index 2 = "slow" drive -> tank  (smaller, single pool member)
-    # The size split is deliberate and load-bearing: the playbook identifies the
-    # two migration disks as the two LARGEST VirtualBox disks, then treats the
-    # larger of the pair as the fast/rpool drive and the smaller as slow/tank —
-    # mirroring the real 4 TB (fast) vs 2 TB (slow) asymmetry. Keep fast > slow >
-    # lab_disk_size_mb so that ordering stays unambiguous.
+    # The size split is deliberate and load-bearing: whatever provisions these
+    # disks should identify them as the two LARGEST VirtualBox disks, then treat
+    # the larger of the pair as the fast/rpool drive and the smaller as
+    # slow/tank — mirroring the real 4 TB (fast) vs 2 TB (slow) asymmetry. Keep
+    # fast > slow > lab_disk_size_mb so that ordering stays unambiguous.
+    #
+    # NOTE: as of this commit there is no automation consuming these yet — the
+    # rsync-based "migrate an already-running ext4 VM" approach that used to use
+    # them was removed (it didn't rehearse the real fresh-install process; see
+    # README.md section 3). They're kept because the real install path needs
+    # the same two stand-in disks regardless of migrate-vs-fresh-install.
     migration_disk_count: int = _env_int("MIGRATION_DISK_COUNT", 2)
     migration_fast_disk_size_mb: int = _env_int("MIGRATION_FAST_DISK_SIZE_MB", 24000)
     migration_slow_disk_size_mb: int = _env_int("MIGRATION_SLOW_DISK_SIZE_MB", 16000)
