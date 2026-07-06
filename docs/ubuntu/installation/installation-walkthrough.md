@@ -1,311 +1,407 @@
 # Installation Walkthrough
 
-Step-by-step guide through the Ubuntu Server 26.04 LTS installer with security-focused choices.
+Step-by-step guide to installing Ubuntu Server 26.04 LTS **root-on-ZFS with ZFSBootMenu** on the MS-S1 MAX, following the canonical [Disk Partitioning](disk-partitioning.md) layout (two independent pools: `rpool` on the fast 4 TB primary NVMe, `tank` on the slow 2 TB secondary NVMe).
 
-!!! info "26.04 Server installer changes"
-    The 26.04 live-server ISO **automatically installs the HWE/OEM kernel** when it detects matching hardware (such as Strix Halo). On the MS-S1 Max this means you no longer need to install `linux-oem-*` manually after first boot. Defaults also include **dracut** (replacing `initramfs-tools`), **TPM-backed full-disk encryption**, and **crash dumps enabled by default**.
+!!! warning "This is a manual install — you do not run Subiquity's guided installer end-to-end"
+    Ubuntu Server's installer (Subiquity), including its `autoinstall` automation, has **no root-on-ZFS path**. There are no familiar guided storage screens here. Instead you boot the Server ISO into a live/rescue shell and run the partitioning, `zpool create`, `debootstrap`, chroot, and ZFSBootMenu steps by hand. If you were expecting the point-and-click storage wizard, that is intentional — see [Disk Partitioning](disk-partitioning.md#creating-the-layout) for why.
 
-## Boot from Installation Media
+!!! info "26.04 kernel and initramfs"
+    Ubuntu 26.04 ships **Linux 7.0** as its `linux-generic` kernel, which already supports the Strix Halo iGPU (`gfx1151`) — no separate HWE/OEM metapackage is needed for a manual debootstrap install (the auto-install of `linux-oem-*` only happens inside Subiquity, which you are not using). 26.04 also defaults to **dracut** for the initramfs, which is what ZFSBootMenu itself is built with.
+
+## Boot the Live/Rescue Environment
+
+Because the install happens from a shell rather than the guided installer, you first need a live Ubuntu environment where you can run arbitrary commands.
 
 ### Initial Boot
 
-1. Insert USB boot media
-2. Power on and enter boot menu (F12, F8, or manufacturer-specific)
-3. Select USB device (UEFI mode if available)
+1. Insert the Ubuntu Server 26.04 USB boot media.
+2. Power on and enter the boot menu (F12, F8, or manufacturer-specific).
+3. Select the USB device in **UEFI mode**.
 
-### GRUB Menu
+### Reach a Shell
 
-Select from the boot menu:
+From the ISO's GRUB menu, select **Try or Install Ubuntu Server**. When the installer's first screen appears, open a shell instead of proceeding through the wizard:
 
-- **Try or Install Ubuntu Server** - Proceed with installation
-- **Check disc for defects** - Verify installation media (recommended first time)
-- **Boot from first hard disk** - Skip if you want to abort
+- Press **Ctrl+Alt+F2** (or select **Help -> Enter shell** from the installer menu) to drop to a root shell on the live system.
 
-!!! tip "Verify Media First"
-    If you haven't verified the boot media, select "Check disc for defects" to ensure data integrity.
+A dedicated live/desktop environment that boots straight to a shell (e.g. an Ubuntu live image) works equally well — anything where you have a root prompt and network access.
+
+!!! tip "Verify media first"
+    On a first install, verifying the ISO checksum (or using the ISO's "Check disc for defects" option) rules out a corrupt image before you commit to a manual process.
 
 ## Language and Keyboard
 
-### Language Selection
+If you booted through the installer's first screens to reach the shell, set language and keyboard there as usual — they affect the console you are about to work in:
 
-Select your preferred language for the installation process:
+1. **Language:** English is recommended for server environments (best documentation coverage).
+2. **Keyboard:** select your layout (and variant), then test it in the field provided — a wrong layout makes typing device paths error-prone, and one wrong character in a `zpool create` wipes the wrong disk.
 
-1. Use arrow keys to navigate
-2. Press Enter to select
-3. English is recommended for server environments (better documentation coverage)
+## Prepare the Live Environment
 
-### Keyboard Layout
+### Network Access
 
-1. Select "Layout" and choose your keyboard layout
-2. Optionally select a variant
-3. Test the layout by typing in the test field
-4. Select "Done" when satisfied
+`debootstrap` downloads the base system over the network, so the live environment needs connectivity. DHCP over a wired 10GbE port is simplest:
 
-## Installation Type
+```bash
+# Confirm an interface picked up an address
+ip -br addr
 
-### Choose Installation Source
-
-Options:
-
-- **Ubuntu Server** - Standard installation from media
-- **Ubuntu Server (minimized)** - Smaller footprint, fewer packages
-
-!!! note "Minimized Installation"
-    The minimized variant excludes documentation, locales, and some utilities. Consider this for containers or highly constrained environments.
-
-### Network Installation
-
-If your system has network access, you may be offered:
-
-- **Install from local media** - Use the ISO on the USB
-- **Install from network** - Download packages during install
-
-Select local media for offline installation or network for latest packages.
-
-## Network Configuration
-
-### Interface Detection
-
-The installer auto-detects network interfaces:
-
-```
-enp5s0: eth (not connected)
-enp6s0: eth
-  DHCPv4: 192.168.1.50/24
-  Gateway: 192.168.1.1
+# If not, bring one up with DHCP (replace enp6s0 with your interface)
+sudo dhclient enp6s0
 ```
 
-### DHCP vs Static
+Static addressing during install is possible but unnecessary — configure the permanent static IP later, inside the target system's netplan (below).
 
-**DHCP (Recommended for installation):**
+### Install ZFS Tooling in the Live Environment
 
-- Accept the auto-configured address
-- Configure static IP post-installation via Netplan
-- Ensures connectivity for package downloads
+The live shell needs the ZFS userspace tools and partitioning utilities to create the pools:
 
-**Static IP during installation:**
-
-1. Select the interface
-2. Choose "Edit IPv4"
-3. Select "Manual"
-4. Enter:
-   - Subnet: `192.168.1.0/24`
-   - Address: `192.168.1.100`
-   - Gateway: `192.168.1.1`
-   - Name servers: `1.1.1.1,8.8.8.8`
-   - Search domains: (optional)
-
-### Proxy Configuration
-
-If your network requires a proxy:
-
-```
-http://proxy.example.com:3128
+```bash
+sudo apt update
+sudo apt install -y debootstrap gdisk dosfstools zfsutils-linux
 ```
 
-Leave blank if no proxy is needed.
+## Identify the Drives
 
-### Mirror Selection
+This is the single most dangerous step. Confirm which physical NVMe is the 4 TB (primary/fast, slot 1) and which is the 2 TB (secondary/slow, slot 2) **before** running anything destructive.
 
-The default archive mirror is typically appropriate. Change only if:
+```bash
+# Human-readable overview — check the SIZE column
+lsblk -d -o NAME,SIZE,MODEL
 
-- You have a local mirror
-- Geographic mirrors are faster
-- Corporate policy requires specific mirrors
-
-## Storage Configuration
-
-### Layout Selection
-
-When prompted, select **Custom storage layout**. Do not use guided/entire-disk — it will reformat the wrong drive on a two-NVMe box.
-
-### Create Partitions on the Primary 2 TB NVMe
-
-Follow the canonical layout in [Disk Partitioning](disk-partitioning.md): plain ext4 root, no LUKS, no LVM. The secondary 4 TB NVMe is **left untouched** at installer time; ZFS will claim it post-install.
-
-**EFI System Partition:**
-
-1. Select free space on the primary NVMe
-2. "Add GPT Partition"
-3. Size: `512M`
-4. Format: `fat32`
-5. Mount: `/boot/efi`
-
-**Boot Partition:**
-
-1. Select remaining free space on the primary NVMe
-2. "Add GPT Partition"
-3. Size: `1G`
-4. Format: `ext4`
-5. Mount: `/boot`
-
-**Root Partition:**
-
-1. Select remaining free space on the primary NVMe
-2. "Add GPT Partition"
-3. Size: `1024G` (1 TB; installer may round)
-4. Format: `ext4`
-5. Mount: `/`
-
-**Leave the rest unallocated:**
-
-- ~1 TB of free space on the primary NVMe — will become a ZFS pool member.
-- The entire 4 TB secondary NVMe — also a ZFS pool member.
-
-### Review and Confirm
-
-The storage summary should look approximately like:
-
-```
-nvme0n1                   disk   2.0T
-  nvme0n1p1               part   512M  /boot/efi  (fat32)
-  nvme0n1p2               part   1.0G  /boot       (ext4)
-  nvme0n1p3               part   1.0T  /           (ext4)
-  (free space)                   ~1.0T
-
-nvme1n1                   disk   4.0T
-  (free space)                   4.0T
+# NVMe-specific listing (model, serial, capacity)
+sudo nvme list
 ```
 
-!!! danger "Destructive Action"
-    Proceeding will erase the selected disks. Verify both drive identities — the slot 1 drive is the 2 TB; the slot 2 drive is the 4 TB and must show **no partitions**.
+Prefer stable `/dev/disk/by-id/...` paths over `/dev/nvme0n1` — kernel enumeration order (`nvme0n1` vs `nvme1n1`) is not guaranteed stable across boots, and pools created against a by-id path survive a reshuffle:
 
-Select "Done" and confirm when prompted.
+```bash
+ls -l /dev/disk/by-id/ | grep nvme
 
-## Profile Setup
+# Export the two device paths once, verified, and reuse them everywhere below
+export PRIMARY_DISK=/dev/disk/by-id/nvme-<4TB-model-and-serial>
+export SECONDARY_DISK=/dev/disk/by-id/nvme-<2TB-model-and-serial>
+```
 
-### Server Identity
+!!! danger "Confirm SIZE before continuing"
+    `$PRIMARY_DISK` must be the **4 TB** drive and `$SECONDARY_DISK` the **2 TB** drive. Every destructive command below reads these variables — a swap here formats the wrong disk. Re-run `lsblk -d -o NAME,SIZE,MODEL` and eyeball the sizes one more time.
 
-| Field | Recommendation |
-|-------|----------------|
-| Your name | Full name (for GECOS field) |
-| Your server's name | Hostname (e.g., `srv-ubuntu-01`) |
-| Pick a username | Lowercase, no spaces (e.g., `admin`) |
-| Choose a password | Strong password (also used by `sudo`) |
-| Confirm password | Re-enter password |
+## Partition and Create Both Pools
 
-**Hostname Guidelines:**
+These are the exact commands from [Disk Partitioning](disk-partitioning.md#creating-the-layout) — do not substitute different ones.
 
-- Use lowercase letters, numbers, hyphens
-- No underscores or spaces
-- Follow your organization's naming convention
-- Examples: `web01`, `srv-ubuntu-prod`, `ms-s1-max`
+### Partition the primary 4 TB NVMe
 
-### Ubuntu Pro
+```bash
+sgdisk --zap-all "$PRIMARY_DISK"
+sgdisk -n1:1M:+512M -t1:EF00 "$PRIMARY_DISK"   # EFI
+sgdisk -n2:0:0      -t2:BF00 "$PRIMARY_DISK"   # ZFS pool member (rest of disk)
+```
 
-Ubuntu Pro offers additional security features:
+### Create `rpool` (primary, fast drive)
 
-- **Extended Security Maintenance** - 10 years of security updates
-- **Kernel Livepatch** - Kernel updates without reboot
-- **FIPS compliance** - For regulated environments
-- **CIS hardening tools** - Compliance automation
+```bash
+zpool create \
+    -o ashift=12 -o autotrim=on \
+    -O acltype=posixacl -O xattr=sa -O compression=lz4 \
+    -O relatime=on -O canmount=off -O mountpoint=none \
+    -R /mnt \
+    rpool "${PRIMARY_DISK}-part2"
 
-For personal use, Ubuntu Pro is free for up to 5 machines. Register at [ubuntu.com/pro](https://ubuntu.com/pro).
+zfs create -o canmount=off -o mountpoint=none rpool/ROOT
+zfs create -o canmount=noauto -o mountpoint=/ rpool/ROOT/ubuntu
+zfs create -o mountpoint=/home rpool/home
+```
 
-If you have a token, enter it. Otherwise, select "Skip for now" or "Continue without Ubuntu Pro".
+`rpool/ROOT/ubuntu` is `canmount=noauto` on purpose — with more than one boot environment present, ZFS must not auto-mount all of them; ZFSBootMenu (or an explicit `zfs mount`) picks which one becomes `/`. Mount it now so `debootstrap` has a target:
 
-## SSH Setup
+```bash
+zfs mount rpool/ROOT/ubuntu
+zfs mount rpool/home
+```
 
-### Enable OpenSSH Server
+### Partition and create `tank` (secondary, slow drive)
 
-Select **Install OpenSSH server** - this is essential for remote management.
+```bash
+sgdisk --zap-all "$SECONDARY_DISK"
+sgdisk -n1:0:0 -t1:BF00 "$SECONDARY_DISK"
 
-### SSH Key Import
+zpool create \
+    -o ashift=12 -o autotrim=on \
+    -O acltype=posixacl -O xattr=sa -O compression=lz4 \
+    -O relatime=on \
+    -R /mnt \
+    tank "${SECONDARY_DISK}-part1"
+```
 
-Options for importing your public SSH key:
+`tank` holds no boot environments, so it skips the `canmount=off` / `ROOT` dance. Its data datasets (`tank/media`, `tank/backups`, etc.) are created later — see [ZFS Datasets](../../zfs/datasets.md).
 
-1. **Import SSH identity: from GitHub**
-   - Enter your GitHub username
-   - Your public keys from GitHub are imported
-   - Convenient and secure
+### Format and mount the EFI partition
 
-2. **Import SSH identity: from Launchpad**
-   - Enter your Launchpad username
+```bash
+mkfs.vfat -F32 -n EFI "${PRIMARY_DISK}-part1"
+mkdir -p /mnt/boot/efi
+mount "${PRIMARY_DISK}-part1" /mnt/boot/efi
+```
 
-3. **No** - Add keys manually post-installation
+## Bootstrap Ubuntu into `rpool`
 
-!!! tip "GitHub Key Import"
-    Importing from GitHub is the easiest secure option. Ensure your GitHub account has your current SSH public keys.
+Install a minimal Ubuntu 26.04 base system into the mounted `rpool/ROOT/ubuntu` with `debootstrap`. The 26.04 suite is `resolute`; if the archive hasn't published a `resolute` path yet (common in the first weeks after an LTS release), fall back to `noble` (24.04) and dist-upgrade later — the same fallback convention this repo uses for the Docker and Tailscale repos:
 
-If you import keys, password authentication can be disabled by default.
+```bash
+# Pick the newest published suite, falling back to noble if resolute isn't live yet
+SUITE=resolute
+if ! curl -sfI "http://archive.ubuntu.com/ubuntu/dists/${SUITE}/Release" >/dev/null; then
+    echo "Ubuntu archive suite '$SUITE' not published yet; falling back to noble"
+    SUITE=noble
+fi
 
-## Featured Server Snaps
+debootstrap "$SUITE" /mnt http://archive.ubuntu.com/ubuntu
+```
 
-The installer offers additional software via Snap packages:
+Copy the pool cache so the target system imports the same pools it was built on:
 
-| Snap | Description |
-|------|-------------|
-| docker | Container runtime |
-| nextcloud | Personal cloud |
-| kubernetes | Container orchestration |
+```bash
+mkdir -p /mnt/etc/zfs
+cp /etc/zfs/zpool.cache /mnt/etc/zfs/ 2>/dev/null || true
+```
 
-**Recommendation: Skip all**
+## Chroot and Configure
 
-- Install software post-installation for better control
-- Snaps have auto-update behavior that may not suit servers
-- Package versions may differ from what you want
+### Bind-mount and enter the chroot
 
-Select "Done" without checking any boxes.
+```bash
+mount --make-private --rbind /dev  /mnt/dev
+mount --make-private --rbind /proc /mnt/proc
+mount --make-private --rbind /sys  /mnt/sys
 
-## Installation Progress
+chroot /mnt /usr/bin/env SUITE="$SUITE" bash --login
+```
 
-The installer now:
+### APT sources, base packages, kernel, and ZFS
 
-1. Partitions the disk
-2. Formats filesystems
-3. Installs the base system
-4. Configures the bootloader
-5. Installs selected packages
-6. Configures SSH with your keys
+Inside the chroot, write the APT sources for the suite you bootstrapped, then install the kernel and ZFS:
 
-This takes 5-15 minutes depending on hardware.
+```bash
+cat > /etc/apt/sources.list <<EOF
+deb http://archive.ubuntu.com/ubuntu ${SUITE} main restricted universe multiverse
+deb http://archive.ubuntu.com/ubuntu ${SUITE}-updates main restricted universe multiverse
+deb http://security.ubuntu.com/ubuntu ${SUITE}-security main restricted universe multiverse
+EOF
 
-### Monitor Progress
+apt update
 
-The installation log shows detailed progress:
+# linux-generic on 26.04 is the 7.0 kernel that already supports gfx1151.
+# dosfstools for the EFI FS, zfs-initramfs to build a ZFS-aware (dracut) initramfs,
+# zfsutils-linux at a version that understands the pool feature flags created above.
+apt install -y --no-install-recommends \
+    linux-generic \
+    dosfstools \
+    zfsutils-linux \
+    zfs-initramfs \
+    curl \
+    efibootmgr \
+    nano
+```
 
-- Package installation
-- Configuration steps
-- Any warnings or errors
+!!! note "zfsutils-linux version must match the pool features"
+    The `zfsutils-linux` inside the target must be new enough to open the feature flags `zpool create` set from the live environment. Installing from the same 26.04 archive you bootstrapped keeps them aligned; if you fell back to `noble`, dist-upgrade to 26.04 before relying on the pools long-term.
 
-Watch for red text indicating problems.
+### Hostname and hosts
 
-## Installation Complete
+```bash
+echo ms-s1-max > /etc/hostname
+cat > /etc/hosts <<EOF
+127.0.0.1   localhost
+127.0.1.1   ms-s1-max
+EOF
+```
 
-When finished:
+### Networking (netplan, systemd-networkd renderer)
 
-1. Remove the USB installation media
-2. Select "Reboot Now"
+Matching this repo's [networking convention](../networking.md) — Netplan with the `networkd` renderer, no NetworkManager:
+
+```bash
+cat > /etc/netplan/00-installer-config.yaml <<EOF
+network:
+  version: 2
+  renderer: networkd
+  ethernets:
+    enp6s0:
+      addresses:
+        - 192.168.1.100/24
+      routes:
+        - to: default
+          via: 192.168.1.1
+      nameservers:
+        addresses:
+          - 1.1.1.1
+          - 8.8.8.8
+EOF
+chmod 600 /etc/netplan/00-installer-config.yaml
+```
+
+Use DHCP instead by replacing the interface block with `dhcp4: true`. Adjust `enp6s0` to your actual interface name.
+
+### fstab — EFI partition only
+
+The ZFS datasets mount natively; only the EFI partition needs an fstab entry:
+
+```bash
+EFI_UUID=$(blkid -s UUID -o value "${PRIMARY_DISK}-part1")
+cat >> /etc/fstab <<EOF
+UUID=${EFI_UUID}   /boot/efi   vfat   umask=0077,fmask=0077,dmask=0077   0 1
+EOF
+```
+
+`rpool` and `tank` deliberately have **no fstab entries** — they are ZFS-native mounts. See [Disk Partitioning -> Mount Options for Security](disk-partitioning.md#mount-options-for-security) for the per-dataset property approach that replaces fstab hardening lines.
+
+### Create the admin user with SSH key auth
+
+Create the initial privileged user and import your SSH public key. This build's convention (preserved from the original guided-install flow) is to **import keys from GitHub** — the easiest secure option — with a manual `authorized_keys` fallback:
+
+```bash
+# Create the admin user (adjust the username)
+adduser admin
+usermod -aG sudo admin
+
+# Set a root/admin password for console recovery
+passwd admin
+
+# Preferred: import public keys straight from your GitHub account
+apt install -y ssh-import-id openssh-server
+sudo -u admin ssh-import-id gh:<your-github-username>
+
+# Manual fallback if you would rather paste a key directly:
+#   sudo -u admin mkdir -p /home/admin/.ssh && sudo -u admin chmod 700 /home/admin/.ssh
+#   echo "ssh-ed25519 AAAA... you@example.com" | sudo -u admin tee -a /home/admin/.ssh/authorized_keys
+#   sudo -u admin chmod 600 /home/admin/.ssh/authorized_keys
+```
+
+Password authentication and root login are hardened off later in the [Post-Install Checklist](post-install-checklist.md#verify-ssh-security); OpenSSH is installed here so the box is reachable on first boot.
+
+## Install ZFSBootMenu
+
+This step replaces GRUB entirely. ZFSBootMenu is a self-contained UEFI executable (built with dracut) that, at boot, imports `rpool`, finds the kernel/initramfs pair inside `rpool/ROOT/ubuntu`, and kexecs into it. There is no `grub-install`, no `update-grub`, no `/boot/grub`.
+
+### Tell ZFSBootMenu the kernel command line
+
+ZFSBootMenu reads the kernel command line for a boot environment from a ZFS property on that dataset:
+
+```bash
+zfs set org.zfsbootmenu:commandline="quiet loglevel=4" rpool/ROOT/ubuntu
+```
+
+### Option A — prebuilt EFI binary (simplest)
+
+ZFSBootMenu publishes a signed, prebuilt release image. Drop it into the EFI System Partition:
+
+```bash
+mkdir -p /boot/efi/EFI/ZBM
+curl -o /boot/efi/EFI/ZBM/VMLINUZ.EFI -L https://get.zfsbootmenu.org/efi
+cp /boot/efi/EFI/ZBM/VMLINUZ.EFI /boot/efi/EFI/ZBM/VMLINUZ-BACKUP.EFI
+```
+
+### Option B — build from source with `generate-zbm`
+
+If you want a locally built image (e.g. to pin ZFS versions), install the package and configure `/etc/zfsbootmenu/config.yaml`:
+
+```bash
+apt install -y zfsbootmenu
+
+cat > /etc/zfsbootmenu/config.yaml <<'EOF'
+Global:
+  ManageImages: true
+  BootMountPoint: /boot/efi
+  DracutConfDir: /etc/zfsbootmenu/dracut.conf.d
+Components:
+  Enabled: false
+EFI:
+  ImageDir: /boot/efi/EFI/ZBM
+  Versions: false
+  Enabled: true
+Kernel:
+  CommandLine: quiet loglevel=0
+EOF
+
+generate-zbm
+```
+
+Either option leaves a bootable EFI image at `/boot/efi/EFI/ZBM/VMLINUZ.EFI`.
+
+### Register the EFI boot entry
+
+Point the firmware at the ZFSBootMenu image with `efibootmgr`. `$PRIMARY_DISK` is the whole 4 TB device; `-p 1` is the EFI partition:
+
+```bash
+efibootmgr --create \
+    --disk "$PRIMARY_DISK" --part 1 \
+    --label "ZFSBootMenu" \
+    --loader '\EFI\ZBM\VMLINUZ.EFI'
+
+# Optional backup entry pointing at the copied image
+efibootmgr --create \
+    --disk "$PRIMARY_DISK" --part 1 \
+    --label "ZFSBootMenu (backup)" \
+    --loader '\EFI\ZBM\VMLINUZ-BACKUP.EFI'
+```
+
+Confirm the entries and their order:
+
+```bash
+efibootmgr -v
+```
+
+### Rebuild the initramfs and leave the chroot
+
+```bash
+update-initramfs -c -k all
+
+exit                      # leave the chroot
+umount -R /mnt/boot/efi
+umount -R /mnt/dev /mnt/proc /mnt/sys
+zpool export tank
+zpool export rpool
+```
 
 ## First Boot
 
-### Boot to Login
-
-After BIOS/UEFI, the GRUB bootloader appears briefly and the system boots straight through to the login prompt. With the canonical plain-ext4 layout (no LUKS) there is no disk-passphrase step.
+1. Remove the USB installation media.
+2. Reboot.
+3. The firmware hands off to **ZFSBootMenu** (not GRUB). It briefly shows the boot-environment menu; if left alone it boots the default environment (`rpool/ROOT/ubuntu`) after a short countdown.
 
 ### Login Prompt
 
 After boot completes:
 
 ```
-Ubuntu 26.04 LTS srv-ubuntu-01 tty1
+Ubuntu 26.04 LTS ms-s1-max tty1
 
-srv-ubuntu-01 login: _
+ms-s1-max login: _
 ```
 
-Log in with the username and password you created.
+Log in with the `admin` user you created in the chroot.
 
-### Verify SSH Access
-
-From another machine:
+### Verify pools and SSH
 
 ```bash
-# Using password
-ssh admin@192.168.1.100
+# rpool imported automatically as the root pool
+zpool status rpool
 
-# Using key (if imported during install)
+# tank was not part of the bootstrap chroot — import it once, then it persists
+sudo zpool import tank
+zpool status tank
+
+# Confirm the running root is the ZFS boot environment
+zfs list -o name,mountpoint,canmount rpool/ROOT/ubuntu
+mount | grep ' / '
+```
+
+From another machine, confirm key-based SSH:
+
+```bash
 ssh admin@192.168.1.100
-# Should not prompt for password
+# Should log in without a password prompt if your GitHub key was imported
 ```
 
 ## Post-Installation Verification
@@ -313,50 +409,58 @@ ssh admin@192.168.1.100
 Run these checks after first login:
 
 ```bash
-# Check Ubuntu version
+# Ubuntu version (dist-upgrade to 26.04 first if you fell back to noble)
 lsb_release -a
 
-# Verify disk layout
-lsblk
+# Both pools healthy
+zpool status
+zpool list
 
-# Check network
+# Boot environment layout
+zfs list -r rpool/ROOT
+
+# Kernel and network
+uname -r
 ip addr show
 ip route show
 
-# Verify SSH service
+# SSH service
 systemctl status ssh
 
-# Check for updates
-sudo apt update
-sudo apt list --upgradable
+# Confirm ZFSBootMenu's EFI entry is registered
+sudo efibootmgr -v | grep -i zfsbootmenu
 ```
 
 ## Troubleshooting Installation
 
-### Installer Crashes
+### ZFSBootMenu doesn't appear at boot
 
-- Try "Safe graphics" mode from boot menu
-- Check hardware compatibility
-- Verify ISO integrity
+The firmware is booting something else (or nothing). From a live environment, check and reorder the EFI entries:
 
-### Network Not Detected
+```bash
+sudo efibootmgr -v
+# Note the ZFSBootMenu entry's hex ID (e.g. Boot0003), then move it first:
+sudo efibootmgr -o 0003,0000,....
+```
 
-- Check cable connection
-- Verify interface is supported
-- May need firmware packages post-installation
+If no ZFSBootMenu entry exists at all, re-register it (mount the EFI partition and re-run the `efibootmgr --create` command above). Full recovery steps live in [Boot Issues](../troubleshooting/boot-issues.md).
 
-!!! note "LUKS not used by default"
-    The canonical layout has no disk encryption, so there is no passphrase to unlock. If you chose the optional LUKS+LVM alternative from [Disk Partitioning](disk-partitioning.md), see that page for unlock troubleshooting.
+### Pools won't import on first boot
 
-### Bootloader Not Installed
+```bash
+# Force-import by scanning by-id paths (from a live environment if needed)
+sudo zpool import -d /dev/disk/by-id -f rpool
+sudo zpool import -d /dev/disk/by-id -f tank
+```
 
-- Re-run installer, select "Install bootloader"
-- Or manually install from live USB:
-  ```bash
-  sudo chroot /target
-  grub-install /dev/nvme0n1
-  update-grub
-  ```
+### `debootstrap` fails to reach the archive
+
+Confirm live-environment networking (`ip -br addr`, `ping -c3 archive.ubuntu.com`) and that the `$SUITE` fallback to `noble` triggered if `resolute` isn't published yet.
+
+### No network detected in the live environment
+
+- Check the 10GbE cable and that the port shows state UP in `ip -br link`.
+- The RTL8127 NIC binds natively on the 7.0 kernel; on an older live ISO you may need to `sudo dhclient` manually or use a different port.
 
 ## Next Step
 

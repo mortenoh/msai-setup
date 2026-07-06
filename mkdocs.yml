@@ -179,6 +179,22 @@ nav:
       - Nextcloud: docker/nextcloud.md
       - Plex: docker/plex.md
 
+  - Incus:
+    - incus/index.md
+    - Installation: incus/installation.md
+    - Core Concepts: incus/concepts.md
+    - Storage: incus/storage.md
+    - Networking: incus/networking.md
+    - Containers: incus/containers.md
+    - GPU Passthrough: incus/gpu-passthrough.md
+    - Virtual Machines: incus/vms.md
+    - Windows 11 VM: incus/windows-vm.md
+    - Profiles: incus/profiles.md
+    - Snapshots & Backup: incus/snapshots-backup.md
+    - Troubleshooting: incus/troubleshooting.md
+    - Reference:
+      - Quick Reference: incus/reference/quick-reference.md
+
   - Networking:
     - Netplan Configuration:
       - netplan/index.md
