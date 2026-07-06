@@ -234,11 +234,19 @@
           ansible.builtin.command: "zfs create -o mountpoint=/home {{ rpool_name }}/home"
           changed_when: true
 
-    - name: migrate — mount the boot environment and home under the altroot
+    # Mount order is load-bearing. `zfs create rpool/home` auto-mounts it at
+    # {{ target_mnt }}/home immediately (canmount=on under the altroot) BEFORE the
+    # BE is mounted. If we then mount the BE at {{ target_mnt }} on top, /home ends
+    # up SHADOWED underneath the BE mount — visible in /proc/mounts but not in the
+    # mount tree — and can no longer be unmounted, so `zpool export` later fails
+    # with "cannot unmount .../home". So: unmount home first, mount the BE, THEN
+    # mount home on top of it, in the correct nesting order.
+    - name: migrate — mount the boot environment then home (correct nesting)
       ansible.builtin.shell: |
         set -euo pipefail
-        zfs mount | grep -q " {{ target_mnt }}$" || zfs mount {{ root_ds }}
-        zfs mount | grep -q " {{ target_mnt }}/home$" || zfs mount {{ rpool_name }}/home
+        zfs unmount {{ rpool_name }}/home 2>/dev/null || true
+        zfs mount | grep -q " {{ target_mnt }}$"       || zfs mount {{ root_ds }}
+        zfs mount | grep -q " {{ target_mnt }}/home$"  || zfs mount {{ rpool_name }}/home
       changed_when: true
 
     # -- Create tank (docs: disk-partitioning.md) ------------------------------
@@ -444,12 +452,34 @@
         umount -R {{ target_mnt }}/dev {{ target_mnt }}/proc {{ target_mnt }}/sys 2>/dev/null || true
       changed_when: true
 
+    # Export both pools so the new system (or the offline verifier) gets a clean
+    # first import. Unmount every dataset explicitly and stop zed first — a live
+    # ZFS Event Daemon or a still-mounted dataset makes `zpool export` fail with
+    # "pool is busy" / "cannot unmount". Retry a few times to let in-flight txg
+    # sync settle. Best-effort (|| true): on real hardware the subsequent reboot
+    # releases the pools regardless, and ZFSBootMenu force-imports on boot.
     - name: migrate — export the pools for a clean first import
       ansible.builtin.shell: |
-        set -euo pipefail
-        zpool export {{ tank_name }} 2>/dev/null || true
-        zpool export {{ rpool_name }} 2>/dev/null || true
+        set -uo pipefail
+        systemctl stop zfs-zed 2>/dev/null || true
+        zfs unmount -a 2>/dev/null || true
+        for pool in {{ tank_name }} {{ rpool_name }}; do
+          zpool list -H -o name "$pool" >/dev/null 2>&1 || continue
+          for attempt in 1 2 3 4 5; do
+            if zpool export "$pool" 2>/dev/null || zpool export -f "$pool" 2>/dev/null; then
+              echo "exported $pool (attempt $attempt)"; break
+            fi
+            sleep 2
+          done
+        done
+        systemctl start zfs-zed 2>/dev/null || true
+        echo "remaining imported pools: $(zpool list -H -o name 2>/dev/null | tr '\n' ' ')"
+      register: export_out
       changed_when: true
+
+    - name: migrate — export result
+      ansible.builtin.debug:
+        var: export_out.stdout_lines
 
     - name: migrate — summary
       ansible.builtin.debug:

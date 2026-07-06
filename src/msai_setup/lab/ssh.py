@@ -147,6 +147,34 @@ def run_remote(
     )
 
 
+def run_remote_script(
+    user: str,
+    host: str,
+    port: int,
+    script: str,
+    *,
+    identity_file: Path | None = None,
+    sudo: bool = True,
+) -> subprocess.CompletedProcess[str]:
+    """Run a multi-line bash `script` on the remote host, fed over stdin.
+
+    Piping the script to `bash -s` (rather than passing it as an argument)
+    sidesteps shell-quoting problems for large scripts. `sudo=True` runs it as
+    root via the lab user's passwordless sudo. Never raises on a non-zero exit;
+    the caller inspects `returncode`/`stdout`.
+    """
+    remote = "sudo bash -s" if sudo else "bash -s"
+    cmd = ssh_args(user, host, port, identity_file=identity_file) + [remote]
+    log.debug("running remote script (%d chars, sudo=%s)", len(script), sudo)
+    return subprocess.run(
+        cmd,
+        input=script,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+
 def push_authorized_key(
     user: str,
     host: str,
