@@ -186,6 +186,8 @@ nav:
     - Storage: incus/storage.md
     - Networking: incus/networking.md
     - Containers: incus/containers.md
+    - Docker in Incus: incus/docker-in-incus.md
+    - OCI Containers: incus/oci-containers.md
     - GPU Passthrough: incus/gpu-passthrough.md
     - Virtual Machines: incus/vms.md
     - Windows 11 VM: incus/windows-vm.md

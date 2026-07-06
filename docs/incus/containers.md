@@ -134,7 +134,7 @@ incus exec docker-host -- bash
     For running Docker inside an **unprivileged** container, `security.nesting=true` is typically sufficient on modern kernels — you do **not** need `security.privileged=true`. Privileged containers disable the UID/GID remapping that isolates the container's root from the host's root, which is a real security downgrade. Reach for privileged mode only if a specific workload provably needs it (some device or filesystem edge cases), and understand you're trading isolation for it. See the [Incus security explanation](https://linuxcontainers.org/incus/docs/main/explanation/security/).
 
 !!! warning "Some Docker storage drivers misbehave nested on ZFS"
-    Docker running inside a ZFS-backed Incus container sometimes struggles with its default storage driver (`overlay2` over an idmapped ZFS root has historically had rough edges). If Docker fails to start or images misbehave inside the container, forcing the `fuse-overlayfs` or `vfs` driver — or giving the container's `/var/lib/docker` its own dataset — is the usual fix. The full migration mechanics (relocating a compose stack, the storage-driver choice, bind-mounting host datasets for compose volumes) are the subject of the forthcoming **`docker-in-incus.md`** (phase 4); this page only covers *enabling* the capability.
+    Docker running inside a ZFS-backed Incus container sometimes struggles with its default storage driver (`overlay2` over an idmapped ZFS root has historically had rough edges). If Docker fails to start or images misbehave inside the container, forcing the `fuse-overlayfs` or `vfs` driver — or giving the container's `/var/lib/docker` its own dataset — is the usual fix. The full migration mechanics (relocating a compose stack, the storage-driver choice, bind-mounting host datasets for compose volumes) are the subject of [Docker in Incus](docker-in-incus.md); this page only covers *enabling* the capability.
 
 ### Verify nesting works
 
@@ -233,4 +233,4 @@ incus info media --resources                 # live CPU/mem
 - [GPU passthrough](gpu-passthrough.md) — giving a container the iGPU for ROCm.
 - [Profiles](profiles.md) — the reusable profiles this build standardizes on.
 - [Networking](networking.md) — exposing a container's services.
-- `docker-in-incus.md` (forthcoming, phase 4) — the full compose-stack migration guide.
+- [Docker in Incus](docker-in-incus.md) — the full compose-stack migration guide.

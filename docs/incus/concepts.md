@@ -68,7 +68,7 @@ The important remotes:
 | `images:` | the community image server ([images.linuxcontainers.org](https://images.linuxcontainers.org)) — Ubuntu, Debian, Alpine, and many more, for both containers and VMs |
 | `local:` | your host's own image cache |
 
-To run **Docker/OCI images** as Incus instances, you add an OCI-protocol remote (documented in the forthcoming `oci-containers.md` phase-4 page):
+To run **Docker/OCI images** as Incus instances, you add an OCI-protocol remote (documented in full on the [OCI application containers](oci-containers.md) page):
 
 ```bash
 incus remote add docker https://docker.io --protocol=oci

@@ -1,5 +1,13 @@
 # Ollama Stack
 
+!!! note "Docker now runs nested inside Incus"
+    On this build Docker is no longer installed on the host — it runs inside an
+    Incus system container with `security.nesting=true`, per
+    [Docker in Incus](../incus/docker-in-incus.md). The compose content on this
+    page is otherwise unchanged and still valid; it just runs one layer down,
+    inside that container. This stack (GPU passthrough plus ZFS bind mounts) is
+    the [worked migration example](../incus/docker-in-incus.md#step-5-worked-example-the-ollama-stack-unchanged).
+
 Docker-based local AI setup with Ollama and Open WebUI.
 
 ## Overview

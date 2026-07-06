@@ -1,5 +1,13 @@
 # Container Resource Limits
 
+!!! note "Docker now runs nested inside Incus"
+    On this build Docker is no longer installed on the host — it runs inside an
+    Incus system container with `security.nesting=true`, per
+    [Docker in Incus](../incus/docker-in-incus.md). The compose content on this
+    page is otherwise unchanged and still valid; it just runs one layer down,
+    inside that container. See the Incus section for the container creation,
+    ZFS storage, GPU, and networking wiring.
+
 Docker containers run without resource limits by default, meaning they can consume all available CPU, memory, and I/O. For a multi-workload server, proper resource constraints prevent any single container from starving others.
 
 ## Memory Limits

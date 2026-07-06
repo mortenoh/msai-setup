@@ -12,7 +12,7 @@ Incus manages two kinds of instance from one CLI and one API:
 - **System containers** — a full Linux userland (its own init, its own package manager, ssh-able if you want) sharing the host kernel. Think "a tiny VM without the virtualization overhead." This is where nested Docker stacks run.
 - **Virtual machines** — QEMU/KVM guests with their own kernel, full hardware emulation, TPM 2.0 and Secure Boot support. This is where Windows 11 runs.
 
-It also runs **OCI application containers** — launch a Docker/OCI image directly as an Incus instance without a nested Docker daemon (`incus launch docker:...`). That is a newer, less-proven path documented separately (see [forthcoming pages](#forthcoming-phase-4)).
+It also runs **OCI application containers** — launch a Docker/OCI image directly as an Incus instance without a nested Docker daemon (`incus launch docker:...`). That is a newer, less-proven path documented separately (see [OCI application containers](oci-containers.md)).
 
 Under the hood Incus leans on the same primitives this build already uses elsewhere: Linux namespaces and cgroups for containers, KVM for VMs, and **ZFS** for storage — every instance is a native ZFS dataset under `rpool/incus`.
 
@@ -63,6 +63,8 @@ Read roughly in order — each page assumes the mental model built by the ones b
 - [Storage](storage.md) — the ZFS storage driver in depth: per-instance datasets, snapshots/clones, composing with sanoid/syncoid.
 - [Networking](networking.md) — the `incusbr0` bridge, UFW forwarding integration (the Incus equivalent of `ufw-docker`), Netplan/systemd-networkd, Tailscale reachability.
 - [Containers](containers.md) — system containers, nesting for Docker, resource limits, reusable profiles.
+- [Docker in Incus](docker-in-incus.md) — migrating existing `docker-compose.yml` stacks into a nesting-enabled system container (the build default).
+- [OCI application containers](oci-containers.md) — running a Docker/OCI image directly as an Incus instance, for simple single-image services.
 - [GPU passthrough](gpu-passthrough.md) — the ROCm/AMD story: the `gpu` device plus an explicit `/dev/kfd` `unix-char` device, verifying `rocminfo` inside a container, render-group GID matching, troubleshooting.
 - [Virtual machines](vms.md) — Incus VMs in general: creation, resources, virtio, `incus console`.
 - [Windows 11 VM](windows-vm.md) — TPM 2.0 + Secure Boot, virtio drivers, RDP, iGPU stays with the host.
@@ -73,14 +75,14 @@ Read roughly in order — each page assumes the mental model built by the ones b
 - [Troubleshooting](troubleshooting.md) — nesting, GPU devices, storage pools, networking/UFW.
 - [Quick reference](reference/quick-reference.md) — command cheat sheet.
 
-### Forthcoming (phase 4)
+### Running Docker workloads
 
-Two guides slot in here once written and are intentionally *not* in this pass:
+The two ways Docker-packaged software runs on this build:
 
-- `docker-in-incus.md` — the full guide to relocating existing `docker-compose.yml` stacks into a nesting-enabled Incus system container.
-- `oci-containers.md` — running native Incus OCI application containers (`incus launch docker:...`) for simple single-image services.
+- [Docker in Incus](docker-in-incus.md) — the full guide to relocating existing `docker-compose.yml` stacks into a nesting-enabled Incus system container. This is the default for anything already packaged as a compose stack.
+- [OCI application containers](oci-containers.md) — running a Docker/OCI image directly as an Incus instance (`incus launch docker:...`), for simple single-image services where a full nested-Docker container is more machinery than needed.
 
-The [Containers](containers.md) page covers *enabling* nesting; the migration mechanics and the OCI-vs-nested-Docker decision live in those forthcoming pages.
+The [Containers](containers.md) page covers *enabling* nesting; the migration mechanics and the OCI-vs-nested-Docker decision live in those two pages.
 
 ## Verification note
 

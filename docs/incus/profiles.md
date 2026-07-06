@@ -87,7 +87,7 @@ incus launch images:ubuntu/24.04 media --profile default --profile docker-nestin
 incus exec media -- bash -c 'curl -fsSL https://get.docker.com | sh'
 ```
 
-This is the default deployment shape for existing compose stacks on this build. The migration mechanics (relocating stacks, storage-driver choices) are the forthcoming **`docker-in-incus.md`** (phase 4); this profile is just the capability toggle.
+This is the default deployment shape for existing compose stacks on this build. The migration mechanics (relocating stacks, storage-driver choices) are in [Docker in Incus](docker-in-incus.md); this profile is just the capability toggle.
 
 ## Profile: `ai-stack` — GPU + Docker + generous limits
 

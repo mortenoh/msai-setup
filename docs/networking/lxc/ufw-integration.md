@@ -1,279 +1,141 @@
-# LXD UFW Integration
+# Incus UFW integration
 
-!!! note "This page is about LXD, not classic LXC"
-    Every command here that starts with `lxc ` (space, no dash) —
-    `lxc network set`, `lxc config device add`, `lxc launch` — is the **LXD**
-    client. Classic LXC (the `lxc-create` / `lxc-start` tools) has no
-    `lxc network` CLI: its bridge and NAT come from `lxc-net` (configured in
-    `/etc/default/lxc-net`, default bridge `lxcbr0`) and per-container veth
-    settings in the container's config file. The UFW-bypass problem and the
-    `before.rules` remedy below apply to both — a NAT bridge is a NAT bridge —
-    but substitute your bridge name (`lxcbr0` for classic LXC, `lxdbr0` for
-    LXD) and note that `ipv4.firewall` / proxy devices are **LXD-only**
-    features.
+!!! note "Summary page — the full treatment is in Incus networking"
+    This is the networking-section summary of the Incus-vs-UFW firewall
+    problem. The **detailed strategy** — why it happens, the exact
+    `ufw route allow` rules, the ordering trap, proxy devices, and the
+    two-tier example — lives in
+    [Incus networking → the firewall problem](../../incus/networking.md#the-firewall-problem-incus-vs-ufw).
+    Read that for depth; this page is the short version.
 
-## The Same Problem as Docker
+    This build runs **[Incus](../../incus/index.md)** (the community fork of
+    LXD). The commands are the `incus` client and the bridge is `incusbr0`.
 
-LXD with NAT networking has similar UFW bypass issues as Docker:
+## The same problem as Docker
 
-1. LXD manages its own iptables rules
-2. NAT rules bypass UFW filter chains
-3. Published ports may be accessible despite UFW
+Like Docker, **Incus writes its own firewall rules** when
+`ipv4.firewall: true` on a managed bridge. On Ubuntu 26.04 the backend is
+**nftables** (UFW uses the nftables backend too). The conflict runs both
+ways:
 
-## How LXD Uses iptables
+1. **UFW's default `FORWARD` policy is DROP** — which can block forwarded
+   traffic to and from `incusbr0`, so instances lose internet or
+   inter-instance connectivity even though Incus "set up" the bridge.
+2. **Incus's own NAT rules can bypass UFW's filter chains** — the same reason
+   `ufw-docker` exists for Docker; a naively-forwarded port could be reachable
+   despite UFW.
 
-### NAT Rules
+## The fix: let UFW own filtering
 
-```bash
-sudo iptables -t nat -L -n | grep -A5 10.10.10
-```
+This build hands the *filtering* decision to UFW (its single firewall
+front-end) and leaves Incus doing only NAT.
 
-```
-Chain POSTROUTING (policy ACCEPT)
-MASQUERADE  all  --  10.10.10.0/24  !10.10.10.0/24
-```
-
-### Filter Rules
+### Step 1 — stop Incus managing the bridge firewall
 
 ```bash
-sudo iptables -L -n | grep -A10 lxd
+incus network set incusbr0 ipv4.firewall false
+incus network set incusbr0 ipv6.firewall false
 ```
 
-LXD creates rules for:
-- Bridge forwarding
-- DHCP/DNS access
-- Inter-container communication
+NAT (`ipv4.nat`) still works; only the filtering is handed off.
 
-### LXD's Firewall Mode
+### Step 2 — allow the bridge in UFW
+
+`ufw route allow` is the modern UFW way to permit **forwarded** traffic
+without hand-editing `before.rules` — it's what gets past
+`DEFAULT_FORWARD_POLICY="DROP"`:
 
 ```bash
-# Check current setting
-lxc network get lxdbr0 ipv4.firewall
+sudo ufw allow in on incusbr0
+sudo ufw route allow in on incusbr0
+sudo ufw route allow out on incusbr0
 ```
 
-When `ipv4.firewall=true`:
-- LXD manages iptables for the network
-- Rules auto-created for containers
-- May conflict with UFW
-
-## Solution: Disable LXD Firewall
-
-Let UFW manage all rules:
+To be more restrictive, allow only what instances need from the host (DHCP +
+DNS) and rely on `route allow` for the rest:
 
 ```bash
-lxc network set lxdbr0 ipv4.firewall false
-lxc network set lxdbr0 ipv6.firewall false
+sudo ufw allow in on incusbr0 to any port 67 proto udp    # IPv4 DHCP
+sudo ufw allow in on incusbr0 to any port 53              # DNS
 ```
 
-Then configure UFW manually.
-
-## UFW Configuration for LXD
-
-### /etc/ufw/before.rules
+### Step 3 — ensure IP forwarding is on
 
 ```bash
-# NAT table
-*nat
-:PREROUTING ACCEPT [0:0]
-:POSTROUTING ACCEPT [0:0]
-
-# LXD NAT
--A POSTROUTING -s 10.10.10.0/24 ! -d 10.10.10.0/24 -o eth0 -j MASQUERADE
-
-COMMIT
-
-# Filter table
-*filter
-:ufw-before-input - [0:0]
-:ufw-before-output - [0:0]
-:ufw-before-forward - [0:0]
-:ufw-not-local - [0:0]
-
-# ... standard rules ...
-
-# LXD bridge forwarding
--A ufw-before-forward -i lxdbr0 -j ACCEPT
--A ufw-before-forward -o lxdbr0 -j ACCEPT
-
-# ... rest of rules ...
-COMMIT
+echo "net.ipv4.conf.all.forwarding=1" | sudo tee /etc/sysctl.d/99-incus-forwarding.conf
+sudo systemctl restart systemd-sysctl
+sysctl net.ipv4.conf.all.forwarding      # should be 1
 ```
 
-### Apply
+### Step 4 — reload and verify
 
 ```bash
 sudo ufw reload
+sudo ufw status verbose
+
+incus exec web -- ping -c2 1.1.1.1
 ```
 
-## Proxy Devices with UFW
+!!! warning "Order matters — disable Incus's firewall before trusting UFW"
+    If you add the UFW `route allow` rules but leave `ipv4.firewall: true`,
+    two systems write forwarding/NAT rules for the same bridge and the
+    interaction is hard to reason about. Do step 1 *before* relying on the
+    UFW rules. Confirm with `sudo nft list ruleset` that Incus is no longer
+    adding filter chains for `incusbr0`.
 
-### The Recommended Approach
+## Exposing a port: proxy device with `bind=host`
 
-Use proxy devices with `bind=host`:
+The recommended way to expose an instance service and keep it under UFW is a
+**proxy device bound on the host** — the listener runs in the host's network
+namespace, so standard UFW rules apply:
 
 ```bash
-lxc config device add mycontainer web proxy \
+incus config device add web http proxy \
     listen=tcp:0.0.0.0:8080 \
     connect=tcp:127.0.0.1:80 \
     bind=host
+
+sudo ufw allow from 192.168.0.0/24 to any port 8080 proto tcp
 ```
 
-With `bind=host`:
-- Proxy runs in host's network namespace
-- UFW rules apply to incoming traffic
-- You control access with standard UFW rules
+Prefer this over any direct-exposure trick — it's the one pattern that keeps
+port exposure under UFW's control.
 
-### UFW Rules for Proxy
+## Two-tier example (public front-end, internal back-end)
 
 ```bash
-# Allow from anywhere
-sudo ufw allow 8080/tcp
-
-# Or restrict
-sudo ufw allow from 192.168.1.0/24 to any port 8080
-```
-
-## Direct Exposure (Without Proxy)
-
-If container binds to host port (network_mode equivalent):
-
-```yaml
-# Container profile
-config:
-  security.privileged: "true"
-devices:
-  eth0:
-    name: eth0
-    nictype: p2p  # Or bridged
-    type: nic
-```
-
-UFW rules apply normally in this case.
-
-## Multiple Networks
-
-### Internal Network (No External Access)
-
-```bash
-# Create internal network
-lxc network create internal \
-    ipv4.address=10.20.0.1/24 \
-    ipv4.nat=false
-
-# No NAT = containers can't reach internet
-```
-
-### Isolated Containers
-
-```bash
-# Network with no routing
-lxc network create isolated \
-    ipv4.address=10.30.0.1/24 \
-    ipv4.nat=false \
-    ipv4.routing=false
-```
-
-## Complete Example
-
-### Network Setup
-
-```bash
-# Main network (NAT)
-lxc network set lxdbr0 ipv4.firewall false
-
-# Internal network
-lxc network create backend \
-    ipv4.address=10.20.0.1/24 \
-    ipv4.nat=false \
-    ipv4.firewall=false
-```
-
-### /etc/ufw/before.rules
-
-```bash
-*nat
-:PREROUTING ACCEPT [0:0]
-:POSTROUTING ACCEPT [0:0]
-
-# NAT only for lxdbr0
--A POSTROUTING -s 10.10.10.0/24 ! -d 10.10.10.0/24 -o eth0 -j MASQUERADE
-
-COMMIT
-
-*filter
-# ... standard rules ...
-
-# lxdbr0 forwarding
--A ufw-before-forward -i lxdbr0 -j ACCEPT
--A ufw-before-forward -o lxdbr0 -j ACCEPT
-
-# backend (internal) - only between containers
--A ufw-before-forward -i backend -o backend -j ACCEPT
--A ufw-before-forward -i backend -j DROP  # No external access
-
-COMMIT
-```
-
-### Container Configuration
-
-```bash
-# Web server (public facing)
-lxc launch ubuntu:26.04 webserver
-lxc network attach lxdbr0 webserver eth0
-lxc config device add webserver http proxy \
+# Public web instance on incusbr0, exposed via a host-bound proxy
+incus launch images:ubuntu/24.04 webserver
+incus config device add webserver http proxy \
     listen=tcp:0.0.0.0:80 connect=tcp:127.0.0.1:80 bind=host
+sudo ufw allow 80/tcp
 
-# Database (internal only)
-lxc launch ubuntu:26.04 database
-lxc network attach backend database eth0
-# No proxy = not accessible from outside
-```
-
-### UFW Rules
-
-```bash
-sudo ufw allow 80/tcp    # Web server
-sudo ufw allow 443/tcp   # HTTPS
-# Database not exposed
+# Internal-only DB tier (NAT off = no internet, no LAN)
+incus network create backend ipv4.address=10.20.0.1/24 ipv4.nat=false ipv4.firewall=false
+incus launch images:ubuntu/24.04 database
+incus config device override database eth0 network=backend
+# No proxy device = not reachable from outside
 ```
 
 ## Troubleshooting
 
-### Container Can't Reach Internet
-
 ```bash
-# Check NAT
-lxc network get lxdbr0 ipv4.nat
+# Instance can't reach the internet
+incus network get incusbr0 ipv4.nat        # expect true
+sysctl net.ipv4.conf.all.forwarding        # expect 1
+sudo ufw status verbose                     # look for the route allow rules
 
-# Check iptables
-sudo iptables -t nat -L POSTROUTING -n
+# Two firewalls fighting
+sudo nft list ruleset | less                # confirm no incus filter chains for incusbr0
 
-# Check forwarding
-cat /proc/sys/net/ipv4/ip_forward
-
-# Check UFW forward rules
-sudo iptables -L ufw-before-forward -n
-```
-
-### Proxy Not Working
-
-```bash
-# Check proxy device
-lxc config device show mycontainer | grep proxy
-
-# Check listening
-sudo ss -tlnp | grep 8080
-
-# Check UFW
+# Proxy not reachable
+incus config device show web | grep -A5 proxy
+sudo ss -tlnp | grep 8080                   # host is listening (bind=host)
 sudo ufw status | grep 8080
 ```
 
-### UFW Blocks Container Traffic
+## See also
 
-```bash
-# Check FORWARD chain
-sudo iptables -L FORWARD -n -v
-
-# Ensure LXD bridge rules in before.rules
-grep lxdbr0 /etc/ufw/before.rules
-```
+- [Incus networking](../../incus/networking.md) - the full firewall/bridge/Tailscale story.
+- [Incus network overview](overview.md) - bridge, network types, exposing services.
+- [UFW configuration](../ufw/configuration.md) - the host firewall this integrates with.

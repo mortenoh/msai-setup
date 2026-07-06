@@ -53,7 +53,7 @@ incus restart <c>
 #    or "vfs" (slow, always works) as a last resort
 ```
 
-The full compose-migration guidance (including the recommended driver for this build) is the forthcoming **`docker-in-incus.md`** (phase 4). See also [Containers](containers.md#nesting-running-docker-inside-a-container).
+The full compose-migration guidance (including the recommended driver for this build) is in [Docker in Incus](docker-in-incus.md). See also [Containers](containers.md#nesting-running-docker-inside-a-container).
 
 ### Do NOT reach for `security.privileged`
 

@@ -1,212 +1,195 @@
-# Docker vs LXC on the MS-S1 MAX
+# Docker vs system containers on the MS-S1 MAX
 
-You're picking how the services on this box are packaged. Both Docker
-and LXC use the same Linux kernel primitives (namespaces, cgroups), but
-they make different trade-offs about what an isolated unit should look
-like and how you operate it day-to-day. This page is a practical
-decision aid for *this* build (Ubuntu Server 26.04 + ZFS), not a generic
-comparison.
+This used to be a "Docker vs LXC, pick one for bare metal" decision. It
+isn't anymore. This build's architecture pivoted: **[Incus](../incus/index.md)
+is now the one virtualization and container layer on the host**, and both
+"Docker" and "system container" are now things that run *inside* Incus, not
+choices you make on bare metal.
 
-## TL;DR for this build
+So this page is no longer a decision aid for what to install on the host —
+that decision is made (Incus). What it still is: an explanation of the
+genuine technical difference between a Docker container's process-level
+model and a system container's full-userland model, because that difference
+is exactly what tells you, *within Incus*, whether to nest Docker or use an
+Incus-native container for a given service.
 
-> **Use Docker by default. Reach for LXC when you need a full-system
-> container (own init, package manager, ssh-able, looks like a tiny VM).**
+!!! note "What changed, and where the current story lives"
+    An earlier draft of this project ran Docker directly on the host and
+    reached for LXC only for niche "small VM" needs. The host now runs
+    **no Docker daemon and no bare libvirt** — everything is an Incus
+    instance. The canonical current pages are:
 
-Reasons:
+    - [Incus — the one virtualization layer](../incus/index.md) — why the
+      architecture flipped, and the whole section index.
+    - [Docker in Incus](../incus/docker-in-incus.md) — relocating existing
+      `docker-compose.yml` stacks into a nesting-enabled Incus system
+      container. This is where the compose-based services documented across
+      this site actually run now.
+    - [Incus OCI containers](../incus/oci-containers.md) — running a single
+      OCI/Docker image directly as an Incus instance, with no nested Docker
+      daemon.
 
-- Every application stack in these docs (Ollama, llama.cpp,
-  Open WebUI, Jellyfin, Nextcloud, Prometheus + Grafana, etc.) ships
-  first-class Docker images. There is no upstream LXC story for most of
-  them.
-- ZFS bind-mount workflows are already wired into the Docker pages.
-- LXC's strength is when you want a "small VM" — and on the MS-S1 MAX
-  the AI workloads we care about don't need that.
+    The old "Docker on bare metal by default" reasoning is preserved below
+    as historical context where it still teaches something, not erased.
 
-The interesting cases for LXC are below.
+## TL;DR for this build (post-pivot)
 
-!!! note "This page is about containers, not full VMs"
-    Everything below compares Docker containers to LXC/LXD *system
-    containers* — both share the host kernel. It has nothing to do with
-    this build's use of full virtual machines (Windows 11, optionally a
-    Linux desktop) via KVM/QEMU + libvirt, documented in
-    [Virtualization](../virtualization/index.md) — that decision is
-    unaffected by anything on this page.
+> **Incus is the substrate. Nothing runs on bare metal except Incus itself.
+> Inside Incus you have three shapes for a workload — pick by how the
+> upstream ships and how much machinery the service needs.**
 
-    Worth calling out explicitly since it's a common mix-up: modern LXD
-    (4.0+) can *also* launch real VMs (`lxc launch <image> --vm`,
-    QEMU-backed under the hood), not just system containers. This build
-    still uses KVM/libvirt directly for VMs rather than LXD's VM mode —
-    the entire [Windows 11 VM](../virtualization/windows-vm.md) guide
-    (TPM 2.0, OVMF, virtio-gpu, RDP) is already built around
-    virt-manager/libvirt, whose tooling is more mature for Windows
-    guests than LXD's newer VM feature, and there's no benefit to
-    consolidating VMs and service containers under one tool here.
+| Workload shape | Runs as | When |
+|---|---|---|
+| Compose-style multi-container stack | Docker, nested inside an Incus **system container** (`security.nesting=true`) | The service already ships a `docker-compose.yml` (Nextcloud, the media stack, monitoring, the AI stack) — keep it essentially unchanged, just inside Incus |
+| Single OCI image, simple | Incus **OCI application container** (`incus launch docker:...`) | One image, one process, no compose orchestration — a full nested Docker daemon is more than the service needs |
+| Full Linux userland to log into | Incus **system container** directly (no Docker inside) | A build sandbox, a per-tenant Linux, a system pet you `apt upgrade` slowly |
+| Own kernel / non-Linux / TPM / Secure Boot | Incus **VM** | Windows 11, or anything needing hardware-virtualized isolation — see [Incus VMs](../incus/vms.md) |
 
-## Where the categories actually differ
+The rest of this page is the "why" behind the first three rows — the
+container-model differences that make the choice.
 
-| Aspect | Docker | LXC |
-|--------|--------|-----|
-| Mental model | One process per container | Full system: init, sshd, package manager |
-| Image format | OCI images from a registry | Distro rootfs templates (Debian, Ubuntu, Alpine) |
-| Operate via | `docker compose up` | `lxc-start`, `lxc-attach`, or run sshd inside |
+## The distinction that still matters: process container vs system container
+
+This is the genuinely-useful, still-accurate part of the old comparison.
+A Docker container and a system container use the same kernel primitives
+(namespaces, cgroups) but model an "isolated unit" differently, and that
+difference is unchanged by the pivot — it just now plays out *inside* Incus
+instead of on bare metal.
+
+| Aspect | Docker (process container) | System container (Incus, LXC-style) |
+|--------|----------------------------|--------------------------------------|
+| Mental model | One process the image launches | Full system: init, sshd, package manager |
+| Image format | OCI images from a registry | Distro rootfs images (Debian, Ubuntu, Alpine) |
+| Operate via | `docker compose up`, inside a nesting container | `incus exec`, or ssh into it |
 | Update cadence | Pull a new image | `apt upgrade` inside the container |
-| Networking | Bridge + overlay; per-port forwards | Bridge + plain Linux networking |
-| Persistent data | Bind mount or named volume | Lives inside the rootfs (or bind mount) |
-| ZFS integration | Bind mount a dataset into the container | Use the ZFS storage backend (one dataset per container, automatic) |
-| Snapshots | Snapshot the bind-mounted dataset | `lxc-snapshot` (uses ZFS clone under the hood) |
-| GPU passthrough | `--device=/dev/kfd --device=/dev/dri` | Pass devices through in the container config |
-| Resource limits | `deploy.resources.limits` in Compose | cgroup config in the container's `config` |
-| Ecosystem | Massive — almost every app has an official image | Smaller — you build the rootfs yourself |
-| Best for | Services where the upstream packages images for you | Per-tenant Linux systems, dev sandboxes, legacy stacks |
+| Persistent data | Bind mount from the container's filesystem | Lives in the instance's ZFS dataset (or a bind mount) |
+| ZFS integration | Bind-mount a host path into the Docker container | Automatic — every Incus instance *is* a ZFS dataset under `rpool/incus` |
+| Snapshots | Snapshot the underlying dataset | `incus snapshot` — a ZFS snapshot under the hood |
+| GPU passthrough | `--device=/dev/kfd --device=/dev/dri` in compose | Incus `gpu` device + explicit `/dev/kfd` `unix-char` device |
+| Best for | Services the upstream packages as images | A whole Linux to live in, or the host for nested Docker |
 
-A Docker container = "the one process this image launches" with
-everything else stripped out. An LXC container = "a complete userland,
-just without its own kernel."
+A Docker container is "the one process this image launches" with everything
+else stripped out. A system container is "a complete userland, just without
+its own kernel." That was true when the choice was "which runs on bare
+metal"; it's still true now that the choice is "which shape inside Incus."
 
-## When to pick LXC anyway
+## How the old reasoning maps onto the new architecture
 
-Pick LXC for a service when **at least one** of these is true:
+The old page's arguments were mostly right about the *containers* — it just
+assumed one of them ran directly on the host. Re-read through the pivot:
 
-- **You want a full Linux system to log into and `apt install` things
-  in.** Examples: a build sandbox, an "experimental tinker" machine,
-  a tenant Linux you give to someone else, a system pet you want to
-  upgrade slowly.
-- **You're packaging a stack that doesn't ship as an OCI image and
-  doesn't want to be re-architected** — old multi-process daemons
-  with their own service supervisor, weird systemd dependencies, etc.
-- **You want ZFS-native snapshots per container with zero glue.** The
-  LXC ZFS storage backend creates one dataset per container, and
-  `lxc-snapshot` becomes a zfs snapshot operation.
-- **You want a closer-to-VM feel** without paying VM overhead. Each
-  container has its own init, its own networking namespace, its own
-  PID 1 — you can `ssh` into it.
+- **"Every stack ships a first-class Docker image; there's no upstream LXC
+  story."** Still true, and it's exactly why Docker didn't go away — the
+  compose stacks keep running under Docker. What changed is *where*: inside
+  an Incus system container with nesting enabled, not on the host. See
+  [Docker in Incus](../incus/docker-in-incus.md).
+- **"ZFS bind-mount workflows are wired into the Docker pages."** Still the
+  pattern *inside* the nesting container for the Docker case. But note Incus
+  gives you a cleaner option the old design couldn't: an Incus instance is
+  natively a ZFS dataset, so `incus snapshot` and `zfs send`/`receive` work
+  per instance with no bind-mount choreography at that layer. See
+  [Incus storage](../incus/storage.md).
+- **"LXC's strength is a small-VM feel — apt, sshd, its own init."** Still
+  its strength, and now it's a first-class, default-supported thing: that's
+  what an Incus **system container** *is*. You no longer reach for a separate
+  toolchain to get it.
+- **"LXC's ZFS storage backend gives one dataset per container with zero
+  glue."** This is now simply how Incus works for *every* instance — the
+  thing that used to be LXC's niche advantage is the substrate's default.
 
-If none of those apply, the Docker path will be lower-friction.
+The one claim that fully flipped is the headline: "use Docker on bare metal
+by default." The host runs no Docker daemon at all now — that's a deliberate
+attack-surface decision (see [why Incus](../incus/index.md#why-incus-replaced-docker-direct-plus-bare-kvmlibvirt)).
 
-## When to pick Docker (most things on this box)
+## Nested Docker vs Incus-native OCI: the choice you actually make now
 
-Pick Docker when **any** of these are true:
+Given a single containerized service, the live question is no longer
+"Docker or LXC" but "nest a Docker daemon, or launch the image as an Incus
+OCI instance." Short version:
 
-- The upstream project publishes a Docker image (almost universal for
-  the AI / media / observability stacks documented here).
-- You want declarative, version-controlled service definitions
-  (`docker-compose.yml` in git) over ad-hoc rootfs munging.
-- You want one-line "blow away and recreate from image" semantics.
-- The "one image = one app" model fits the service.
+- **Nest Docker** when the service is a multi-container `docker-compose.yml`
+  stack, depends on Docker-specific features (compose networks, healthchecks,
+  an existing operational muscle-memory), or you want to keep the upstream's
+  packaging verbatim. One nesting-enabled system container can host a whole
+  compose stack. Full walkthrough: [Docker in Incus](../incus/docker-in-incus.md).
+- **Use an Incus OCI container** when it's one image, one process, and you'd
+  rather not run a Docker daemon inside a container just to run one image.
+  Incus pulls the OCI image and runs it as a native instance. Details and the
+  trade-offs: [Incus OCI containers](../incus/oci-containers.md).
 
-This is essentially every service mentioned in this site outside of
-this page.
+Neither of those is "bare metal Docker," which no longer exists on this box.
 
-## ZFS interaction
+## Docker on ZFS, inside the nesting container {#docker-on-zfs-the-pattern-used-in-these-docs}
 
-Both work well with ZFS — but differently.
-
-### Docker on ZFS (the pattern used in these docs)
-
-Use ZFS for persistent data, bind it into containers:
+The ZFS bind-mount pattern the Docker pages describe hasn't gone away — it
+just operates one layer in, inside the nesting-enabled Incus system
+container. Persistent data still lives on a ZFS dataset that's bind-mounted
+into the Docker container:
 
 ```yaml
-# docker-compose.yml
+# docker-compose.yml, running inside the Incus nesting container
 services:
   ollama:
     image: ollama/ollama:rocm
     volumes:
-      - /mnt/tank/ai/ollama:/root/.ollama  # bind to ZFS dataset
+      - /data/ollama:/root/.ollama   # a path backed by ZFS
 ```
 
-Snapshot the dataset, not the container:
+What's different post-pivot is that the *outer* layer is now a ZFS-native
+Incus instance: the system container itself is a dataset under `rpool/incus`,
+so `incus snapshot` captures the whole thing (Docker daemon state included),
+while raw `zfs snapshot` on the inner data dataset is still available for
+per-service granularity. See [Incus storage](../incus/storage.md) and
+[Docker in Incus](../incus/docker-in-incus.md) for how the two layers of
+dataset nest, and [ZFS Datasets](../zfs/datasets.md) for the layout.
 
-```bash
-zfs snapshot tank/ai/ollama@before-upgrade
-```
+## GPU and device passthrough (now via Incus) {#gpu-and-device-passthrough}
 
-Containers stay disposable; data stays on ZFS.
+Both container shapes can still reach the AMD Strix Halo iGPU — but the
+device plumbing is now Incus's job, not the host Docker daemon's.
 
-### LXC on ZFS (LXC storage backend)
+- For the **nested-Docker** case, the Incus system container gets the GPU
+  devices via Incus (`gpu` device plus a `/dev/kfd` `unix-char` device), and
+  Docker inside it then sees `/dev/kfd` and `/dev/dri` and can hand them to
+  its own containers the usual way (`devices:` in compose). The canonical
+  device recipe is [Incus GPU passthrough](../incus/gpu-passthrough.md); the
+  container-inner compose fragment lives with the [GPU containers](../ai/containers/gpu-containers.md)
+  docs.
+- For an **Incus-native** container, you attach the GPU with Incus's device
+  types directly and skip Docker entirely.
 
-Configure LXC to put each container in its own ZFS dataset:
+The old page hand-wrote `lxc.cgroup2.devices.allow` lines for this — Incus's
+`gpu` and `unix-char` device abstractions replace that hand-editing, which is
+the same ergonomics win Docker's `--device` flags once had, now at the Incus
+layer.
 
-```bash
-# /etc/lxc/default.conf or container config
-lxc.rootfs.path = zfs:tank/lxc/<name>
-```
+## A pragmatic recipe for this box (post-pivot)
 
-Now `lxc-create` provisions the dataset, `lxc-snapshot` is a
-`zfs snapshot`, and `lxc-clone` is a `zfs clone`. Fast, atomic, and
-the container's "image" lives natively on ZFS without bind-mount
-choreography.
+1. **Install Incus on the host** — the one host-level container/VM tool.
+   See [Incus installation](../incus/installation.md).
+2. **Compose stacks → a nesting-enabled Incus system container.** The AI,
+   media, observability, and identity stacks keep their `docker-compose.yml`
+   files, just running inside Incus. [Docker in Incus](../incus/docker-in-incus.md).
+3. **Simple single-image services → Incus OCI containers.** No nested daemon.
+   [Incus OCI containers](../incus/oci-containers.md).
+4. **A Linux to tinker in → an Incus system container directly.** `apt install`
+   freely; snapshot it with `incus snapshot` before you break it.
+5. **VMs (Windows 11, etc.) → Incus VM instances.** [Incus VMs](../incus/vms.md).
 
-This is the case where LXC's ZFS integration genuinely beats Docker's
-storage drivers.
-
-## GPU and device passthrough
-
-Both paths can hand the AMD Strix Halo iGPU to a container.
-
-### Docker
-
-```yaml
-services:
-  llama-server:
-    image: ghcr.io/ggml-org/llama.cpp:server-rocm
-    devices:
-      - /dev/kfd
-      - /dev/dri
-    group_add:
-      - video
-      - render
-```
-
-See [GPU Containers](../ai/containers/gpu-containers.md) for the full
-flow.
-
-### LXC
-
-In the container's `config`:
-
-```
-lxc.cgroup2.devices.allow = c 226:* rwm   # /dev/dri/*
-lxc.cgroup2.devices.allow = c 240:* rwm   # /dev/kfd
-lxc.mount.entry = /dev/dri  dev/dri  none bind,optional,create=dir
-lxc.mount.entry = /dev/kfd  dev/kfd  none bind,optional,create=file
-```
-
-This works, but you're hand-writing what Docker handles in two lines.
-Unless you already need LXC for other reasons, this is friction for no
-gain.
-
-## A pragmatic recipe for this box
-
-The pattern that works on the MS-S1 MAX:
-
-1. **Docker for every "service" in the documented stacks** (AI,
-   observability, media, identity). Bind-mounted onto ZFS datasets.
-2. **LXC, if at all, for tinker / per-tenant Linux systems** — a
-   sandbox where you `apt install` freely and don't care about the
-   image stability story.
-
-You don't need both running at once for most home-server use. If you
-end up using LXC, isolate its bridge from Docker's so the two
-networking models don't argue.
-
-## Decision flow
-
-```
-Does the upstream project publish an official OCI image?
-  yes -> Docker
-  no  -> can you trivially port it?
-           yes -> Docker
-           no  -> Do you want a "small VM" feel (ssh, apt, systemd inside)?
-                    yes -> LXC
-                    no  -> wrap it in a Dockerfile and use Docker
-```
+You don't juggle Docker-on-host vs LXD-on-host vs libvirt anymore — Incus is
+the single front door, and these are just instance shapes behind it.
 
 ## See also
 
-- [Docker Setup](setup.md) - install + daemon config
-- [Docker Compose](compose.md) - the way services are declared on
-  this build
-- [ZFS Datasets](../zfs/datasets.md) - the layout the Docker bind
-  mounts assume
-- [GPU Containers](../ai/containers/gpu-containers.md) - ROCm device
-  passthrough into containers
+- [Incus — the one virtualization layer](../incus/index.md) — the section
+  that supersedes the old Docker-direct decision.
+- [Docker in Incus](../incus/docker-in-incus.md) — nesting compose stacks.
+- [Incus OCI containers](../incus/oci-containers.md) — native single-image
+  services.
+- [Incus containers](../incus/containers.md) — system containers, nesting,
+  profiles, resource limits.
+- [Docker Setup](setup.md) / [Docker Compose](compose.md) — how the compose
+  stacks themselves are declared (now run inside the nesting container).
+- [ZFS Datasets](../zfs/datasets.md) — the storage layout underneath it all.
+- [GPU Containers](../ai/containers/gpu-containers.md) — ROCm device
+  passthrough into the containers that need it.
