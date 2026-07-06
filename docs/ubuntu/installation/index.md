@@ -29,8 +29,8 @@ For experienced administrators:
 
 1. [Download and verify ISO](preparation.md#download-and-verify)
 2. Confirm BIOS settings ([BIOS Setup](../../getting-started/bios-setup.md)) — Secure Boot off, IOMMU on
-3. [Partition: ext4 root + ZFS pool](disk-partitioning.md#canonical-layout-plain-ext4-root-zfs-data-pool)
-4. [Run through installer](installation-walkthrough.md)
+3. [Partition and create both pools: root-on-ZFS + ZFSBootMenu](disk-partitioning.md#canonical-layout-root-on-zfs-two-independent-pools)
+4. [Run through the manual install](installation-walkthrough.md)
 5. [Complete post-install checklist](post-install-checklist.md)
 
 ## Installation Types
