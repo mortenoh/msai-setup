@@ -2,6 +2,16 @@
 
 APU power and thermal control for balancing performance, power consumption, and noise.
 
+## This machine's power envelope
+
+Ground the tuning below in the real hardware rather than generic AMD-laptop advice:
+
+- **External PSU**: 320 W brick (per the project's `START.md` and [Hardware](../getting-started/hardware.md)).
+- **Sustained draw**: ~130 W under a typical mixed load (host services + a VM + light inference).
+- **Peak draw**: ~160 W during sustained all-core CPU + iGPU inference bursts.
+
+That leaves generous headroom under the 320 W supply, so power tuning on this box is about **heat and fan noise on a 24/7 machine**, not about staying inside the PSU budget. The single APU (16-core Zen 5 CPU + integrated Radeon 8060S) dominates the envelope — there is no discrete GPU, and CPU and GPU draw share the same package power and thermal budget, so pushing one leaves less for the other.
+
 ## CPU Power Governors
 
 ### cpupower Tool
@@ -180,13 +190,15 @@ Monitor temperatures continuously:
 watch -n 2 sensors
 ```
 
-Key temperature points:
+Key temperature thresholds (these match [Monitoring -> Temperature Thresholds](monitoring.md#temperature-thresholds), the single source of truth for this build):
 
-| Component | Target | Throttle |
-|-----------|--------|----------|
-| CPU (Tctl) | < 80C | ~95C |
-| GPU | < 85C | ~100C |
-| NVMe | < 60C | ~80C |
+| Component | Normal | Warning | Critical |
+|-----------|--------|---------|----------|
+| CPU (Tctl) | < 70C | 70-85C | > 85C |
+| GPU (edge) | < 75C | 75-90C | > 90C |
+| NVMe | < 50C | 50-70C | > 70C |
+
+These are deliberately conservative for a 24/7 unattended box — comfortably below where the silicon actually throttles to protect itself (CPU ~95C, GPU ~100C, NVMe ~80C). The gap is your reaction window: treat "warning" as "look into cooling/airflow" and "critical" as "reduce load or power profile now".
 
 ### Thermal Throttling
 
@@ -218,6 +230,30 @@ Consider power reduction when:
 - Fan noise is unacceptable
 - Ambient temperature is high
 - Running sustained workloads
+
+## GPU power and clocks (ROCm)
+
+The governors and EPP settings above only cover the CPU side of the APU. The integrated Radeon 8060S is managed through amdgpu/ROCm, and you query and cap it with `rocm-smi`:
+
+```bash
+# Overview: GPU power draw, temperature, clocks, and utilisation
+rocm-smi
+
+# Power specifically
+rocm-smi --showpower
+
+# Clocks and the current performance level
+rocm-smi --showclocks
+rocm-smi --showperflevel
+
+# Cap board power in watts (lower = cooler/quieter, slower inference)
+sudo rocm-smi --setpoweroverdrive 120
+
+# Force / reset the performance level (auto is the sane default)
+sudo rocm-smi --setperflevel auto
+```
+
+Because the iGPU shares the APU package and unified memory with the CPU, GPU power trades directly against CPU power within the same ~130 W sustained / ~160 W peak envelope. For sustained LLM inference, the usual pattern is to leave the GPU at `auto` and shape heat/noise via the CPU-side profiles above rather than starving the GPU with an aggressive `--setpoweroverdrive`. See [ROCm Quick Start](../ai/gpu/quick-start.md) for driver setup and verification.
 
 ## Fan Control
 

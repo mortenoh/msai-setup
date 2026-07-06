@@ -253,6 +253,22 @@ tailscale serve https / http://localhost:80
 tailscale funnel 443
 ```
 
+!!! danger "Funnel contradicts this build's default: host is NOT on the public internet"
+    On this build the default answer to "should I Funnel a real service to the
+    public internet?" is **no**. The stated threat model (see `START.md`) is that
+    this host is reachable on the LAN and over Tailscale, but deliberately **not**
+    directly on the public internet. `tailscale funnel` breaks exactly that: it
+    publishes the service to anyone with the URL.
+
+    Prefer Tailscale-only access instead:
+
+    - `tailscale serve` (tailnet-only) is fine - the service stays private to your
+      tailnet and behind Tailscale ACLs and device auth.
+    - `tailscale funnel` (public) is the part that breaks the threat model.
+
+    If you genuinely need public exposure of a self-hosted service, do it on a
+    different, purpose-built host - not on this ZFS/AI/VM server.
+
 ### Quick File Sharing
 
 Serve a directory temporarily:

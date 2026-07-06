@@ -46,6 +46,14 @@ volumes:
   openwebui_data:
 ```
 
+!!! note "Named volumes here are for the CPU quick-start only"
+    This basic block uses Docker named volumes so it runs anywhere. On the
+    MS-S1 MAX build, real data lives on ZFS: the
+    [Complete Production Stack](#complete-production-stack) below bind-mounts
+    into `/mnt/tank/...` datasets instead (see
+    [Docker vs LXC](docker-vs-lxc.md)). Prefer that pattern for anything you
+    keep.
+
 Start:
 
 ```bash
@@ -489,7 +497,7 @@ services:
     ports:
       - "3000:8080"
     volumes:
-      - openwebui_data:/app/backend/data
+      - /mnt/tank/containers/open-webui:/app/backend/data  # bind to ZFS dataset
     environment:
       - OLLAMA_BASE_URL=http://ollama:11434
       - WEBUI_AUTH=true
@@ -518,10 +526,6 @@ services:
 networks:
   ai_network:
     driver: bridge
-
-volumes:
-  ollama_data:
-  openwebui_data:
 ```
 
 ## Troubleshooting
@@ -554,7 +558,7 @@ ollama pull llama3.2:8b-q4_K_M
 ### Slow Inference
 
 - Ensure the GPU is being used (`rocm-smi` should show utilization during inference)
-- Confirm `HSA_OVERRIDE_GFX_VERSION=11.5.1` is set for the Strix Halo iGPU (gfx1151)
+- On ROCm 7.x with gfx1151 (Strix Halo) do **not** set `HSA_OVERRIDE_GFX_VERSION` — native support is included and the override can force the wrong code path. It is only needed for older AMD GPUs on ROCm 6.x (see the note above).
 - Use quantized models for faster loading
 - Increase GPU memory allocation if running other ROCm workloads
 

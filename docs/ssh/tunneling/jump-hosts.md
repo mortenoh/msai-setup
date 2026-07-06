@@ -36,6 +36,9 @@ ssh -J jump_host destination
 ssh -J bastion.example.com internal-server
 ```
 
+!!! note "Forwarding hardening on this build"
+    This build's hardened sshd sets `AllowTcpForwarding no` and `AllowAgentForwarding no`. ProxyJump (`-J`) itself is unaffected: it rides the SSH connection's own channel (stdio forwarding), so it does **not** require server-side `AllowTcpForwarding`. However, `-A` / `ForwardAgent` is blocked by `AllowAgentForwarding no`, and any `-L` / `-R` you tunnel through the jump is blocked by `AllowTcpForwarding no`. See [Tunneling overview](index.md) for how to scope an exception with a `Match` block.
+
 ### With User and Port
 
 ```bash

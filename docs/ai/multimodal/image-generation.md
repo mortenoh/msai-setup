@@ -30,8 +30,14 @@ Local image generation options:
 
 ### Installation
 
+Install the ROCm build of PyTorch from the ROCm wheel index (the default `pip install torch` pulls a CUDA wheel, which is useless on this AMD box), then add the diffusers stack:
+
 ```bash
-pip install diffusers transformers accelerate torch
+# ROCm build of torch for the gfx1151 iGPU — see ../frameworks/pytorch.md for the current index URL
+pip install torch --index-url https://download.pytorch.org/whl/rocm7.1
+
+# diffusers stack (torch already installed above)
+pip install diffusers transformers accelerate
 ```
 
 ### Basic Generation
@@ -99,10 +105,11 @@ services:
     group_add:
       - video
       - render
-    environment:
-      HSA_OVERRIDE_GFX_VERSION: "11.5.1"
     command: --listen --api
 ```
+
+!!! note "HSA_OVERRIDE_GFX_VERSION not needed"
+    ROCm 7.x has native `gfx1151` support — don't set `HSA_OVERRIDE_GFX_VERSION` here. See [ROCm Installation](../gpu/rocm-installation.md).
 
 ### API Usage
 
@@ -165,9 +172,10 @@ services:
     group_add:
       - video
       - render
-    environment:
-      HSA_OVERRIDE_GFX_VERSION: "11.5.1"
 ```
+
+!!! note "HSA_OVERRIDE_GFX_VERSION not needed"
+    Not required on ROCm 7.x/gfx1151 — see [ROCm Installation](../gpu/rocm-installation.md).
 
 ### API Usage
 
@@ -231,8 +239,10 @@ services:
       - ./models:/build/models
     environment:
       - THREADS=4
-      - HSA_OVERRIDE_GFX_VERSION=11.5.1
 ```
+
+!!! note "HSA_OVERRIDE_GFX_VERSION not needed"
+    Not required on ROCm 7.x/gfx1151 — see [ROCm Installation](../gpu/rocm-installation.md).
 
 ### API Usage
 

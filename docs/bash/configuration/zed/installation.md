@@ -2,6 +2,15 @@
 
 Installing and setting up Zed on your system.
 
+!!! important "Install on your workstation, not the server"
+    Run every install command on this page on **your own local Mac or PC** --
+    the machine with a display and a Metal/Vulkan-capable GPU where you
+    actually use the editor. Do **not** install Zed on the headless MS-S1 MAX
+    server: it has no display server or desktop environment, so the GUI cannot
+    run there. To work with files on the server, install Zed locally and use
+    its **Remote Development (SSH)** feature -- the UI stays on your workstation
+    while code executes on the server.
+
 ## System Requirements
 
 - **macOS**: 10.15 (Catalina) or later

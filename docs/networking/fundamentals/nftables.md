@@ -14,16 +14,37 @@ nftables is the modern replacement for iptables, ip6tables, arptables, and ebtab
 
 On Ubuntu Server 26.04:
 
-- nftables is the default backend
-- iptables commands use `iptables-nft` (translation layer)
-- UFW uses nftables backend
-- Docker still uses iptables compatibility layer
-- libvirt uses iptables compatibility layer
+- nftables is the kernel-level packet-filtering engine (the netfilter backend)
+- iptables commands use `iptables-nft` (the compatibility/translation layer)
+- **UFW does not have a native nftables backend.** It generates
+  iptables-style rules and applies them by shelling out to the `iptables` /
+  `ip6tables` / `iptables-restore` binaries — which on Ubuntu are the
+  `iptables-nft` variants. So UFW reaches nftables *through* the iptables-nft
+  compatibility layer, exactly like Docker and libvirt do.
+- Docker uses the iptables compatibility layer
+- libvirt uses the iptables compatibility layer
 
 ```bash
-# Check which iptables is in use
+# Check which iptables is in use (should report nft, not legacy)
 update-alternatives --query iptables
 ```
+
+!!! note "Two views of the same rules"
+    Because everything on this build (UFW, Docker, libvirt) writes through
+    `iptables-nft`, the rules live in the kernel's nftables engine but inside
+    iptables-compatibility tables (named `ip filter`, `ip nat`, `ip6 filter`,
+    and so on, with the familiar `ufw-*` / `DOCKER-*` / `LIBVIRT_*` chains).
+    The `iptables -L`-style verification commands used throughout this section
+    therefore show these rules natively — they are the tool that wrote them.
+    You can see the *same* rules rendered in nft syntax with:
+
+    ```bash
+    sudo nft list ruleset
+    ```
+
+    This is a different presentation of one ruleset, not a second firewall.
+    Do not add native `nft` rules into those iptables-compat tables; keep
+    custom `nft` rules in their own tables (see below).
 
 ## Why Understand nftables?
 

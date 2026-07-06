@@ -44,6 +44,18 @@ Comprehensive logging is essential for security monitoring, troubleshooting, and
 | logrotate | Log rotation and compression | Config in /etc/logrotate.d/ |
 | auditd | Security event logging | /var/log/audit/ |
 
+!!! warning "Docker container logs are not rotated by logrotate"
+    Docker writes each container's stdout/stderr to its own JSON file under `/var/lib/docker/containers/*/*.log`. These are managed by the Docker daemon, **not** by `/etc/logrotate.d`, so the entries in this table do not cover them. On a container-heavy host like this build, an unbounded chatty container can silently fill the root ext4 filesystem. Cap them by setting `log-opts` in `/etc/docker/daemon.json`:
+
+    ```json
+    {
+      "log-driver": "json-file",
+      "log-opts": { "max-size": "10m", "max-file": "3" }
+    }
+    ```
+
+    This applies to newly created containers only — recreate existing ones after restarting Docker. See [Docker Setup](../../docker/setup.md) for the full daemon configuration.
+
 ## Section Contents
 
 | Page | Description |

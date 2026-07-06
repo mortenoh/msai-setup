@@ -77,24 +77,46 @@ Increase network buffer sizes for high traffic:
 ethtool -g eth0
 ```
 
-### Configure in Netplan
+### Set Ring Buffers with ethtool
 
-```yaml
-network:
-  version: 2
-  ethernets:
-    eth0:
-      dhcp4: true
-      receive-buffer-size: 4096
-      transmit-buffer-size: 4096
-```
-
-### Alternative: ethtool
+Ring buffer sizes are **not** part of netplan's schema — there are no
+`receive-buffer-size`/`transmit-buffer-size` keys, and adding them to a
+netplan YAML file has no effect. Use `ethtool -G` instead:
 
 ```bash
 # Set ring buffers
 ethtool -G eth0 rx 4096 tx 4096
 ```
+
+### Persist Ring Buffers Across Reboots
+
+`ethtool -G` is not persistent on its own. Apply it on interface up. Either
+add a small systemd unit:
+
+```ini
+# /etc/systemd/system/ethtool-ring-eth0.service
+[Unit]
+Description=Set ring buffers on eth0
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/sbin/ethtool -G eth0 rx 4096 tx 4096
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```bash
+systemctl enable --now ethtool-ring-eth0.service
+```
+
+...or drive it from a networkd-dispatcher script that runs when the
+interface comes up. See [Dispatcher Scripts](dispatcher.md) for
+the dispatcher approach, which is the right mechanism for applying `ethtool`
+settings on interface up.
 
 ## Hardware Offloading
 

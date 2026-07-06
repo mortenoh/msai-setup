@@ -1,6 +1,7 @@
 # 1Password CLI
 
-Access 1Password secrets from the command line with biometric authentication.
+Access 1Password secrets from the command line, either with a service account
+token (headless servers) or with biometric unlock (your local workstation).
 
 ## Overview
 
@@ -8,9 +9,26 @@ Access 1Password secrets from the command line with biometric authentication.
 
 - **Secret access** - Read passwords, API keys, credentials
 - **SSH agent** - Use 1Password as SSH key storage
-- **Biometric unlock** - Touch ID, Windows Hello
+- **Service account tokens** - Unattended, headless authentication
+- **Biometric unlock** - Touch ID, Windows Hello (local workstation only)
 - **Script integration** - Inject secrets into scripts
 - **chezmoi integration** - Templated dotfiles with secrets
+
+!!! important "Server vs. workstation: pick the right unlock method"
+    The two authentication methods are tiered by where `op` runs:
+
+    - **On the headless MS-S1 MAX server** (SSH-only, no Touch ID / Windows
+      Hello hardware, no 1Password desktop app), use a **service account
+      token** via `OP_SERVICE_ACCOUNT_TOKEN`. This is the primary workflow for
+      this build -- see [Service Accounts](#service-accounts) and the
+      [headless setup below](#headless-server-service-account-token-primary).
+    - **On your own local Mac/PC**, use **biometric unlock** through the
+      1Password desktop app -- convenient and interactive, but it depends on
+      hardware and a GUI app the server does not have. See
+      [Biometric Unlock](#biometric-unlock-local-workstation).
+
+    The two sections are consistent: biometric for the machine in front of
+    you, service account token for the box at the end of an SSH session.
 
 ## Installation
 
@@ -56,7 +74,35 @@ op signin my.1password.com
 op account add --address my.1password.com --email you@example.com
 ```
 
-### Biometric Unlock (macOS)
+### Headless Server: Service Account Token (primary)
+
+On the MS-S1 MAX -- headless, SSH-only, with no biometric hardware or
+1Password desktop app -- authenticate with a **service account token**. This
+is the primary workflow for anything running on the server (scripts, cron,
+systemd units, chezmoi apply during provisioning).
+
+1. Create a service account and token (see [Service Accounts](#service-accounts)
+   for the full walkthrough).
+2. Provide the token to `op` via the `OP_SERVICE_ACCOUNT_TOKEN` environment
+   variable. Do **not** paste it into a shell interactively (it would land in
+   history); load it from a protected file or a systemd credential.
+
+```bash
+# Load the token into the environment (e.g. from a root-only 0600 file)
+export OP_SERVICE_ACCOUNT_TOKEN="$(cat /etc/1password/op-token)"
+
+# No signin, no biometric prompt -- reads work directly
+op read "op://Personal/GitHub/token"
+```
+
+With `OP_SERVICE_ACCOUNT_TOKEN` set, `op signin` is unnecessary and biometric
+prompts never appear -- exactly what you want on a display-less box.
+
+### Biometric Unlock (local workstation)
+
+This method is for **your own Mac/PC**, which has Touch ID / Windows Hello and
+the 1Password desktop app. It does not apply to the headless server -- use the
+[service account token](#headless-server-service-account-token-primary) there.
 
 1. Open 1Password app
 2. Go to Settings > Developer
@@ -347,13 +393,16 @@ op run --env-file .env.template --no-masking -- direnv allow
 
 ## Service Accounts
 
-For CI/CD and automated systems without biometric:
+For the headless MS-S1 MAX server, CI/CD, and any automated system without
+biometric hardware, a service account is the correct authentication method.
+This is the same token referenced in the
+[headless server setup](#headless-server-service-account-token-primary) above.
 
 ### Create Service Account
 
 1. Go to 1Password.com > Settings > Service Accounts
 2. Create new service account
-3. Grant vault access
+3. Grant vault access (only the vaults the server actually needs)
 4. Save token securely
 
 ### Use in CI/CD
@@ -410,11 +459,14 @@ op item delete "Old Service" --force
 
 ## Security Best Practices
 
-1. **Use biometric** - Enable Touch ID/Windows Hello
-2. **Limit vault access** - Only grant necessary vaults
+1. **Match the method to the machine** - Biometric (Touch ID/Windows Hello) on
+   your local workstation; service account token on the headless server
+2. **Limit vault access** - Only grant necessary vaults, especially for the
+   server's service account
 3. **Audit access** - Review 1Password audit logs
 4. **Short sessions** - Sign out when not needed
-5. **Service accounts** - Use for CI/CD, not personal tokens
+5. **Protect the token** - Store `OP_SERVICE_ACCOUNT_TOKEN` in a root-only
+   file or systemd credential, never in shell history or a committed file
 
 ### Prevent Secrets in History
 

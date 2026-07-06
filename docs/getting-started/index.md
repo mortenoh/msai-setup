@@ -8,7 +8,7 @@ The MS-S1 MAX project creates a home server that separates concerns cleanly:
 
 - **Host OS** handles hardware, networking, and virtualization
 - **ZFS** manages all persistent data
-- **KVM/QEMU** runs full operating systems with GPU passthrough
+- **KVM/QEMU** runs full operating systems; the iGPU stays with the host for ROCm by default, so there is no GPU passthrough unless you opt in
 - **Docker** runs services with data stored on ZFS
 
 ## Sections

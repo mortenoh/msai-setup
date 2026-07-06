@@ -107,14 +107,15 @@ grub rescue> normal
 
 ### Reinstall GRUB
 
-Boot from live USB, then:
+Boot from live USB, then (device paths for this build's ext4 layout — see [Disk Partitioning](../installation/disk-partitioning.md)):
 
 ```bash
-# Mount root filesystem
-sudo mount /dev/sda2 /mnt
+# Mount root filesystem (nvme0n1p3)
+sudo mount /dev/nvme0n1p3 /mnt
 
-# Mount EFI (if UEFI)
-sudo mount /dev/sda1 /mnt/boot/efi
+# Mount /boot (nvme0n1p2) and EFI (nvme0n1p1)
+sudo mount /dev/nvme0n1p2 /mnt/boot
+sudo mount /dev/nvme0n1p1 /mnt/boot/efi
 
 # Mount virtual filesystems
 sudo mount --bind /dev /mnt/dev
@@ -124,8 +125,8 @@ sudo mount --bind /sys /mnt/sys
 # Chroot into system
 sudo chroot /mnt
 
-# Reinstall GRUB
-grub-install /dev/sda
+# Reinstall GRUB (target the whole disk, not a partition)
+grub-install /dev/nvme0n1
 update-grub
 
 # Exit and reboot
@@ -163,44 +164,8 @@ Press **Ctrl+X** or **F10** to boot with modified parameters.
 
 ## LUKS Encryption Issues
 
-### Wrong Passphrase
-
-If LUKS passphrase isn't working:
-
-```bash
-# Boot from live USB
-# Find LUKS partition
-lsblk
-
-# Test unlock
-sudo cryptsetup open /dev/sda3 cryptroot
-# Enter passphrase
-
-# If successful, mount and continue boot
-sudo mount /dev/mapper/vg--system-lv--root /mnt
-```
-
-### Add Recovery Key
-
-From live USB with volume unlocked:
-
-```bash
-# Add additional passphrase
-sudo cryptsetup luksAddKey /dev/sda3
-
-# Or add key file
-sudo cryptsetup luksAddKey /dev/sda3 /path/to/keyfile
-```
-
-### LUKS Header Backup/Restore
-
-```bash
-# Backup (do this on healthy system!)
-sudo cryptsetup luksHeaderBackup /dev/sda3 --header-backup-file luks-header.img
-
-# Restore from backup
-sudo cryptsetup luksHeaderRestore /dev/sda3 --header-backup-file luks-header.img
-```
+!!! note "Not applicable to this build's default layout"
+    This build uses an **unencrypted plain ext4 root** (no LUKS). LUKS unlock, recovery keys, and header backup/restore only apply if you followed the "Encrypted Alternative — LUKS + LVM" path in [Disk Partitioning](../installation/disk-partitioning.md); the `cryptsetup` man pages cover that path.
 
 ## Kernel Issues
 
@@ -290,8 +255,8 @@ If filesystem check fails:
 # Boot to recovery mode or live USB
 
 # Check filesystem (unmount first if needed)
-sudo umount /dev/sda2
-sudo fsck -y /dev/sda2
+sudo umount /dev/nvme0n1p3
+sudo fsck -y /dev/nvme0n1p3
 
 # For root filesystem, use recovery mode
 # It will run fsck automatically
@@ -374,15 +339,14 @@ netplan apply
 # Find your partitions
 lsblk
 
-# Mount root
-sudo mount /dev/sda2 /mnt
+# Mount root (nvme0n1p3)
+sudo mount /dev/nvme0n1p3 /mnt
 
-# If LUKS encrypted
-sudo cryptsetup open /dev/sda3 cryptroot
-sudo mount /dev/mapper/vg--system-lv--root /mnt
+# Mount /boot (nvme0n1p2) and EFI (nvme0n1p1)
+sudo mount /dev/nvme0n1p2 /mnt/boot
+sudo mount /dev/nvme0n1p1 /mnt/boot/efi
 
-# Mount other partitions
-sudo mount /dev/sda1 /mnt/boot/efi
+# Mount virtual filesystems
 sudo mount --bind /dev /mnt/dev
 sudo mount --bind /proc /mnt/proc
 sudo mount --bind /sys /mnt/sys
@@ -395,6 +359,9 @@ sudo chroot /mnt
 exit
 sudo reboot
 ```
+
+!!! note "LUKS+LVM alternative"
+    If you followed the encrypted alternative from [Disk Partitioning](../installation/disk-partitioning.md), unlock first with `sudo cryptsetup open /dev/nvme0n1p3 cryptroot` and mount the resulting `/dev/mapper/...` root device instead of `nvme0n1p3`.
 
 ## Quick Reference
 
@@ -416,14 +383,14 @@ init=/bin/bash                  # Direct bash
 mount -o remount,rw /        # Remount root writable
 
 # GRUB
-grub-install /dev/sda        # Reinstall GRUB
+grub-install /dev/nvme0n1    # Reinstall GRUB (whole disk)
 update-grub                  # Update config
 
 # Kernel
 dpkg --list | grep linux-image  # List kernels
 
 # Filesystem
-fsck -y /dev/sda2            # Fix filesystem
+fsck -y /dev/nvme0n1p3       # Fix root filesystem
 blkid                        # Show UUIDs
 
 # systemd
@@ -446,11 +413,13 @@ grep -r "APT::NeverAutoRemove" /etc/apt/
 
 ### Backup LUKS Header
 
-```bash
-# Critical! Do this on healthy system
-sudo cryptsetup luksHeaderBackup /dev/sda3 \
-    --header-backup-file /safe/location/luks-header-backup.img
-```
+!!! note "Only if you chose the LUKS+LVM alternative"
+    The default build has no LUKS. If you followed the encrypted alternative from [Disk Partitioning](../installation/disk-partitioning.md), back up the header on a healthy system:
+
+    ```bash
+    sudo cryptsetup luksHeaderBackup /dev/nvme0n1p3 \
+        --header-backup-file /safe/location/luks-header-backup.img
+    ```
 
 ### Backup GRUB
 

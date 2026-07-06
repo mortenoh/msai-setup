@@ -20,8 +20,9 @@ services:
     restart: unless-stopped
     ports:
       # Port 3000 is reserved for Grafana on this build; Homepage uses 3030.
+      # Bound to localhost only; reach it through the reverse proxy.
       # See /services/index.md for the canonical port map.
-      - "3030:3000"
+      - "127.0.0.1:3030:3000"
     volumes:
       - /mnt/tank/containers/homepage/config:/app/config
       - /var/run/docker.sock:/var/run/docker.sock:ro
@@ -79,15 +80,13 @@ layout:
 ```yaml
 # config/services.yaml
 - Infrastructure:
-    - Proxmox:
-        icon: proxmox.png
-        href: https://proxmox.local:8006
-        description: Virtualization
+    - Traefik:
+        icon: traefik.png
+        href: https://traefik.example.com
+        description: Reverse Proxy
         widget:
-          type: proxmox
-          url: https://proxmox.local:8006
-          username: api@pam!homepage
-          password: your-api-token
+          type: traefik
+          url: http://traefik:8080
 
     - Portainer:
         icon: portainer.png

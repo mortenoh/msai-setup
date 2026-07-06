@@ -20,6 +20,9 @@ A short list of "something broke; what do I do?" with pointers to the canonical 
 | Forgot SSH access (locked out) | Console-rescue path or single-user GRUB boot | See [Locked-out recovery](#locked-out-of-ssh) below |
 | Tailscale stopped working | Re-auth, check ACLs | [Tailscale Troubleshooting](../tailscale/troubleshooting/index.md) |
 
+!!! note "What offsite replication actually covers"
+    The syncoid schedule in [Backup &amp; Recovery](backup.md#remote-backups) replicates each dataset to its **own** offsite target (`backup/nextcloud-data`, `backup/nextcloud-app`, `backup/db`, `backup/ai`, `backup/containers`, `backup/backups`) — there is no single recursive `backup/tank@latest`. So "restore everything from offsite" means receiving each dataset back individually; see [Backup &amp; Recovery -> Runbook: Full System Recovery](backup.md#runbook-full-system-recovery). `tank/media` and `tank/vm` have offsite coverage **only** if you enabled their optional syncoid jobs; otherwise they're protected by local snapshots and the on-site replica alone.
+
 ## Database from snapshot or SQL dump
 
 Two paths depending on what's available.

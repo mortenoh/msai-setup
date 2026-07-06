@@ -17,7 +17,7 @@ Modules live in collections. The fully-qualified name is `<namespace>.<collectio
 | `ansible.posix.firewalld` | firewalld (RHEL/Fedora) — needs `ansible.posix` |
 | `community.docker.docker_compose_v2` | Docker Compose — needs `community.docker` |
 
-The collections used in this build are in `scripts/lab/ansible/requirements.yml`. Install them with `ansible-galaxy collection install -r ...`.
+The collections used in this build are in `src/msai_setup/lab/ansible/requirements.yml`: `community.general`, `ansible.posix`, `community.docker` (required by `services.yml`), and `devsec.hardening`. Install them with `ansible-galaxy collection install -r src/msai_setup/lab/ansible/requirements.yml`.
 
 You can also write modules with just the bare name (e.g. `apt:` instead of `ansible.builtin.apt:`) — Ansible resolves them via the implicit `collections:` path. Prefer FQCN: it's unambiguous and survives renames.
 
@@ -465,3 +465,4 @@ A well-written module reports `changed: true` only when it actually changed some
 - [Variables](variables.md) — how to feed parameters into modules.
 - [Handlers](handlers.md) — what `notify:` triggers.
 - [Vault](vault.md) — when a module parameter is a secret.
+- The hands-on walkthrough: [`src/msai_setup/lab/README.md`](https://github.com/mortenoh/msai-setup/blob/main/src/msai_setup/lab/README.md) — these modules used for real in the six shipped playbooks.

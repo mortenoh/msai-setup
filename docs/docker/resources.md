@@ -141,7 +141,7 @@ services:
     environment:
       POSTGRES_PASSWORD_FILE: /run/secrets/db_password
     volumes:
-      - /mnt/tank/docker/postgres/data:/var/lib/postgresql/data
+      - /mnt/tank/db/postgres:/var/lib/postgresql/data
     secrets:
       - db_password
 
@@ -195,21 +195,27 @@ services:
 
 ## Daemon-Level Defaults
 
-Set default limits for all containers in `/etc/docker/daemon.json`:
+The canonical `/etc/docker/daemon.json` for this build (log rotation plus the
+`overlay2` storage driver) lives in [Docker Setup](setup.md#docker-daemon) —
+edit that one file rather than maintaining a second copy here.
+
+To set default ulimits for all containers, add the `default-ulimits` block to
+that same file. The merged result:
 
 ```json
 {
+  "log-driver": "json-file",
+  "log-opts": {
+    "max-size": "10m",
+    "max-file": "3"
+  },
+  "storage-driver": "overlay2",
   "default-ulimits": {
     "nofile": {
       "Name": "nofile",
       "Hard": 65536,
       "Soft": 65536
     }
-  },
-  "log-driver": "json-file",
-  "log-opts": {
-    "max-size": "10m",
-    "max-file": "3"
   }
 }
 ```

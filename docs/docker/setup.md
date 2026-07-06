@@ -100,6 +100,12 @@ After install, use UFW rules to allow access to specific container ports:
 sudo ufw route allow proto tcp from 192.168.1.0/24 to any port 8096
 ```
 
+!!! tip "Deeper UFW/Docker treatment"
+    The mechanics of why Docker bypasses UFW, and the full set of mitigation
+    strategies, are covered in
+    [UFW/Docker Conflict](../networking/docker/ufw-conflict.md) and
+    [UFW/Docker Solutions](../networking/docker/ufw-solutions.md).
+
 ### Bind internal services to localhost
 
 For anything that doesn't need direct external access, bind to `127.0.0.1` in compose and route through your reverse proxy on 80/443:
@@ -124,6 +130,16 @@ Organize compose files:
     │   └── docker-compose.yml
     └── .env
 ```
+
+!!! note "Compose files vs. data paths"
+    The compose files themselves (and the `.env`) live in your home directory
+    under `~/docker/<svc>/` — small, git-trackable, disposable definitions.
+    The **data** those services persist does not live here: the `volumes:`
+    bind mounts point at ZFS datasets under `/mnt/tank/...`
+    (e.g. `/mnt/tank/nextcloud-data`, `/mnt/tank/media`), as shown in
+    [Nextcloud](nextcloud.md) and [Plex](plex.md). Keeping the two separate is
+    deliberate: you can wipe and re-clone `~/docker` without touching pool
+    data, and snapshot pool data without dragging in compose config.
 
 ## Common Commands
 

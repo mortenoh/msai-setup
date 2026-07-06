@@ -63,7 +63,7 @@ Pre-built images for cloud deployments:
 - Optimized for virtual environments
 
 !!! note "This Guide's Focus"
-    This guide focuses on **physical server installation** with manual partitioning and full disk encryption. For cloud deployments, see [Ubuntu Cloud Images](https://cloud-images.ubuntu.com/).
+    This guide focuses on **physical server installation** with manual partitioning (plain ext4 root, no LUKS by default — see [Disk Partitioning](disk-partitioning.md) for the optional encrypted alternative). For cloud deployments, see [Ubuntu Cloud Images](https://cloud-images.ubuntu.com/).
 
 ## Hardware
 

@@ -132,10 +132,13 @@ PubkeyAuthentication yes
 AllowUsers admin deploy
 AllowGroups ssh-users
 
-# Forwarding
-AllowTcpForwarding yes
+# Forwarding (this build's default: all off)
+AllowTcpForwarding no
 AllowAgentForwarding no
 X11Forwarding no
+# Need forwarding for one case? Scope it, don't flip the global:
+#   Match User tunneluser
+#       AllowTcpForwarding yes
 
 # Timeouts
 ClientAliveInterval 300
@@ -254,4 +257,4 @@ alias scp-resume='rsync -avzP --partial'
 | Host key changed | `ssh-keygen -R hostname` |
 | Slow connection | `UseDNS no` in sshd_config |
 | Connection drops | `ServerAliveInterval 60` |
-| Can't forward | `AllowTcpForwarding yes` in sshd_config |
+| Can't forward ("administratively prohibited") | This build sets `AllowTcpForwarding no` by default. Scope an exception in a `Match` block in `/etc/ssh/sshd_config.d/` rather than flipping the global; confirm with `sudo sshd -T \| grep -i allowtcpforwarding` |

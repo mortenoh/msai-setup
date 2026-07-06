@@ -155,7 +155,7 @@ Honest about limits:
 - **Procedural logic** (loops with side effects, intricate branching) is awkward in YAML. If a task feels like it needs a real loop with state, drop into a shell module — but mark `changed_when:` so idempotency reporting stays honest.
 - **One-shot scripts** that should not be idempotent (e.g. "fire this off and forget it") fit better as plain shell scripts.
 
-For this build: **VBoxManage (Python) for VM provisioning + Ansible for everything inside the VM**. The two halves of `scripts/lab/`.
+For this build: **VBoxManage (Python, via the `msai` CLI) for VM provisioning + Ansible for everything inside the VM**. The two halves of `src/msai_setup/lab/`. The hands-on walkthrough of both is [`src/msai_setup/lab/README.md`](https://github.com/mortenoh/msai-setup/blob/main/src/msai_setup/lab/README.md).
 
 ## Where to go next
 

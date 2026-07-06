@@ -9,10 +9,17 @@ The honest truth about SPICE clients on macOS and practical workarounds.
 
 ### Reality Check
 
+!!! note "No Proxmox on this build"
+    This host runs bare KVM/libvirt on Ubuntu Server, not Proxmox, so there is
+    no Proxmox web console to fall back to. The libvirt-native equivalents are
+    `virt-manager` connected over SSH, or `remote-viewer`/`virt-viewer` against
+    an SSH-forwarded SPICE port — used below in place of the "web console"
+    option.
+
 | Approach | Effort | Experience |
 |----------|--------|------------|
 | virt-viewer via Homebrew | Medium | Mediocre |
-| Proxmox web console | Low | Good |
+| virt-manager over SSH | Low | Good |
 | Switch to VNC | Low | Good |
 | Linux VM as jump host | High | Native SPICE |
 
@@ -66,34 +73,39 @@ Some improvements in XQuartz preferences:
 3. Check "Follow system keyboard layout"
 4. Check "Enable key equivalents under X11"
 
-## Option 2: Proxmox Web Console (Recommended)
+## Option 2: virt-manager over SSH (Recommended)
 
-If using Proxmox, the web console is the best option.
+Since this build uses libvirt directly, the closest thing to a "just works"
+console is `virt-manager` on the Mac talking to the host's libvirt daemon over
+SSH. It lists every VM and opens each one's SPICE (or VNC) console for you, with
+no ports published on the network — the traffic rides the SSH connection.
 
 ### Advantages
 
-- No client install needed
-- Works in any browser
-- noVNC and SPICE HTML5
-- Native SPICE features
-- Clipboard works
-- USB redirect supported
+- Uses libvirt's own console; no manual port math
+- Nothing exposed on the network — tunneled over SSH
+- Lists and manages all VMs from one window
+- SPICE features (clipboard, dynamic resize) work through virt-viewer
 
 ### Usage
 
-1. Open Proxmox web UI
-2. Select VM
-3. Click Console tab
-4. Choose noVNC or SPICE HTML5
+```bash
+# Install on macOS (still pulls in XQuartz for the X11 GUI)
+brew install --cask xquartz
+brew install virt-manager virt-viewer
 
-### noVNC vs SPICE HTML5
+# Point virt-manager at the host's libvirt over SSH
+virt-manager -c qemu+ssh://user@host.tail-network.ts.net/system
+```
 
-| Feature | noVNC | SPICE HTML5 |
-|---------|-------|-------------|
-| Compatibility | Universal | Best for SPICE VMs |
-| Performance | Good | Better |
-| Clipboard | Works | Works |
-| Audio | No | Limited |
+Then double-click a VM to open its SPICE console. For a single VM without the
+full manager UI, `virt-viewer -c qemu+ssh://user@host/system vm-name` opens just
+that console.
+
+!!! note "virt-manager on macOS still needs XQuartz"
+    virt-manager is a GTK/X11 app, so the same XQuartz caveats as Option 1
+    apply. If you want to avoid XQuartz entirely, forward the SPICE port over
+    SSH and use a native client, or fall back to VNC (Option 3).
 
 ## Option 3: Use VNC Instead
 
@@ -180,16 +192,14 @@ remote-viewer spice://localhost:5900
 
 ## Feature Comparison by Method
 
-| Feature | virt-viewer | Web Console | VNC | Jump Host |
-|---------|-------------|-------------|-----|-----------|
-| Setup effort | Medium | None | Low | High |
+| Feature | virt-viewer | virt-manager (SSH) | VNC | Jump Host |
+|---------|-------------|--------------------|-----|-----------|
+| Setup effort | Medium | Low | Low | High |
 | Display quality | Good | Good | Good | Native |
 | Clipboard | Works | Works | Text only | Full |
-| USB redirect | Limited | Yes* | No | Full |
-| Audio | Yes | Limited | No | Yes |
-| Native feel | No | Browser | Yes | No |
-
-*Proxmox web console supports USB redirect
+| USB redirect | Limited | Limited | No | Full |
+| Audio | Yes | Yes | No | Yes |
+| Native feel | No | No (X11) | Yes | No |
 
 ## Keyboard Mapping
 
@@ -235,7 +245,7 @@ export DISPLAY=:0
 
 1. Lower compression in VM config
 2. Check network latency
-3. Try web console instead
+3. Try virt-manager over SSH instead
 4. Consider VNC alternative
 
 ### Clipboard Not Working
@@ -248,18 +258,18 @@ export DISPLAY=:0
 
 | Situation | Recommendation |
 |-----------|----------------|
-| Proxmox user | Use web console |
+| Managing several VMs | virt-manager over SSH |
 | Occasional access | virt-viewer + XQuartz |
 | Regular access, need features | Linux jump host |
 | Regular access, basic needs | Switch to VNC |
-| Need USB passthrough | Linux jump host or web console |
+| Need USB passthrough | Linux jump host |
 | Want native macOS experience | Use VNC |
 
 ## Bottom Line
 
 For macOS users who need SPICE features:
 
-1. **First choice**: Proxmox web console if applicable
+1. **First choice**: virt-manager over SSH (libvirt-native, nothing exposed)
 2. **Pragmatic choice**: Use VNC instead
 3. **Full features**: Linux VM as jump host
 4. **Quick and dirty**: virt-viewer + XQuartz

@@ -2,6 +2,14 @@
 
 Testing shell scripts with Bats (Bash Automated Testing System).
 
+!!! note "Not used in this repo"
+    This repository has **no shell-script codebase to test**. The CLI is Python
+    (Typer) and host automation is done with Ansible YAML, not standalone bash
+    scripts. Any shell you see in these docs is illustrative setup commands, not
+    committed, testable code. This page is kept as general reference in case
+    that changes — it does not describe existing practice in this project. For
+    the code that actually exists here, see [Python Testing](python.md).
+
 ## Bats Installation
 
 ```bash

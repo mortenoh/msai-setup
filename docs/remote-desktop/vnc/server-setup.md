@@ -2,6 +2,17 @@
 
 Configure VNC servers on Linux systems and KVM virtual machines.
 
+!!! note "This targets a VM guest, not the bare MS-S1 MAX host"
+    The MS-S1 MAX host runs Ubuntu Server **headless** — no desktop
+    environment and no display server (no X11, no Wayland) by default (see
+    `START.md`: "no desktop environment, SSH-only management").
+    So the desktop-VNC sections below (TigerVNC, x11vnc, wayvnc) apply to a
+    **VM guest** that has its own desktop installed, or to a separate desktop
+    machine — not to this host. For the host itself, use SSH; for VM consoles,
+    use the **KVM/QEMU VNC** section below, which serves the VM's virtual
+    display straight from QEMU without any desktop or display server on the
+    host.
+
 ## KVM/QEMU VNC (Recommended for VMs)
 
 KVM VMs have built-in VNC support through QEMU. This is the simplest option for VM console access.
@@ -166,7 +177,18 @@ sudo systemctl start vncserver@username
 
 ## x11vnc (Share Existing Display)
 
-Share the actual running X session (what's shown on the physical monitor).
+Share an already-running X session — i.e. an X server that is *actually
+running* and driving a display.
+
+!!! warning "There is no X session on the headless host"
+    x11vnc attaches to an existing X server (`:0`); it does not create one. The
+    MS-S1 MAX host is headless with no display server running, so there is no
+    `:0` to share — `x11vnc -display :0` will simply fail there. This section
+    only applies inside a **VM guest (or a desktop machine) that already runs an
+    X session** on a real or virtual display. On the host, share VM consoles via
+    the KVM/QEMU VNC section instead; if you need a Linux desktop to attach to,
+    start one with TigerVNC (which *does* spawn its own X server) rather than
+    x11vnc.
 
 ### Installation
 

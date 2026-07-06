@@ -2,10 +2,32 @@
 
 pytest is the standard testing framework for Python projects.
 
+!!! note "This repo has no tests yet — forward-looking guidance"
+    There is currently no `tests/` directory and no `[tool.pytest.ini_options]`
+    block in this project's `pyproject.toml`. pytest is already in the
+    `[dependency-groups] dev` group, but no suite has been written. Treat this
+    page as the plan for when tests are added, and follow the project toolchain:
+    install with `uv sync`, run with `uv run pytest`, and keep the existing
+    strict `ruff` / `mypy` / `pyright` checks green alongside the tests (see
+    [Testing Overview](index.md)).
+
 ## Installation
 
+pytest already ships in the `dev` dependency group, so a plain sync installs it:
+
 ```bash
-pip install pytest pytest-cov pytest-asyncio
+uv sync
+uv run pytest --version
+```
+
+Extra pytest plugins (coverage, async, mocking) are **not** in the group yet.
+Add the ones you need to `[dependency-groups] dev` in `pyproject.toml`, then
+re-sync — do not `pip install` them into the environment:
+
+```bash
+# Adds to the dev dependency-group and updates uv.lock
+uv add --group dev pytest-cov pytest-asyncio pytest-mock
+uv sync
 ```
 
 ## Basic Usage
@@ -205,7 +227,7 @@ def client(app):
 ### Using pytest-mock
 
 ```bash
-pip install pytest-mock
+uv add --group dev pytest-mock && uv sync
 ```
 
 ```python
@@ -256,7 +278,7 @@ def test_with_multiple_patches(mock_api, mock_db):
 ## Async Testing
 
 ```bash
-pip install pytest-asyncio
+uv add --group dev pytest-asyncio && uv sync
 ```
 
 ```python
@@ -375,9 +397,13 @@ pytest --cov=src --cov-fail-under=80
 
 ## Project Configuration
 
-### pyproject.toml
+This project keeps all tool config in `pyproject.toml` (that is where `ruff`,
+`mypy`, and `pyright` are already configured). When you add a test suite, add a
+`[tool.pytest.ini_options]` block there too — do not introduce a separate
+`pytest.ini`:
 
 ```toml
+# pyproject.toml — add this block when tests land
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
@@ -388,15 +414,12 @@ filterwarnings = [
 ]
 ```
 
-### pytest.ini
-
-```ini
-[pytest]
-testpaths = tests
-python_files = test_*.py
-python_functions = test_*
-addopts = -v --tb=short
-```
+Keep it consistent with the existing strict type-checking config already in
+`pyproject.toml` (`[tool.mypy]` with `disallow_untyped_defs = true` and
+`[tool.pyright]` with `typeCheckingMode = "strict"`, both pinned to
+`python_version = "3.14"`): test code is type-checked too, so annotate fixtures
+and helpers. Run the whole gate with `make lint && make test` (i.e.
+`uv run ruff`/`mypy`/`pyright` then `uv run pytest`).
 
 ## Best Practices
 

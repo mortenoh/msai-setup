@@ -29,6 +29,9 @@ Remote port forwarding exposes a local service to the remote network. Traffic to
 ssh -R [bind_address:]remote_port:destination_host:destination_port user@ssh_server
 ```
 
+!!! note "Disabled by default on this build"
+    This build's hardened sshd sets `AllowTcpForwarding no`, so `-R` forwards fail with `administratively prohibited` as-is. See [Tunneling overview](index.md) for how to scope an exception with a `Match` block instead of loosening the global config.
+
 ## Examples
 
 ### Expose Local Web Server

@@ -7,11 +7,21 @@ SPICE (Simple Protocol for Independent Computing Environments) is a remote displ
 !!! warning "Limited macOS Support"
     SPICE on macOS is challenging. Native clients are outdated or require workarounds. Consider alternatives before committing to SPICE for macOS access.
 
+!!! note "This build runs bare KVM/libvirt, not Proxmox"
+    This host runs KVM/QEMU directly on Ubuntu Server via libvirt (see
+    `START.md`) — there is no Proxmox and therefore no Proxmox
+    web console. Where other SPICE guides suggest "use the Proxmox console", the
+    equivalents here are `virt-manager` connecting over SSH
+    (`qemu+ssh://user@host/system`), or `remote-viewer`/`virt-viewer` against a
+    manually forwarded SPICE port. Those are the options described below.
+
 ### macOS Options (Ranked)
 
-1. **Proxmox/virt-manager web console** - Use browser-based console
-2. **virt-viewer via Homebrew** - Requires XQuartz, mediocre experience
-3. **Remote-viewer in VM** - Run a Linux VM to access SPICE VMs
+1. **virt-manager over SSH** - Manage VMs and open their SPICE console from a
+   macOS-side virt-manager pointed at `qemu+ssh://user@host/system`
+2. **virt-viewer / remote-viewer via Homebrew** - Requires XQuartz, mediocre
+   experience; connect over an SSH-forwarded SPICE port
+3. **Remote-viewer in a Linux VM** - Run a Linux VM to access SPICE VMs
 4. **Switch to VNC** - Often the pragmatic choice
 
 ## When SPICE Makes Sense
@@ -29,7 +39,7 @@ Despite macOS challenges, SPICE excels at:
 ### Use SPICE When
 
 - USB device redirection is required
-- Running Proxmox (has web console fallback)
+- Managing VMs with virt-manager/virt-viewer (the libvirt-native console)
 - Accessing from Linux client
 - Local-only VM access
 - Dynamic display resizing needed
@@ -98,7 +108,9 @@ Despite macOS challenges, SPICE excels at:
 
 If you need SPICE features but have a macOS client:
 
-1. **Use Proxmox** - Web-based SPICE console works everywhere
+1. **virt-manager over SSH** - Drive the libvirt console from macOS via
+   `qemu+ssh://user@host/system`, or `remote-viewer` over an SSH-forwarded
+   SPICE port
 2. **VNC + USB passthrough** - Pass USB via QEMU, display via VNC
 3. **Jump host** - Linux VM as jump host for SPICE access
 

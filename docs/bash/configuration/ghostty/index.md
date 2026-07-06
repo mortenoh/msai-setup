@@ -2,6 +2,16 @@
 
 Ghostty is a fast, feature-rich, and cross-platform terminal emulator that uses platform-native UI and GPU acceleration. Built by Mitchell Hashimoto (HashiCorp co-founder), it focuses on performance and correctness.
 
+!!! important "Runs on your workstation, not the server"
+    Ghostty is a GUI terminal emulator that runs on **your own local Mac or
+    PC**. It **cannot** run on the headless MS-S1 MAX server at all: a terminal
+    emulator needs a display server and desktop environment to draw its window,
+    and the server has neither. Install and run Ghostty on your workstation,
+    then reach the server the ordinary way -- open Ghostty locally and run
+    `ssh user@ms-s1-max` inside it. Everything on this page (installation,
+    themes, fonts, keybindings) configures Ghostty on your local machine, not
+    the server.
+
 ## Installation
 
 ### macOS

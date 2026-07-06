@@ -54,27 +54,28 @@ Quantized LoRA:
 
 ## Hardware Requirements
 
-### Minimum (QLoRA, 7B model)
+This build is an AMD Ryzen AI Max+ 395 (Strix Halo) APU with 128GB of unified LPDDR5X memory and no discrete GPU. Fine-tuning here runs on the iGPU through the ROCm build of PyTorch, drawing on the same unified-memory pool used for inference (see [Memory Configuration](../gpu/memory-configuration.md)). There is no NVIDIA card to add, so the practical question is "what fits in the unified memory budget" versus "what is worth renting cloud GPU time for".
 
-- GPU: 8GB VRAM (RTX 3070 or better)
-- RAM: 16GB
-- Storage: 50GB
+!!! warning "Fine-tuning on ROCm is a rougher path than inference"
+    The mainstream fine-tuning stack (Unsloth, `bitsandbytes` 4-bit QLoRA, FlashAttention) is CUDA-first and has partial or immature ROCm support on gfx1151. Plain Hugging Face `transformers` + `peft` LoRA on the ROCm build of PyTorch is the most reliable local route, but expect to hit rough edges. If you need turnkey QLoRA today, renting a cloud GPU is often less friction than making the AMD path work. See the caveats in [LoRA](lora.md) and [Training](training.md).
 
-### Recommended (LoRA, 7B model)
+### Realistic to fine-tune locally on this box
 
-- GPU: 24GB VRAM (RTX 3090/4090)
-- RAM: 32GB
-- Storage: 100GB
+- **LoRA / QLoRA on small-to-mid models (up to ~13B, and 70B at low ranks)** — 128GB of unified memory is generous for LoRA, which only trains small adapter layers. The constraint is ROCm tooling maturity, not memory. Start with a 3B-8B model to validate the pipeline.
+- **RAM**: shared with the OS; the 128GB pool comfortably covers adapters, optimizer state, and activations for these sizes.
+- **Storage**: keep datasets, checkpoints, and merged models on the `tank/ai` ZFS dataset (budget 50-200GB depending on model size).
 
-### Full Fine-Tuning (7B model)
+### Better done as a rented cloud GPU
 
-- GPU: 80GB+ VRAM (A100, H100)
-- RAM: 64GB+
-- Storage: 200GB+
+- **Full (all-weights) fine-tuning of 7B+ models** — needs model weights + gradients + optimizer states resident at once; even where memory allows, it is slow on this bandwidth-limited iGPU and leans on CUDA-only kernels. Rent an 80GB-class GPU (or a multi-GPU node) by the hour instead.
+- **Anything depending on Unsloth or `bitsandbytes` 4-bit that you cannot get working on ROCm** — a short cloud rental is usually cheaper than the debugging time.
 
 ## Quick Start
 
-### Unsloth (Fastest)
+### Unsloth (Fastest, but CUDA-focused)
+
+!!! warning "Unsloth on this hardware"
+    Unsloth is the fastest path on NVIDIA/CUDA GPUs, but has little to no ROCm support on gfx1151. On this AMD build, prefer plain `transformers` + `peft` LoRA on the ROCm build of PyTorch (see [LoRA](lora.md)). The snippet below is shown for reference and is not expected to work as-is on this box.
 
 ```python
 from unsloth import FastLanguageModel

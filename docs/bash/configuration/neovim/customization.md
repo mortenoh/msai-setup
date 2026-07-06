@@ -364,13 +364,47 @@ vim.opt.colorcolumn = "88"
 vim.opt.splitright = true
 vim.opt.splitbelow = true
 
--- Clipboard
+-- Clipboard: sync with the system clipboard
 vim.opt.clipboard = "unnamedplus"
 
 -- Performance
 vim.opt.updatetime = 200
 vim.opt.timeoutlen = 300
 ```
+
+### Clipboard over SSH (headless server)
+
+When Neovim runs on a headless, display-less server like the MS-S1 MAX and
+you reach it over SSH, `unnamedplus` alone cannot reach your clipboard --
+there is no `pbcopy`, `wl-copy`, or X11 selection on the server. Use **OSC 52**
+as the default: Neovim emits an escape sequence that your local terminal
+emulator turns into a clipboard write on the machine you are sitting at. This
+is the only mechanism that works across an SSH hop.
+
+```lua
+-- lua/config/options.lua
+vim.opt.clipboard = "unnamedplus"
+
+-- OSC 52 clipboard provider (works over SSH to a headless server)
+vim.g.clipboard = {
+  name = "OSC 52",
+  copy = {
+    ["+"] = require("vim.ui.clipboard.osc52").copy("+"),
+    ["*"] = require("vim.ui.clipboard.osc52").copy("*"),
+  },
+  paste = {
+    ["+"] = require("vim.ui.clipboard.osc52").paste("+"),
+    ["*"] = require("vim.ui.clipboard.osc52").paste("*"),
+  },
+}
+```
+
+!!! note "Local-machine equivalent"
+    When Neovim runs on your own workstation (not over SSH), you do not need
+    the OSC 52 provider -- `vim.opt.clipboard = "unnamedplus"` will use the
+    platform clipboard tool directly (`pbcopy`/`pbpaste` on macOS,
+    `wl-copy`/`xclip` on Linux). Configure OSC 52 only for the remote-server
+    case, or gate it behind an SSH check (`if vim.env.SSH_TTY then ... end`).
 
 ## File Type Configuration
 

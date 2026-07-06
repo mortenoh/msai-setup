@@ -46,13 +46,13 @@ The UMA (Unified Memory Architecture) Frame Buffer Size setting in BIOS reserves
 
 | Use Case | UMA Setting | Rationale |
 |----------|-------------|-----------|
-| Headless server | 512MB - 2GB | Minimal display needs |
-| Desktop with display | 4GB - 8GB | Comfortable for desktop compositing |
-| AI/ML workloads | Auto or 16GB | Balance between GPU reservation and flexibility |
-| Heavy GPU compute | 16GB - 32GB | More dedicated GPU memory pool |
+| Headless server (this build) | 512MB | Minimal display needs; let `amd-ttm`/GTT do the work |
+| Desktop with display | 512MB - 2GB | Enough for compositing; GTT still handles compute |
+| AI/ML workloads | 512MB | Keep the fixed reservation small; allocate GPU memory dynamically via `amd-ttm` |
+| Heavy GPU compute | 512MB | Same — a large UMA reservation only steals RAM the GTT path could use |
 
-!!! note "Auto Mode"
-    The "Auto" setting allows dynamic allocation. For LLM inference with llama.cpp or Ollama, this typically works well as these tools manage memory directly rather than relying on the UMA pool.
+!!! tip "Keep UMA small on Strix Halo"
+    Per AMD's official Strix Halo guidance (and [BIOS Setup](../../getting-started/bios-setup.md)), set the UMA Frame Buffer to the smallest fixed value (512MB) on this build. A large fixed UMA reservation is *always* unavailable to the OS and does **not** help LLM inference — Ollama and llama.cpp get their GPU memory from the dynamically sized GTT pool managed by `amd-ttm`, not from the UMA framebuffer. See the [Software VRAM Allocation](#software-vram-allocation-amd-ttm) section below.
 
 !!! tip "amd-ttm is the Primary Method"
     The BIOS UMA setting reserves a fixed amount of memory (typically up to 32GB). For AI workloads requiring maximum GPU-accessible memory, use the software-based `amd-ttm` tool instead. See the [Software VRAM Allocation](#software-vram-allocation-amd-ttm) section below.
@@ -276,7 +276,7 @@ Single-channel halves available bandwidth.
 | Aspect | APU (128GB DDR5) | Discrete GPU (24GB) |
 |--------|------------------|---------------------|
 | Max model size | 405B Q2 | 70B Q4 (offload) |
-| 70B Q4 speed | ~3 tok/s | N/A |
+| 70B Q4 speed | ~6-9 tok/s | N/A |
 | 7B Q8 speed | ~20 tok/s | ~100+ tok/s |
 | Power consumption | ~65W TDP | ~300W+ |
 | Cost | Included | $1000-2000 |

@@ -2,6 +2,9 @@
 
 Bcachefs is a next-generation copy-on-write filesystem for Linux, created by Kent Overstreet (developer of bcache). It aims to provide features comparable to ZFS and Btrfs with a cleaner, more maintainable codebase.
 
+!!! warning "Not used in this build — experimental only"
+    This build uses [ZFS](../zfs/index.md) as its canonical, production filesystem for **all** data (VM disks, containers, media, models, backups). These bcachefs pages exist purely to document and evaluate an alternative — nothing on the MS-S1 MAX runs on bcachefs. Read them for learning and comparison, not as a description of the deployed system.
+
 ## Current Status
 
 !!! warning "Experimental Filesystem"

@@ -354,7 +354,14 @@ echo
 total=100
 for ((i=1; i<=total; i++)); do
     percent=$((i * 100 / total))
-    printf "\r[%-50s] %d%%" $(printf '#%.0s' $(seq 1 $((i/2)))) "$percent"
+    filled=$((i / 2))
+    # Build the bar safely: printf a run of spaces of the right width,
+    # then swap them for '#'. Handles filled=0 (small i) with no bar,
+    # unlike `seq 1 $((i/2))`, which returns nothing for i=1 and
+    # word-splits into printf's argument list, garbling early output.
+    printf -v bar '%*s' "$filled" ''
+    bar=${bar// /#}
+    printf "\r[%-50s] %d%%" "$bar" "$percent"
     sleep 0.05
 done
 echo

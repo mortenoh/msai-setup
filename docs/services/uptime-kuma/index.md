@@ -19,7 +19,7 @@ services:
     container_name: uptime-kuma
     restart: unless-stopped
     ports:
-      - "3001:3001"
+      - "127.0.0.1:3001:3001"   # localhost only; reach via reverse proxy
     volumes:
       - ./data:/app/data
       - /var/run/docker.sock:/var/run/docker.sock:ro
@@ -288,15 +288,37 @@ Then add Docker Container monitors.
 
 ### Remote Docker
 
-For remote Docker hosts, use TCP:
+!!! danger "Do not expose the Docker socket over unauthenticated TCP"
+    A common but dangerous recipe enables the Docker daemon on
+    `tcp://0.0.0.0:2375` with no TLS and no authentication. **Port 2375 is
+    plaintext and unauthenticated: anyone who can reach it has full control of
+    the Docker daemon, which is root-equivalent on that host** (they can start a
+    privileged container that mounts the host filesystem). On this build the
+    daemon is never exposed this way — and it must not be, since UFW does not
+    filter Docker-published ports by default (see
+    [Docker + UFW](../../docker/setup.md#docker-and-ufw)).
 
-```yaml
-# On remote host, enable Docker TCP
-# /etc/docker/daemon.json
-{
-  "hosts": ["unix:///var/run/docker.sock", "tcp://0.0.0.0:2375"]
-}
-```
+    Reach a remote Docker host safely instead:
+
+    - **SSH tunnel to the remote's local socket** — Uptime Kuma monitors the
+      socket over an SSH connection; nothing is published on the network:
+
+        ```bash
+        # From the Uptime Kuma host, forward the remote socket over SSH
+        ssh -nNT -L /tmp/remote-docker.sock:/var/run/docker.sock user@remote-host
+        ```
+
+        then point the monitor at `/tmp/remote-docker.sock`, or use Docker's
+        native `ssh://user@remote-host` context.
+
+    - **Tailscale-only, TLS-protected daemon** — if you must use TCP, bind it to
+      the host's Tailscale address (not `0.0.0.0`), require mutual TLS
+      (`tcp://<tailscale-ip>:2376` with `tlsverify`), and firewall it to the
+      tailnet. Never `2375`, never `0.0.0.0`.
+
+    In most homelabs the simplest safe answer is: run a lightweight Uptime Kuma
+    (or an agent) on the remote host and monitor it over HTTP through the
+    reverse proxy, rather than exposing Docker at all.
 
 ## Reverse Proxy
 

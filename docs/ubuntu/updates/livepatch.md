@@ -60,6 +60,9 @@ cat /proc/version_signature
 # Example: Ubuntu 6.5.0-21.21-generic 6.5.3
 ```
 
+!!! note "Secure Boot is not a prerequisite"
+    This build ships with **Secure Boot disabled** (see `START.md`), and Livepatch works fine that way. Livepatch loads Canonical-signed livepatch kernel modules, and the running kernel's own module-signature verification is what validates them — that is independent of firmware Secure Boot. Disabling Secure Boot to accommodate DKMS amdgpu/ROCm/ZFS on this host does **not** disable or weaken Livepatch. The real requirements are an Ubuntu-signed generic/low-latency kernel and an attached Ubuntu Pro subscription, both listed above.
+
 ## Getting Ubuntu Pro
 
 ### Free Personal Subscription

@@ -20,12 +20,19 @@ Example: d=4096, r=16
 ## Installation
 
 ```bash
-# Core libraries
+# Core libraries (install the ROCm build of torch first — see below)
 pip install torch transformers datasets accelerate peft bitsandbytes
 
-# For faster training
+# For faster training (CUDA-focused — see caveat below)
 pip install unsloth
 ```
+
+!!! warning "ROCm caveats on this hardware"
+    On this AMD Ryzen AI Max+ 395 (gfx1151) build there is no NVIDIA GPU, so:
+
+    - Install `torch` from the **ROCm** wheel index, not the default CUDA wheel: `pip install torch --index-url https://download.pytorch.org/whl/rocm7.1` (see [ROCm Installation](../gpu/rocm-installation.md#pytorch-with-rocm) for the current URL).
+    - `bitsandbytes` is CUDA-first. Its ROCm/HIP support for gfx1151 is immature and the 4-bit QLoRA path may not build or run cleanly. If it fails, drop the 4-bit quantization and run LoRA in bf16 (which fits comfortably in the 128GB unified pool for small-to-mid models), or fine-tune on a rented cloud GPU.
+    - `unsloth` is CUDA-focused with little/no ROCm support — see the caveat in the [Unsloth](#unsloth-recommended-on-cuda) section below. The reliable local path here is plain `transformers` + `peft` LoRA on the ROCm build of PyTorch.
 
 ## Basic LoRA with PEFT
 
@@ -137,9 +144,12 @@ Regularization during training:
 - `0.05` - Light regularization
 - `0.1` - Stronger regularization (prevent overfitting)
 
-## Unsloth (Recommended)
+## Unsloth (Recommended on CUDA)
 
-Unsloth provides 2x faster training with optimized kernels:
+Unsloth provides 2x faster training with optimized kernels — but those kernels are CUDA-focused, with little to no ROCm support on gfx1151.
+
+!!! warning "Not the path for this AMD build"
+    Unsloth targets NVIDIA/CUDA GPUs. On this MS-S1 MAX (AMD gfx1151, no discrete GPU) it is not expected to work. Use the plain `transformers` + `peft` LoRA flow shown in [Basic LoRA with PEFT](#basic-lora-with-peft) above on the ROCm build of PyTorch. If you specifically need Unsloth's speedups, run it on a rented CUDA cloud GPU. The snippet below is kept for reference and for users on NVIDIA hardware.
 
 ```python
 from unsloth import FastLanguageModel

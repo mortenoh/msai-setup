@@ -1,21 +1,26 @@
 # Windows LM Studio VM
 
-Run LM Studio in a Windows 11 VM with GPU passthrough for local LLM inference.
+Run LM Studio in a Windows 11 VM. On this build the default VM has **no GPU passthrough** — the iGPU stays with the host for ROCm.
+
+!!! warning "Default: the host keeps the GPU (virtio-gpu VM)"
+    This build's primary purpose is host ROCm inference, so the iGPU stays with the host and the Windows VM uses **virtio-gpu** (no passthrough). In the default setup LM Studio runs **CPU** inference in the VM, or — better — you point the VM's tools at the host's GPU-accelerated Ollama/llama.cpp API (see [API from VM](api-from-vm.md)). The GPU-passthrough path described in the "GPU Passthrough" section below is **opt-in** and mutually exclusive with host ROCm; it hands the single iGPU to the VM and gives up host inference. Only take it if that is a deliberate choice (see [GPU Passthrough](../../virtualization/gpu-passthrough.md) and [Windows 11 VM](../../virtualization/windows-vm.md)).
 
 ## Overview
 
-This setup:
+Default (no passthrough) setup:
 
-- Runs Windows 11 in KVM/QEMU
-- Passes GPU directly to VM
-- Runs LM Studio with full GPU acceleration
-- Exposes OpenAI-compatible API to host network
+- Runs Windows 11 in KVM/QEMU with virtio-gpu
+- Host retains the iGPU for ROCm
+- LM Studio runs CPU inference in the VM, or the VM calls the host's Ollama/llama.cpp API for GPU-accelerated results
+- Optionally exposes LM Studio's OpenAI-compatible API back to the host network
+
+Opt-in passthrough setup (advanced): passes the iGPU directly to the VM for full GPU acceleration inside Windows, at the cost of host ROCm.
 
 ## Prerequisites
 
-- GPU passthrough configured (see [GPU Passthrough](../../virtualization/gpu-passthrough.md))
-- Windows 11 VM (see [Windows 11 VM](../../virtualization/windows-vm.md))
-- 96GB+ RAM for VM (for 70B models)
+- Windows 11 VM (default: virtio-gpu, see [Windows 11 VM](../../virtualization/windows-vm.md))
+- Sufficient RAM for host + VM + model
+- Opt-in only: GPU passthrough configured, if you are deliberately handing the iGPU to the VM (see [GPU Passthrough](../../virtualization/gpu-passthrough.md)) — this disables host ROCm
 
 ## VM Configuration
 
@@ -28,9 +33,12 @@ For 70B models, allocate generously:
 <vcpu>16</vcpu>
 ```
 
-### GPU Passthrough
+### GPU Passthrough (opt-in only)
 
-Ensure GPU is passed through:
+!!! warning "Not the default — disables host ROCm"
+    The `<hostdev>` block below applies **only** if you have deliberately chosen the opt-in passthrough path, which hands the single iGPU to the VM and gives up host ROCm inference. For the default virtio-gpu VM, **skip this section** — the VM has no GPU device and gets GPU-accelerated results by calling the host's Ollama/llama.cpp API instead (see [API from VM](api-from-vm.md)). Set up passthrough via [GPU Passthrough](../../virtualization/gpu-passthrough.md) before adding this.
+
+If (and only if) you are on the passthrough path, pass the iGPU through:
 
 ```xml
 <hostdev mode='subsystem' type='pci' managed='yes'>
@@ -66,17 +74,20 @@ virsh domifaddr win11
 2. Run installer
 3. Set storage location for models
 
-### GPU Drivers
+### GPU Drivers (opt-in passthrough path only)
 
-Install AMD drivers in Windows (the MS-S1 MAX has an AMD Strix Halo iGPU):
+!!! note "Default VM has no passthrough GPU"
+    These driver and GPU-verification steps apply only to the opt-in passthrough path. In the default virtio-gpu VM there is no AMD GPU to install drivers for — LM Studio uses CPU inference, or you call the host's Ollama/llama.cpp API (see [API from VM](api-from-vm.md)).
+
+If you took the passthrough path, install AMD drivers in Windows (the MS-S1 MAX has an AMD Strix Halo iGPU):
 
 - **AMD**: Download from [amd.com/support](https://amd.com/support)
 
-### Verify GPU
+### Verify GPU (passthrough path only)
 
-In LM Studio:
+In LM Studio (only if the iGPU is passed through):
 - Check Settings -> Hardware
-- GPU should be detected with full VRAM
+- The passed-through GPU should be detected with its full VRAM allocation
 
 ## Model Download
 

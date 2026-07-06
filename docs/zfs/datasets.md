@@ -7,7 +7,7 @@ A dataset is a ZFS filesystem (or zvol) inside a pool. Datasets are cheap, can b
 ```
 tank/
 +-- ai/                  # GGUF/safetensors model files; compression=off, recordsize=1M
-+-- backups/             # cold archives; compression=zstd-3
++-- backups/             # cold archive target; compression=zstd-3
 +-- containers/          # Docker bind-mount targets per service
 |   +-- pihole/
 |   +-- traefik/
@@ -23,7 +23,6 @@ tank/
 +-- vm/                  # VM disk images; recordsize=64K
 |   +-- win11/
 |   +-- linux-utility/
-+-- backups/             # local syncoid replication targets, off-host rsync staging
 ```
 
 The split into per-service datasets under `containers/` is so you can:
@@ -31,6 +30,16 @@ The split into per-service datasets under `containers/` is so you can:
 - Snapshot one service's data without dragging in others (`zfs snapshot tank/containers/nextcloud@before-update`).
 - Replicate selectively (sanoid/syncoid per dataset).
 - Set per-service quotas if one service starts misbehaving.
+
+## A note on device placement
+
+Datasets are units of *policy* (compression, recordsize, quotas), **not** units of *device placement*. It's a common instinct to want "put `tank/vm` and `tank/db` on the fast primary NVMe (PCIe 4.0 x4) and let `tank/media` live on the slow secondary (x1)". With this build's single pool, **you can't**:
+
+- `tank` is one pool made of two top-level striped vdevs (the ~1 TB primary partition + the whole 4 TB secondary).
+- ZFS's allocator spreads every new write across all top-level vdevs based on free space. There is no per-dataset "pin this dataset to that device" knob in stock ZFS.
+- So a dataset's blocks end up on *both* drives regardless of what you'd prefer, and the slower x1 link is part of every dataset's effective performance.
+
+If guaranteed placement on the fast drive actually matters for a workload (a latency-sensitive database, say), the only real option is to **not** fold the primary drive's leftover space into `tank` and instead build a **second, separate pool** from it — e.g. a `fast` pool on the primary partition alone, with the workload's dataset there. That buys real placement guarantees at the cost of the shared capacity and a second pool to manage. For this homelab the single-pool simplicity wins; treat "keep hot data on the fast drive" as a soft preference the allocator can't actually honour, not a guarantee. See [Pool Creation -> What this pool is not](pool-creation.md#what-this-pool-is-not).
 
 ## Create the datasets
 

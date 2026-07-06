@@ -182,7 +182,7 @@ For nginx, sshd, postgres, almost everything: `reloaded` is the right answer for
 ## Examples from this build
 
 ```yaml
-# scripts/lab/ansible/playbooks/ssh-hardening.yml
+# src/msai_setup/lab/ansible/playbooks/ssh-hardening.yml
 - name: sshd_config — drop a hardened override
   ansible.builtin.copy:
     dest: /etc/ssh/sshd_config.d/00-hardening.conf
@@ -197,7 +197,7 @@ handlers:
 ```
 
 ```yaml
-# scripts/lab/ansible/playbooks/bootstrap.yml
+# src/msai_setup/lab/ansible/playbooks/bootstrap.yml
 - name: journald — keep logs persistent across reboots
   ansible.builtin.lineinfile:
     path: /etc/systemd/journald.conf
@@ -222,3 +222,4 @@ handlers:
 
 - [Modules -> systemd](modules.md#ansiblebuiltinsystemd) — the module handlers typically invoke.
 - [Playbooks](playbooks.md) — where `notify:` fits in task syntax.
+- The hands-on walkthrough: [`src/msai_setup/lab/README.md`](https://github.com/mortenoh/msai-setup/blob/main/src/msai_setup/lab/README.md) — the real `msai` CLI + playbooks against a throwaway VM.

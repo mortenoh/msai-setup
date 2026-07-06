@@ -260,7 +260,9 @@ sshd;*;contractor;Wk0900-1700
 
 ### Enable Time Module
 
-Add to `/etc/pam.d/common-auth`:
+`pam_time` is an **account**-type module, so it must go in `/etc/pam.d/common-account` — not `common-auth`. Placing an `account` line in `common-auth` is never evaluated and the time restrictions silently do nothing.
+
+Add to `/etc/pam.d/common-account`:
 
 ```
 account    required    pam_time.so

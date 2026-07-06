@@ -253,6 +253,67 @@ sudo systemctl daemon-reload
 sudo systemctl restart nginx
 ```
 
+### This Build: Ordering Docker After the ZFS Pool
+
+On this build, container data lives on **bind mounts into ZFS datasets** under `/mnt/tank/`. If Docker starts before the `tank` pool is imported and mounted, compose stacks come up pointing at empty directories on the root filesystem — a classic data-looking-lost panic. Order Docker after ZFS with a drop-in:
+
+```bash
+sudo systemctl edit docker.service
+```
+
+```ini
+[Unit]
+# Do not start Docker until the pool is imported and datasets are mounted
+After=zfs-import.target zfs-mount.service
+Requires=zfs-mount.service
+```
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl restart docker
+# Verify the ordering took effect
+systemctl show docker.service -p After | tr ' ' '\n' | grep zfs
+```
+
+The `zfs-import.target` and `zfs-mount.service` units ship with the `zfsutils-linux` package. libvirt/QEMU VMs whose qcow2 images sit on `tank/vm` benefit from the same treatment on `libvirtd.service`.
+
+### This Build: sanoid Snapshot Timer
+
+sanoid takes the scheduled ZFS snapshots that are this build's core recovery mechanism. It is driven by a systemd timer rather than cron:
+
+```ini
+# /etc/systemd/system/sanoid.timer
+[Unit]
+Description=Run sanoid snapshots
+
+[Timer]
+# Hourly, on the hour; sanoid's own config decides retention per dataset
+OnCalendar=*:0/15
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+```
+
+```ini
+# /etc/systemd/system/sanoid.service
+[Unit]
+Description=sanoid ZFS snapshot tool
+Requires=zfs.target
+After=zfs.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/sbin/sanoid --cron
+```
+
+```bash
+sudo systemctl enable --now sanoid.timer
+systemctl list-timers sanoid.timer
+```
+
+`Persistent=true` means a snapshot run missed while the box was off fires at next boot. Package installs of sanoid usually ship these units already; the above is the shape to expect.
+
 ## Service Hardening
 
 ### Security Directives

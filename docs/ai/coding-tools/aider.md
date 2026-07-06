@@ -302,9 +302,13 @@ aider --model ollama/deepseek-coder-v2:16b \
 docker run -it --rm \
   -v $(pwd):/app \
   -e OLLAMA_HOST=http://host.docker.internal:11434 \
+  --add-host=host.docker.internal:host-gateway \
   paulgauthier/aider \
   --model ollama/deepseek-coder-v2:16b
 ```
+
+!!! note "`host.docker.internal` on native Linux Docker"
+    This build runs native Linux Docker (not Docker Desktop), so `host.docker.internal` is not resolvable by default. The `--add-host=host.docker.internal:host-gateway` flag maps it to the host, letting the container reach Ollama running on the host.
 
 ### With docker-compose
 

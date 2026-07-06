@@ -2,6 +2,26 @@
 
 Testing best practices for Python, JavaScript, and shell scripts.
 
+!!! note "Status in this repo: no test suite yet"
+    This repository does **not** currently have a `tests/` directory or a
+    `[tool.pytest.ini_options]` block in `pyproject.toml`. pytest is already
+    listed in the `[dependency-groups] dev` group, but no tests have been
+    written. The pages in this section are forward-looking guidance for **when**
+    tests are added — they do not describe existing practice.
+
+    When tests are added, use this project's real toolchain:
+
+    - **`uv` for everything** — `uv sync` to install, `uv run pytest` to run.
+      Do not use bare `pip install` (this project has no `[project.optional-dependencies]`
+      extra; the dev tools live in a PEP 735 `[dependency-groups] dev` group).
+    - **Python `>=3.14`** — matches `requires-python` and the mypy/pyright
+      `python_version = "3.14"` settings in `pyproject.toml`.
+    - **The linters that are already configured** — `ruff`, plus `mypy` and
+      `pyright` in **strict** mode (`typeCheckingMode = "strict"`,
+      `disallow_untyped_defs = true`) — run alongside pytest, not instead of it.
+      The repo's `Makefile` already wires this up: `make lint` runs
+      `uv run ruff` / `mypy` / `pyright`, and `make test` runs `uv run pytest`.
+
 ## In This Section
 
 | Document | Description |
@@ -44,14 +64,14 @@ Testing best practices for Python, JavaScript, and shell scripts.
 ### Python (pytest)
 
 ```bash
-# Install
-pip install pytest pytest-cov
+# Install the dev toolchain (pytest is in the [dependency-groups] dev group)
+uv sync
 
 # Run tests
-pytest
+uv run pytest
 
-# With coverage
-pytest --cov=src
+# With coverage (add pytest-cov to the dev group first)
+uv run pytest --cov=src
 ```
 
 ```python
@@ -210,19 +230,23 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
         with:
-          python-version: '3.12'
+          # Match requires-python >=3.14 and the mypy/pyright python_version
+          python-version: '3.14'
 
       - name: Install dependencies
-        run: pip install -e ".[dev]"
+        run: uv sync
+
+      - name: Lint and type-check (strict)
+        run: |
+          uv run ruff check .
+          uv run mypy .
+          uv run pyright
 
       - name: Run tests
-        run: pytest --cov --cov-report=xml
-
-      - name: Upload coverage
-        uses: codecov/codecov-action@v4
+        run: uv run pytest
 ```
 
 ## See Also

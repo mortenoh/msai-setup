@@ -184,6 +184,26 @@ api.example.com {
 
 Automatic HTTPS is enabled by default. Just use a domain name.
 
+!!! warning "This build is not on the public internet by default"
+    Caddy's default automatic HTTPS uses the ACME HTTP-01/TLS-ALPN-01
+    challenges, which assume a public domain pointing at this host and **ports
+    80/443 reachable from the internet**. That is not the default posture for
+    this build: the MS-S1 MAX is on the LAN and managed over Tailscale, with
+    nothing forwarded from the public internet (see
+    `START.md`). Getting a public cert this way means
+    **deliberately opening 80/443** to the internet.
+
+    To keep services off a public-facing port:
+
+    - Use the **DNS Challenge** (below) to obtain public certs without exposing
+      80/443 — this works for LAN/Tailscale-only names.
+    - Use **[Internal CA](#internal-ca-no-public-certificate)** (`tls internal`)
+      for names you only reach over the LAN or Tailscale.
+    - Use **[Tailscale Serve/Funnel](../../tailscale/features/funnel-serve.md)** —
+      Serve fronts a service on your tailnet with a Tailscale-issued cert and no
+      open port; Funnel deliberately publishes it to the internet through
+      Tailscale's relays without forwarding a router port.
+
 ### DNS Challenge (Cloudflare)
 
 ```yaml

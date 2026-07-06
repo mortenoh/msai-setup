@@ -121,6 +121,9 @@ ollama pull nomic-embed-text
 
 ### Response Latency
 
+!!! warning "Generic figures — not this hardware's baseline"
+    The tokens/sec numbers below are vendor-agnostic, generic reference figures and do **not** reflect the MS-S1 MAX. This build's measured ROCm/HIP baseline is roughly **3-4x lower**: ~50-70 tok/s on 8B Q4, ~15-20 on 32B Q4, and ~6-9 on 70B Q4 (see [Hardware Architecture](../../getting-started/hardware-architecture.md)). Use the measured numbers for capacity planning on this box; the table below is only for relative comparison between model sizes.
+
 | Model Size | TTFT | Tokens/sec | Use Case |
 |------------|------|------------|----------|
 | 7-8B | <100ms | 50-80 | Interactive |

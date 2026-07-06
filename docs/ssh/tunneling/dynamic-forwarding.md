@@ -29,6 +29,9 @@ Dynamic port forwarding creates a SOCKS proxy that routes all traffic through th
 ssh -D [bind_address:]port user@ssh_server
 ```
 
+!!! note "Disabled by default on this build"
+    This build's hardened sshd sets `AllowTcpForwarding no`, so the `-D` SOCKS proxy fails with `administratively prohibited` as-is. See [Tunneling overview](index.md) for how to scope an exception with a `Match` block instead of loosening the global config.
+
 ## Basic Usage
 
 ### Create SOCKS Proxy

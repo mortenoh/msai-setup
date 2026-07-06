@@ -99,6 +99,9 @@ tank/
 
 Create with appropriate properties — see [Datasets](datasets.md).
 
+!!! note "What the automation actually creates"
+    The shipped Ansible playbook (`src/msai_setup/lab/ansible/playbooks/zfs.yml`) creates a single **flat** `tank/containers` dataset — **not** the per-service `tank/containers/<svc>` hierarchy shown above. The per-service split is a recommended **manual refinement** you layer on top of what the playbook gives you out of the box. Create the child datasets by hand (`sudo zfs create tank/containers/pihole`, etc.) — or extend the playbook — when you want per-service snapshots, quotas, or selective replication. Out of the box, everything under `tank/containers` shares one dataset's policy and snapshot lifecycle.
+
 ## Compose patterns
 
 ### Bind mount into ZFS

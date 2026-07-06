@@ -53,8 +53,12 @@ services:
       - ./media:/media
       - ./custom-templates:/templates
     ports:
-      - "9000:9000"
-      - "9443:9443"
+      # Bound to localhost only; users reach Authentik through the reverse
+      # proxy on its own subdomain (auth.${DOMAIN}) over 443, not these ports.
+      # Ports 9000/9443 are Authentik's canonical assignment in the port map
+      # (services/index.md) — Portainer was moved off 9000 to avoid the clash.
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9443:9443"
     depends_on:
       postgresql:
         condition: service_healthy

@@ -40,7 +40,7 @@ The APU architecture enables running 70B+ parameter LLMs that wouldn't fit in di
 | **Ubuntu Server** | Installation, security hardening, systemd, logging | [View](https://mortenoh.github.io/msai-setup/ubuntu/) |
 | **ZFS Storage** | Pool creation, datasets, snapshots, Docker integration | [View](https://mortenoh.github.io/msai-setup/zfs/) |
 | **Bcachefs** | Next-gen COW filesystem, DKMS setup, encryption, caching | [View](https://mortenoh.github.io/msai-setup/bcachefs/) |
-| **Virtualization** | KVM setup, GPU passthrough, Windows 11 VM | [View](https://mortenoh.github.io/msai-setup/virtualization/) |
+| **Virtualization** | KVM setup, Windows 11 VM (virtio-gpu by default; GPU passthrough is an opt-in trade-off) | [View](https://mortenoh.github.io/msai-setup/virtualization/) |
 | **Docker** | Compose, development stacks, Ollama, monitoring, Nextcloud, Plex | [View](https://mortenoh.github.io/msai-setup/docker/) |
 | **Netplan** | Network configuration, bridges, bonds, VLANs | [View](https://mortenoh.github.io/msai-setup/netplan/) |
 | **Firewall & Security** | UFW, iptables, nftables, Docker/KVM networking | [View](https://mortenoh.github.io/msai-setup/networking/) |
@@ -55,7 +55,7 @@ The APU architecture enables running 70B+ parameter LLMs that wouldn't fit in di
 - **Ubuntu Server** - Installation, CIS hardening, AppArmor, Fail2ban, auditd
 - **ZFS** - Pool creation, datasets, snapshots, Docker integration
 - **Bcachefs** - Next-gen filesystem, encryption, compression, SSD caching
-- **KVM/QEMU** - Virtualization, GPU passthrough, Windows 11 VM
+- **KVM/QEMU** - Virtualization, Windows 11 VM (virtio-gpu by default; GPU passthrough is an opt-in trade-off)
 - **Docker** - Compose, development stacks, Ollama stack, monitoring, container services
 - **Networking** - Netplan, UFW, iptables/nftables, namespaces
 - **SSH** - Keys, agent forwarding, tunneling, jump hosts

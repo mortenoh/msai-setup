@@ -136,10 +136,10 @@ cmake --build build --config Release
 
 ```bash
 # Start Ollama (AMD ROCm — MS-S1 MAX)
+# No HSA_OVERRIDE_GFX_VERSION needed — ROCm 7.x supports gfx1151 natively.
 docker run -d \
   --device=/dev/kfd --device=/dev/dri \
   --group-add video --group-add render \
-  -e HSA_OVERRIDE_GFX_VERSION=11.5.1 \
   -v /mnt/tank/ai/models/ollama:/root/.ollama \
   -p 11434:11434 \
   --name ollama \
@@ -154,10 +154,10 @@ docker exec -it ollama ollama run llama3.3:70b
 
 ```bash
 # Start server (AMD ROCm — MS-S1 MAX)
+# No HSA_OVERRIDE_GFX_VERSION needed — ROCm 7.x supports gfx1151 natively.
 docker run -d \
   --device=/dev/kfd --device=/dev/dri \
   --group-add video --group-add render \
-  -e HSA_OVERRIDE_GFX_VERSION=11.5.1 \
   -v /mnt/tank/ai/models/gguf:/models \
   -p 8080:8080 \
   --name llama-server \

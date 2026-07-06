@@ -161,11 +161,23 @@ Control who can send files to whom:
     {
       "action": "accept",
       "src": ["group:employees"],
-      "dst": ["group:employees"],
-      "proto": ["tcp"],
-      "dstPorts": ["*:*"]
+      "dst": ["group:employees:*"]
     }
   ]
+}
+```
+
+Tailscale ACLs encode the port inline in the `dst` field as `host:port` (there
+is no separate `dstPorts` field). Use `:*` to allow any port, or fold a specific
+port into `dst`, e.g. `"dst": ["tag:server:41641"]`. Taildrop itself works
+peer-to-peer, so a rule allowing direct connectivity between the devices is what
+matters:
+
+```json
+{
+  "action": "accept",
+  "src": ["tag:laptop"],
+  "dst": ["tag:server:41641"]
 }
 ```
 

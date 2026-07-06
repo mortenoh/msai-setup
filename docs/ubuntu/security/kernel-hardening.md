@@ -110,6 +110,9 @@ fs.suid_dumpable = 0
 
 ```ini
 # Disable IP forwarding (unless router/firewall)
+# WARNING: this build needs ip_forward = 1 — Docker bridge networking and
+# KVM/QEMU NAT both require IP forwarding. Leave it at 1 here, or Docker
+# will silently re-enable it and container/VM networking will break.
 net.ipv4.ip_forward = 0
 
 # Disable source routing
@@ -282,8 +285,10 @@ fs.suid_dumpable = 0
 # Network Security - IPv4
 #########################################
 
-# Disable IP forwarding (enable for routers/containers)
-net.ipv4.ip_forward = 0
+# IP forwarding. This build runs Docker and KVM/QEMU, both of which need
+# forwarding for bridge networking and NAT — set this to 1 on this host.
+# (Shown as 0 as the generic hardened default; do not use 0 here.)
+net.ipv4.ip_forward = 1
 
 # Disable source routing
 net.ipv4.conf.all.accept_source_route = 0
@@ -381,6 +386,9 @@ Edit `/etc/default/grub`:
 GRUB_CMDLINE_LINUX_DEFAULT="quiet splash"
 GRUB_CMDLINE_LINUX="init_on_alloc=1 init_on_free=1 page_alloc.shuffle=1 pti=on vsyscall=none"
 ```
+
+!!! warning "Append to this line — do not overwrite existing params"
+    `GRUB_CMDLINE_LINUX_DEFAULT` is shared. On this build the AI/GPU setup adds `ttm.pages_limit=...` / `ttm.page_pool_size=...` to this same variable (see [GPU Memory Configuration](../../ai/gpu/memory-configuration.md)) to expose ~108 GB of GTT memory to ROCm. If you paste `"quiet splash"` verbatim here you will silently drop those GPU parameters and break large-model inference. Merge the values into one line, e.g. `GRUB_CMDLINE_LINUX_DEFAULT="quiet splash ttm.pages_limit=28311552 ttm.page_pool_size=28311552"`, and confirm with `cat /proc/cmdline` after `sudo update-grub && sudo reboot`.
 
 | Parameter | Purpose |
 |-----------|---------|

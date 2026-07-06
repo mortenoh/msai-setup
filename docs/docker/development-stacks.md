@@ -10,6 +10,18 @@ Pre-configured stacks for common development scenarios:
 - **Full-stack templates** - Application + database + cache
 - **Hot reload** - Development configurations with live reload
 
+!!! warning "Generic reference — this build uses ZFS bind mounts, not named volumes"
+    These stacks use Docker **named volumes** (`postgres_data:`, `redis_data:`,
+    etc.) and publish ports on all interfaces because they are meant as
+    portable local-development scaffolding. That is **not** this build's
+    convention for persistent services. On the MS-S1 MAX, data you care about
+    is bind-mounted into a ZFS dataset (`/mnt/tank/db/postgres`,
+    `/mnt/tank/containers/<svc>`, ...) so it can be snapshotted and replicated,
+    and sensitive ports are bound to `127.0.0.1` behind the reverse proxy. See
+    [Docker vs LXC](docker-vs-lxc.md#docker-on-zfs-the-pattern-used-in-these-docs)
+    and [Nextcloud](nextcloud.md). Adapt these examples before running them as
+    a real service on this box.
+
 ## PostgreSQL + pgAdmin
 
 ### Basic Setup

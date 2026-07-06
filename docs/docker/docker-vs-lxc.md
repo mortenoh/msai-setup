@@ -24,6 +24,24 @@ Reasons:
 
 The interesting cases for LXC are below.
 
+!!! note "This page is about containers, not full VMs"
+    Everything below compares Docker containers to LXC/LXD *system
+    containers* — both share the host kernel. It has nothing to do with
+    this build's use of full virtual machines (Windows 11, optionally a
+    Linux desktop) via KVM/QEMU + libvirt, documented in
+    [Virtualization](../virtualization/index.md) — that decision is
+    unaffected by anything on this page.
+
+    Worth calling out explicitly since it's a common mix-up: modern LXD
+    (4.0+) can *also* launch real VMs (`lxc launch <image> --vm`,
+    QEMU-backed under the hood), not just system containers. This build
+    still uses KVM/libvirt directly for VMs rather than LXD's VM mode —
+    the entire [Windows 11 VM](../virtualization/windows-vm.md) guide
+    (TPM 2.0, OVMF, virtio-gpu, RDP) is already built around
+    virt-manager/libvirt, whose tooling is more mature for Windows
+    guests than LXD's newer VM feature, and there's no benefit to
+    consolidating VMs and service containers under one tool here.
+
 ## Where the categories actually differ
 
 | Aspect | Docker | LXC |
@@ -93,13 +111,13 @@ services:
   ollama:
     image: ollama/ollama:rocm
     volumes:
-      - /mnt/tank/services/ollama:/root/.ollama  # bind to ZFS dataset
+      - /mnt/tank/ai/ollama:/root/.ollama  # bind to ZFS dataset
 ```
 
 Snapshot the dataset, not the container:
 
 ```bash
-zfs snapshot tank/services/ollama@before-upgrade
+zfs snapshot tank/ai/ollama@before-upgrade
 ```
 
 Containers stay disposable; data stays on ZFS.

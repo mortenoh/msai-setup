@@ -156,6 +156,9 @@ trainer.train()
 
 ### Training with Unsloth
 
+!!! warning "Unsloth is CUDA-focused — not for this AMD build"
+    Unsloth's optimized kernels target NVIDIA/CUDA GPUs and have little to no ROCm support on this build's gfx1151 iGPU. On the MS-S1 MAX, use the plain `transformers` + `trl` `SFTTrainer` flow in [Basic Training](#basic-training) above on the ROCm build of PyTorch, and note that the `adamw_8bit` optimizer relies on `bitsandbytes`, whose ROCm support is immature — fall back to `optim="adamw_torch"` if it fails to load. Run Unsloth on a rented CUDA cloud GPU if you need its speedups. The snippet below is kept for reference / NVIDIA users.
+
 ```python
 from unsloth import FastLanguageModel
 from trl import SFTTrainer
@@ -346,6 +349,9 @@ trainer.train(resume_from_checkpoint="./output/checkpoint-500")
 ```
 
 ## Full Training Script
+
+!!! warning "Reference script uses Unsloth (CUDA)"
+    This end-to-end example is built around Unsloth and `bitsandbytes` (`load_in_4bit`, `adamw_8bit`), which are CUDA-focused and not reliable on this AMD gfx1151 build. On the MS-S1 MAX, adapt it to plain `transformers` + `peft` + `trl` on the ROCm build of PyTorch (drop `load_in_4bit`, use `optim="adamw_torch"`), or run it as-is on a rented CUDA cloud GPU.
 
 ```python
 import torch

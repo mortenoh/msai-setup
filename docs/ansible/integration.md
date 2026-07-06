@@ -1,12 +1,18 @@
 # Integration with this build
 
-How Ansible fits with the VirtualBox/Multipass lab in `scripts/lab/` and how the same playbooks will run against the real MS-S1 MAX once it's provisioned.
+How Ansible fits with the VirtualBox lab in `src/msai_setup/lab/` and how the same playbooks run against the real MS-S1 MAX once it's provisioned.
+
+!!! tip "See also — the hands-on walkthrough"
+    [`src/msai_setup/lab/README.md`](https://github.com/mortenoh/msai-setup/blob/main/src/msai_setup/lab/README.md) is the concrete, working, do-this-see-this walkthrough of everything on this page: `msai create`, `msai lab apply`, snapshots, and the "From lab to real MS-S1 MAX" handoff. This page explains the design; the README shows it running.
+
+!!! note "VirtualBox only"
+    VirtualBox is the only supported provisioner in this repo. There is no Multipass support anywhere in the codebase — earlier drafts mentioned it, but it was never implemented.
 
 ## Two halves of automation
 
 ```
 +--------------------------------------------+
-|  Python + VBoxManage / Multipass           |
+|  Python + VBoxManage (the `msai` CLI)      |
 |  Provisions: VM exists, has disks, has SSH |
 +--------------------------------------------+
               |
@@ -31,89 +37,78 @@ The boundary is "the host accepts SSH". Below that line: Python. Above: Ansible.
 ```bash
 # 0. once: install prerequisites on the control node (your Mac)
 brew install ansible                              # or pipx install ansible
-brew install --cask multipass                     # for Apple Silicon
-# OR for x86_64:
-# brew install --cask virtualbox
+brew install --cask virtualbox                    # the only supported provisioner
+uv sync                                            # installs the `msai` CLI
+ansible-galaxy collection install -r src/msai_setup/lab/ansible/requirements.yml
 
-# 1. provision the lab VM
-# Apple Silicon: use Multipass
-python3 scripts/lab/01_provision_multipass.py
-# x86_64: use VirtualBox
-python3 scripts/lab/01_provision.py
+# 1. create the lab VM (downloads ISO, creates VM, waits for SSH)
+msai create test
 
 # 2. apply playbooks (default chain: bootstrap, ssh-hardening, ufw)
-python3 scripts/lab/02_apply.py
+msai lab apply
 
 # 3. apply individual playbooks for the ZFS / Docker exercises
-python3 scripts/lab/02_apply.py zfs
-python3 scripts/lab/02_apply.py zfs -e topology=mirror
+msai lab apply zfs
+msai lab apply zfs -e topology=mirror
+msai lab apply docker services
 
 # 4. snapshot before risky changes
-multipass snapshot ms-s1-max-lab --name pre-zfs-experiment
-# or for VirtualBox:
-# VBoxManage snapshot ms-s1-max-lab take pre-zfs-experiment --pause
+msai lab snapshot pre-zfs-experiment
 
-# 5. tear down when done
-multipass delete --purge ms-s1-max-lab
-# or:
-# VBoxManage unregistervm ms-s1-max-lab --delete
+# 5. roll back to a snapshot / tear down when done
+msai lab restore pre-zfs-experiment
+msai lab destroy
 ```
 
 ## What lives where
 
+The real automation is a Python package under `src/msai_setup/lab/`, exposed through the `msai` CLI (Typer). There is no `scripts/lab/` directory.
+
 ```
-scripts/lab/
-  _config.py             # LabConfig dataclass (env-driven defaults)
-  _vbox.py               # VBoxManage subprocess wrapper
-  _multipass.py          # Multipass subprocess wrapper
-  _iso.py                # Ubuntu ISO download + SHA256 verify
-  _ssh.py                # SSH wait + key push helpers
-  _state.py              # JSON state for "this phase already ran"
-  01_provision.py        # VirtualBox provisioner
-  01_provision_multipass.py    # Multipass provisioner
-  02_apply.py            # Run ansible-playbook against the VM
+src/msai_setup/lab/
+  __init__.py
+  cli.py                 # `msai lab ...` Typer commands (apply, snapshot, restore, destroy, status)
+  config.py              # LabConfig dataclass (env-driven defaults)
+  vbox.py                # VBoxManage subprocess wrapper
+  iso.py                 # Ubuntu ISO download + SHA256 verify + autoinstall remaster
+  cloudinit.py           # builds the CIDATA cloud-init ISO
+  ssh.py                 # SSH wait + key push helpers
+  instance.py            # current-instance pointer (msai create / use / list)
+  provision.py           # provision phase: create the VM, wait for SSH
+  apply.py               # writes the generated inventory, runs ansible-playbook
+  pipeline.py            # chains provision -> apply (`msai lab all`)
+  state.py               # JSON state for "this phase already ran"
+  README.md              # the hands-on walkthrough
   ansible/
     ansible.cfg          # lab-tuned defaults
     requirements.yml     # ansible-galaxy collections
     playbooks/
-      bootstrap.yml      # apt baseline, timezone, sudoers, journald
+      bootstrap.yml      # apt baseline, timezone, passwordless sudoers, journald
       ssh-hardening.yml  # matches docs/ssh/server/hardening.md
       ufw.yml            # default-deny + OpenSSH
       zfs.yml            # install ZFS, ARC cap, pool + datasets
-      docker.yml         # (planned)
-      services.yml       # (planned)
+      docker.yml         # Docker CE + Compose plugin, daemon.json, smoke test
+      services.yml       # Traefik + whoami Compose smoke stack (community.docker)
 ```
 
-State is JSON in `target/<vm-name>-state.json`. Each phase marks itself complete; re-running is safe.
-
-## How Multipass vs VirtualBox differ in this design
-
-| Concern | VirtualBox | Multipass |
-|---|---|---|
-| Where it runs well | x86_64 Macs, Linux, Windows | Apple Silicon Macs, x86_64 Macs, Linux |
-| Provisioning | `01_provision.py` (full unattended via VBoxManage) | `01_provision_multipass.py` (uses cloud-init) |
-| Multiple lab disks | 6 separate virtual disks | 1 disk; ZFS playbook makes loopback files |
-| SSH endpoint | host:2222 via NAT port-forward | VM's IP on the LAN-like Multipass network |
-| Snapshots | `VBoxManage snapshot take` | `multipass snapshot` |
-| Headless | yes (`--type headless`) | yes (default) |
-
-The Ansible side is **identical** — `02_apply.py` reads `_state.json` to figure out which endpoint to put in the inventory, and the playbooks themselves don't care which provisioner ran first. `zfs.yml` does adapt (loopback files instead of `/dev/sd*`) when no real lab disks are present.
+All six playbooks are real and shipped — `docker.yml` and `services.yml` included. State is JSON in `target/<vm-name>-state.json`. Each phase marks itself complete; re-running is safe.
 
 ## How this maps to the real MS-S1 MAX
 
-After installing Ubuntu Server 26.04 on the actual MS-S1 MAX (manually, since that's how the bare-metal install works):
+After installing Ubuntu Server 26.04 on the actual MS-S1 MAX (manually, since that's how the bare-metal install works), point Ansible at it with a small production inventory:
 
 ```yaml
-# scripts/lab/ansible/inventory.yml (or move out of lab/ for production)
+# ~/msai-prod-inventory.yml
 all:
   children:
     production:
       hosts:
         ms-s1-max:
-          ansible_host: 192.168.1.10        # or its Tailscale name
+          ansible_host: 192.168.1.10             # or ms-s1-max.<tailnet>.ts.net
           ansible_user: morten
           ansible_become: true
-          # no password — passwordless sudo configured by bootstrap.yml
+          ansible_ssh_private_key_file: ~/.ssh/id_ed25519
+          # no become password — passwordless sudo is configured by bootstrap.yml
 ```
 
 Then:
@@ -123,21 +118,21 @@ Then:
 ssh-copy-id morten@ms-s1-max
 
 # Apply the same playbooks the lab uses
-cd scripts/lab/ansible
-ansible-playbook -i inventory.yml playbooks/bootstrap.yml -l production
-ansible-playbook -i inventory.yml playbooks/ssh-hardening.yml -l production
-ansible-playbook -i inventory.yml playbooks/ufw.yml -l production
-ansible-playbook -i inventory.yml playbooks/zfs.yml -l production \
+cd src/msai_setup/lab/ansible
+ansible-playbook -i ~/msai-prod-inventory.yml playbooks/bootstrap.yml -l production
+ansible-playbook -i ~/msai-prod-inventory.yml playbooks/ssh-hardening.yml -l production
+ansible-playbook -i ~/msai-prod-inventory.yml playbooks/ufw.yml -l production
+ansible-playbook -i ~/msai-prod-inventory.yml playbooks/zfs.yml -l production \
     -e topology=stripe         # production layout: single stripe over 2 disks
 
 # Then Docker, services...
 ```
 
-Same playbooks. Different inventory. Different host. That's the point.
+Same playbooks. Different inventory. Different host. That's the point. This mirrors the "From lab to real MS-S1 MAX" section of `src/msai_setup/lab/README.md`.
 
 ## Where the playbooks intentionally don't cover
 
-This is what `scripts/lab/ansible/playbooks/` deliberately does NOT do:
+This is what `src/msai_setup/lab/ansible/playbooks/` deliberately does NOT do:
 
 - **Bare-metal Ubuntu install.** That's a one-time manual step on the real hardware (you boot from a USB, click through Subiquity). The lab automation simulates it but doesn't replace it.
 - **GPU / ROCm install.** Strix-Halo-specific kernel/firmware shenanigans don't fit Ansible's model cleanly. See `docs/ai/gpu/rocm-installation.md` for the manual procedure (which can be wrapped in Ansible later if you want).
@@ -147,36 +142,18 @@ The boundaries are deliberate. Ansible does what it's good at; other tools do th
 
 ## Secrets handling end-to-end
 
-In the lab the password is `changeme` from `_config.py`. For production:
+The shipped playbooks **need no secrets at all**, so there is nothing to vault today:
 
-```bash
-# 1. Set a real password and store in 1Password (not in plaintext anywhere)
-op item create --category=password --title='ms-s1-max sudo' password='real-secret'
+- **Sudo is passwordless.** `bootstrap.yml` writes a NOPASSWD sudoers drop-in (`/etc/sudoers.d/90-<user>`), so `become` works with no `ansible_become_password`. The generated inventory `apply.py` writes contains no password field.
+- **SSH is key-only.** The lab authorises a dedicated throwaway keypair via cloud-init; production authorises whatever key you `ssh-copy-id`. Either way it's an `ansible_ssh_private_key_file`, not a password.
 
-# 2. Vault file references it (committed to git, encrypted)
-ansible-vault create scripts/lab/ansible/group_vars/production/vault.yml
-# Contents:
-#   vault_become_password: "{{ lookup('community.general.onepassword', 'ms-s1-max sudo') }}"
+So there is no `ansible-vault`, no `group_vars/vault.yml`, and no 1Password lookup wired into the real playbooks. In the lab the install-time password defaults to `changeme` in `config.py`, but it's only used during the unattended install — Ansible never touches it.
 
-# 3. main.yml in group_vars/production/ pulls the value
-# scripts/lab/ansible/group_vars/production/main.yml:
-#   ansible_become_password: "{{ vault_become_password }}"
-
-# 4. Ansible vault password itself comes from 1Password too
-echo '#!/bin/bash
-op read "op://Private/ansible-vault/password"' > ~/.bin/ansible-vault-pass
-chmod +x ~/.bin/ansible-vault-pass
-
-# 5. Ansible looks it all up at runtime — no plaintext on disk
-ansible-playbook -i inventory.yml playbook.yml \
-    --vault-password-file ~/.bin/ansible-vault-pass
-```
-
-See [Vault](vault.md) for the full pattern.
+If you later add a playbook that genuinely needs a secret (an API token, a TLS key, a service password), `ansible-vault` is the right tool and remains available. See [Vault](vault.md) for that generic pattern — just note it is not something the current build uses.
 
 ## Why not Terraform?
 
-Terraform's strength is "I describe cloud resources; here's their state". For a single mini-PC running Ubuntu, Terraform's state-file overhead doesn't pay back. Provisioning a VM with Python + VBoxManage or Multipass is simpler and direct. If you ever scale to "10 boxes in AWS plus the homelab", Terraform makes sense for the cloud half — at that point pair it with Ansible as I'm doing here.
+Terraform's strength is "I describe cloud resources; here's their state". For a single mini-PC running Ubuntu, Terraform's state-file overhead doesn't pay back. Provisioning a VM with Python + VBoxManage (the `msai` CLI) is simpler and direct. If you ever scale to "10 boxes in AWS plus the homelab", Terraform makes sense for the cloud half — at that point pair it with Ansible as I'm doing here.
 
 ## Why not Salt / Chef / Puppet?
 
@@ -206,6 +183,7 @@ ANSIBLE_CALLBACKS_ENABLED=profile_tasks ansible-playbook -i inventory.yml playbo
 ## Where to go next
 
 - [Connection](connection.md) — SSH and become specifics.
-- [Vault](vault.md) — full secrets workflow.
+- [Vault](vault.md) — generic secrets workflow (not used by the shipped playbooks).
 - [Troubleshooting](troubleshooting.md) — when something doesn't work.
-- The actual code: `scripts/lab/` in the repo.
+- The hands-on walkthrough: [`src/msai_setup/lab/README.md`](https://github.com/mortenoh/msai-setup/blob/main/src/msai_setup/lab/README.md).
+- The actual code: `src/msai_setup/lab/` in the repo.

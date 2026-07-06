@@ -66,8 +66,24 @@ shopt -s globstar   # Enables **
 `eza` (formerly `exa`) provides better output:
 
 ```bash
+# Ubuntu/Debian (available in the universe repo on recent releases)
+sudo apt install eza
+
+# macOS
 brew install eza
 ```
+
+!!! note "If eza is not in your apt repos"
+    On older releases where `eza` is not packaged, use the project's official
+    apt repository:
+    ```bash
+    sudo mkdir -p /etc/apt/keyrings
+    wget -qO- https://raw.githubusercontent.com/eza-community/eza/main/deb.asc \
+        | sudo gpg --dearmor -o /etc/apt/keyrings/gierens.gpg
+    echo "deb [signed-by=/etc/apt/keyrings/gierens.gpg] http://deb.gierens.de stable main" \
+        | sudo tee /etc/apt/sources.list.d/gierens.list
+    sudo apt update && sudo apt install eza
+    ```
 
 ```bash
 eza                 # Colorized output
@@ -226,6 +242,7 @@ rm -i *.log
 Install a trash utility:
 
 ```bash
+sudo apt install trash-cli      # Ubuntu/Debian
 brew install trash              # macOS
 ```
 

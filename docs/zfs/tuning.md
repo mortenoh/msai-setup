@@ -151,7 +151,7 @@ Mitigations in order of preference:
 
 1. Tune `recordsize` per dataset (see below).
 2. Cap ARC tighter so more RAM is available for the write buffer.
-3. Move hot data off the slow disk (the secondary 4 TB NVMe on this build is x1 — keep VM disks and DB on the primary).
+3. Move hot data onto faster storage. Caveat for this build: `tank` is a single pool striped across the primary (x4) and secondary (x1) NVMe, so ZFS spreads writes across both vdevs and you **can't** pin a dataset like `tank/vm` or `tank/db` to the fast drive. Guaranteed placement would require a separate pool built only from the primary drive (see [Pool Creation -> What this pool is not](pool-creation.md#what-this-pool-is-not) and [Datasets -> A note on device placement](datasets.md#a-note-on-device-placement)).
 
 ## `recordsize` per workload
 

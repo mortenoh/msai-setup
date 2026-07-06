@@ -99,18 +99,23 @@ ethtool enp5s0 | grep -E "Speed|Duplex"
 
 ### DHCP Issues
 
-```bash
-# Release current lease
-sudo dhclient -r enp5s0
+This build uses the `systemd-networkd` renderer (no NetworkManager, no `dhclient`). Use the networkd-native tools rather than the legacy `dhclient` release/renew, which is often not even installed:
 
-# Request new lease
-sudo dhclient enp5s0
+```bash
+# Re-apply networkd config for an interface (re-runs DHCP)
+sudo networkctl reconfigure enp5s0
+
+# Force a full re-read of all netplan/networkd config
+sudo netplan apply
+
+# Per-link state, including DHCP lease details
+networkctl status enp5s0
 
 # Check if got address
 ip addr show enp5s0
 
 # Check DHCP client logs
-sudo journalctl -u systemd-networkd | grep DHCP
+sudo journalctl -u systemd-networkd | grep -i dhcp
 ```
 
 ### Static IP Issues
@@ -286,18 +291,26 @@ sudo ufw disable
 sudo ufw enable
 ```
 
-### Check iptables
+### Inspect the Live Ruleset (nftables backend)
+
+On 26.04 UFW uses the **nftables** backend, so inspect the compiled ruleset with `nft`, not the legacy `iptables` tools. Lead with the UFW view, then drop to the raw ruleset:
 
 ```bash
-# List all rules
-sudo iptables -L -n -v
+# Primary: what UFW believes is active
+sudo ufw status verbose
 
-# List NAT rules
-sudo iptables -t nat -L -n -v
+# The actual compiled ruleset (all tables/chains)
+sudo nft list ruleset
 
-# Check if packet would be dropped
-sudo iptables -C INPUT -p tcp --dport 22 -j ACCEPT
+# Just the ufw tables
+sudo nft list table inet filter
+
+# Docker-published ports live in their own chains; check them too
+sudo nft list table ip filter | grep -i docker
 ```
+
+!!! note "iptables here is a shim"
+    `iptables -L` on this build calls `iptables-nft`, which only shows a translated subset and can be misleading. Prefer `nft list ruleset`. See also [ufw-docker](../../docker/setup.md) for why Docker-published ports need extra handling to actually be filtered by UFW.
 
 ### Allow Traffic
 
@@ -311,6 +324,37 @@ sudo ufw allow from 192.168.1.0/24 to any port 22
 # Reload UFW
 sudo ufw reload
 ```
+
+## Tailscale Diagnostics
+
+Tailscale is this build's remote-management plane — the host is reachable on the LAN and over the tailnet, but **not** directly on the public internet. If you can reach the box on the LAN but not remotely (or vice versa), check Tailscale before blaming DNS or routing.
+
+```bash
+# Overall tailnet state: peers, their MagicDNS names, and online status
+tailscale status
+
+# This host's tailnet address
+tailscale ip -4
+
+# Reachability to a peer (falls back from direct to DERP relay)
+tailscale ping other-host
+
+# Is the daemon healthy and the interface up?
+systemctl status tailscaled
+ip -br addr show tailscale0
+
+# Look for a self-reported problem (expired key, ACL block, clock skew)
+tailscale netcheck
+```
+
+Common findings:
+
+| Symptom | Likely cause |
+|---------|--------------|
+| `tailscale0` missing | `tailscaled` down, or `sudo tailscale up` never run |
+| Peer shows but ping only via DERP | NAT/firewall blocking direct UDP; still works, just higher latency |
+| Peer unreachable, others fine | ACL tightened it out, or the peer's key expired |
+| MagicDNS name won't resolve | `resolvectl status` shows Tailscale DNS not applied; re-run `sudo tailscale up` |
 
 ## Service-Specific Issues
 
@@ -481,8 +525,9 @@ sudo ufw status
 # Firewall or routing issue
 # Check route
 ip route get destination
-# Check firewall
-sudo iptables -L -n
+# Check firewall (UFW first, then the raw nftables ruleset)
+sudo ufw status verbose
+sudo nft list ruleset
 # Trace path
 traceroute destination
 ```
@@ -532,8 +577,12 @@ ss -tlnp                  # Listening ports
 ss -ant                   # All connections
 
 # Firewall
-sudo ufw status           # UFW status
-sudo iptables -L -n       # Raw rules
+sudo ufw status verbose   # UFW status (primary)
+sudo nft list ruleset     # Raw nftables ruleset (backend)
+
+# Tailscale (management plane)
+tailscale status          # Peers and reachability
+tailscale ping host       # Test tailnet path
 ```
 
 ### Quick Fixes
@@ -544,14 +593,15 @@ sudo netplan apply
 # or
 sudo systemctl restart systemd-networkd
 
-# Get new DHCP lease
-sudo dhclient -r enp5s0 && sudo dhclient enp5s0
+# Re-run DHCP on an interface (networkd-native; no dhclient on this build)
+sudo networkctl reconfigure enp5s0
 
 # Add default route
 sudo ip route add default via GATEWAY
 
-# Add DNS
-echo "nameserver 8.8.8.8" | sudo tee /etc/resolv.conf
+# Flush and re-read DNS (systemd-resolved)
+sudo resolvectl flush-caches
+resolvectl status
 ```
 
 ## Next Steps

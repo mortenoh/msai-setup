@@ -117,28 +117,37 @@ echo "Results saved to: $OUTFILE"
 
 ### Network Isolation
 
-**Immediate isolation (high severity):**
-
-```bash
-# Block all traffic except existing SSH
-sudo iptables -I INPUT 1 -m conntrack --ctstate ESTABLISHED -j ACCEPT
-sudo iptables -I INPUT 2 -p tcp --dport 22 -j ACCEPT
-sudo iptables -I INPUT 3 -j DROP
-```
-
-**Partial isolation:**
-
-```bash
-# Block outbound (stop data exfiltration)
-sudo iptables -I OUTPUT 1 -m conntrack --ctstate ESTABLISHED -j ACCEPT
-sudo iptables -I OUTPUT 2 -j DROP
-```
+This build's firewall is **UFW (nftables backend)** — manage containment through UFW, not raw `iptables`, so the rules survive reloads and match the rest of the config.
 
 **Record active connections first:**
 
 ```bash
 sudo ss -anp > /tmp/connections-$(date +%Y%m%d_%H%M%S).txt
 ```
+
+**Block a specific attacker (surgical, keeps you connected):**
+
+```bash
+# insert at position 1 so it wins over allow rules
+sudo ufw insert 1 deny from ATTACKER_IP
+sudo ufw reload
+```
+
+**Immediate lockdown (high severity) — deny everything but SSH from your admin source:**
+
+```bash
+sudo ufw default deny incoming
+sudo ufw default deny outgoing        # stops data exfiltration too
+sudo ufw allow from YOUR_ADMIN_IP to any port 22 proto tcp
+sudo ufw enable
+```
+
+!!! warning "Tailscale-aware containment"
+    On this build SSH normally arrives over **Tailscale**, not a public port, so "block all but SSH on port 22" can lock you out or leave the tailnet path open depending on what you assume. Decide deliberately:
+
+    - To sever the tailnet as an ingress path during containment: `sudo tailscale down` (you keep LAN SSH), or tighten the tailnet ACLs to drop this node from the admin group.
+    - To keep managing the box *over* Tailscale while cutting everything else: allow `in on tailscale0` for SSH and deny other interfaces — `sudo ufw allow in on tailscale0 to any port 22 proto tcp`.
+    - Remember the host is not on the public internet, so most "internet-facing" isolation advice does not apply; the real ingress surfaces are the LAN and `tailscale0`.
 
 ### Account Containment
 
@@ -440,6 +449,24 @@ For severe compromise, consider:
 2. **Reinstall** - Fresh system, restore data only
 3. **Clean in place** - Riskier, may miss persistence
 
+### ZFS Snapshot Rollback
+
+sanoid takes scheduled hourly/daily snapshots of the `tank` datasets, so rolling a compromised or tampered dataset back to a known-good point is this build's fastest data-recovery path. Investigate and preserve evidence **before** rolling back — a rollback discards everything written after the snapshot.
+
+```bash
+# List snapshots for the affected dataset, newest last
+zfs list -t snapshot -o name,creation tank/containers/webapp
+
+# Roll back to a snapshot taken before the incident window
+sudo zfs rollback tank/containers/webapp@autosnap_2026-07-05_00:00:00
+
+# If intermediate snapshots block the rollback, -r destroys them (irreversible)
+sudo zfs rollback -r tank/containers/webapp@autosnap_2026-07-05_00:00:00
+```
+
+!!! note "Clone first if you still need evidence"
+    Instead of destroying newer state, mount it read-only for forensics: `sudo zfs clone tank/containers/webapp@snap tank/incident/webapp-evidence`, copy what you need, then roll back the live dataset. The host OS itself lives on ext4 (not ZFS) — a compromised *root* is a reinstall, but service/container/VM data on `tank` is recoverable from snapshots.
+
 ## Prevention After Incident
 
 ### Immediate Actions
@@ -477,12 +504,17 @@ sudo pkill -u username
 # Lock account
 sudo usermod -L username
 
-# Block all network
-sudo iptables -I INPUT 1 -j DROP
-sudo iptables -I OUTPUT 1 -j DROP
+# Block a single attacker (UFW, survives reload)
+sudo ufw insert 1 deny from ATTACKER_IP && sudo ufw reload
 
-# Allow only your SSH
-sudo iptables -I INPUT 1 -s YOUR_IP -p tcp --dport 22 -j ACCEPT
+# Full lockdown, then allow only your admin SSH
+sudo ufw default deny incoming
+sudo ufw default deny outgoing
+sudo ufw allow from YOUR_IP to any port 22 proto tcp
+sudo ufw enable
+
+# Cut the tailnet ingress path if needed (keeps LAN SSH)
+sudo tailscale down
 ```
 
 ### Investigation Commands

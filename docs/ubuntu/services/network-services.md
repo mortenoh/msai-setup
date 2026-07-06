@@ -375,6 +375,42 @@ sudo nano /etc/docker/daemon.json
 }
 ```
 
+## Ollama / llama.cpp API
+
+Local LLM inference is this build's primary workload. Both Ollama and llama.cpp's `llama-server` expose an **unauthenticated HTTP API** — Ollama defaults to port `11434`, `llama-server` typically to `8080`. Anyone who can reach that port can run inference, read loaded model names, and exhaust the GPU. Treat it like any other unauthenticated backend: bind to loopback and put auth at the reverse proxy.
+
+### Bind Ollama to loopback
+
+By default Ollama listens on `127.0.0.1:11434`, which is correct for this build. The danger is "helpfully" opening it to the network with `OLLAMA_HOST=0.0.0.0` — do not do that on the host. Pin it explicitly via a systemd override:
+
+```bash
+sudo systemctl edit ollama.service
+```
+
+```ini
+[Service]
+# Keep the API on loopback; reverse proxy handles any external access
+Environment="OLLAMA_HOST=127.0.0.1:11434"
+```
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl restart ollama
+# Verify it is NOT on 0.0.0.0
+sudo ss -tlnp | grep 11434
+```
+
+For llama.cpp, launch `llama-server` with `--host 127.0.0.1 --port 8080` (never `--host 0.0.0.0`), and if it must be reachable, add `--api-key` and front it with the reverse proxy.
+
+### Expose it safely (if you must)
+
+- Put nginx/Caddy in front with TLS and an auth layer (basic auth, mTLS, or an SSO proxy), proxying to `127.0.0.1:11434`.
+- Reach it remotely over **Tailscale** rather than a public port — e.g. bind the proxy `in on tailscale0` only.
+- If running Ollama in Docker, publish as `127.0.0.1:11434:11434` (not `11434:11434`) and apply `ufw-docker`.
+
+!!! warning "The API has no built-in authentication"
+    Neither Ollama nor `llama-server` authenticate requests by default. Exposing port 11434 (or 8080) to the LAN — let alone the internet — hands anyone an open inference endpoint on your iGPU. Loopback bind plus reverse-proxy auth is the baseline.
+
 ## Firewall Rules
 
 ### Per-Service UFW Rules
@@ -478,12 +514,16 @@ sudo tail -f /var/log/postgresql/postgresql-16-main.log
 
 ### Binding Best Practices
 
+On this build every service sits **behind a reverse proxy** and binds to loopback; only the reverse proxy terminates external connections (and even that is fronted by the LAN and Tailscale, not the public internet). Do not bind application servers to `0.0.0.0`.
+
 | Scenario | Bind To |
 |----------|---------|
-| Public web server | 0.0.0.0:80, 0.0.0.0:443 |
+| Web app / API server | 127.0.0.1:PORT (reverse proxy in front) |
+| Reverse proxy (nginx/Caddy) | 127.0.0.1 / LAN IP / `tailscale0` — never blindly 0.0.0.0 to the internet |
 | Internal database | 127.0.0.1 or internal IP |
 | Local-only service | 127.0.0.1 |
-| Docker internal | Docker network IP |
+| Docker published port | 127.0.0.1:HOSTPORT:CONTAINERPORT (plus `ufw-docker`) |
+| Ollama / llama.cpp API | 127.0.0.1:11434 (see below) |
 
 ## Next Steps
 

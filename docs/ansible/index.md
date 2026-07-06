@@ -4,6 +4,9 @@ Ansible is the configuration-management half of this build's automation. **Pytho
 
 The same playbooks that configure the VirtualBox lab VM are designed to be run, with minimal changes, against the real MS-S1 MAX after Ubuntu 26.04 is installed.
 
+!!! tip "Start with the hands-on walkthrough"
+    These pages are the reference manual. The concrete, working, do-this-see-this walkthrough of the real automation lives at [`src/msai_setup/lab/README.md`](https://github.com/mortenoh/msai-setup/blob/main/src/msai_setup/lab/README.md). It drives the exact same tooling described here — the `msai` CLI, the six playbooks — against a throwaway VM. Read it alongside this section.
+
 ## Why Ansible for this build
 
 - **Agentless.** SSH-only management is the only management plane on this server anyway. Ansible needs nothing on the target except OpenSSH and Python 3 (preinstalled).
@@ -28,30 +31,33 @@ The same playbooks that configure the VirtualBox lab VM are designed to be run, 
 | [Handlers](handlers.md) | Notify/listen, restart-service patterns, ordering guarantees |
 | [Connection](connection.md) | SSH transport, become/sudo, control-persist, jump-hosts |
 | [Testing](testing.md) | `--check`, `--diff`, ansible-lint, molecule, syntax checks |
-| [Integration](integration.md) | How Ansible fits with the lab automation in `scripts/lab/` and the production server |
+| [Integration](integration.md) | How Ansible fits with the lab automation in `src/msai_setup/lab/` and the production server |
 | [Troubleshooting](troubleshooting.md) | Common errors and how to debug them with `-vvv` |
 
-## How this section pairs with `scripts/lab/`
+## How this section pairs with `src/msai_setup/lab/`
 
-The lab repository has working playbooks under `scripts/lab/ansible/playbooks/`. These docs are the **reference manual**; the playbooks are the **worked examples**. Read them side-by-side:
+The repository has working playbooks under `src/msai_setup/lab/ansible/playbooks/`, driven by the `msai` CLI. These docs are the **reference manual**; the playbooks are the **worked examples**. The [`src/msai_setup/lab/README.md`](https://github.com/mortenoh/msai-setup/blob/main/src/msai_setup/lab/README.md) walkthrough runs them end to end. Read them side-by-side:
 
 | Lab playbook | Demonstrates |
 |---|---|
-| `bootstrap.yml` | `apt`, loops, `copy` with content, `community.general.timezone`, handlers |
+| `bootstrap.yml` | `apt`, loops, `copy` with content, `community.general.timezone`, handlers, the passwordless-sudo sudoers drop-in |
 | `ssh-hardening.yml` | template-style config via `copy` with a Jinja2 body, `command` for validation |
 | `ufw.yml` | `community.general.ufw` module, loops, idempotent state |
 | `zfs.yml` | shell-script-style fact gathering, `set_fact`, `assert`, complex `command` invocations, `community.general.zfs` |
+| `docker.yml` | `apt` repo setup, GPG keyring, codename fallback logic, `user` group membership, `daemon.json`, a smoke-test `command` |
+| `services.yml` | `community.docker.docker_network` + `docker_compose_v2`, deploying a Traefik + whoami stack as a bind-mount-into-ZFS smoke test |
 
 The full lab path:
 
 ```bash
-# 1. provision the VM (downloads ISO, creates VM, kicks off install)
-python3 scripts/lab/01_provision.py
+# 1. create the VM (downloads ISO, creates VM, waits for SSH)
+msai create test
 
 # 2. configure it with Ansible
-python3 scripts/lab/02_apply.py                  # default chain: bootstrap, ssh-hardening, ufw
-python3 scripts/lab/02_apply.py zfs              # just the ZFS playbook
-python3 scripts/lab/02_apply.py zfs -e topology=mirror
+msai lab apply                       # default chain: bootstrap, ssh-hardening, ufw
+msai lab apply zfs                   # just the ZFS playbook
+msai lab apply zfs -e topology=mirror
+msai lab apply docker services       # Docker + the Compose smoke-test stack
 ```
 
 See [Integration](integration.md) for the full design.
@@ -61,7 +67,7 @@ See [Integration](integration.md) for the full design.
 - **Use `ansible-playbook` over `ansible` for everything.** The ad-hoc `ansible` command is fine for "ping all hosts" but isn't where real work lives. Every example here is a playbook.
 - **Prefer modules over `command`/`shell`.** A module knows when it's changed something; `command` doesn't. Use `shell` only when no module fits and document `changed_when`.
 - **Roles are valuable but not always necessary.** For a homelab with ~10 playbooks, flat playbooks are simpler. Promote to roles when you have repeating patterns across many hosts/projects.
-- **Keep secrets in vault from day one.** Even on a lab. Habits stick.
+- **Keep secrets out of playbooks.** The shipped playbooks need none: sudo is passwordless (bootstrap.yml writes a NOPASSWD sudoers drop-in) and SSH is key-only, so nothing is vaulted today. If you add secrets later, reach for `ansible-vault` — see [Vault](vault.md).
 
 ## Where to start reading
 

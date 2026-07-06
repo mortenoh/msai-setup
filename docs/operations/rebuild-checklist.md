@@ -153,6 +153,31 @@ sudo update-initramfs -u
 # Takes effect on next reboot.
 ```
 
+## Phase 3b — Reconfigure with the Ansible playbooks (preferred)
+
+The same Ansible playbooks that build the box in the first place are the intended reconfiguration mechanism for a rebuild — they're idempotent and reproduce base config, SSH hardening, the firewall, ZFS properties, Docker, and the service smoke-test in one pass. This is the documented "from lab to real MS-S1 MAX" flow in `src/msai_setup/lab/README.md`; running them here **replaces most of the hand-rolled steps in Phases 4, 7, 8, and 10** below (fall back to the manual steps only if you don't have the repo/inventory to hand).
+
+From a machine that has the repo checked out (your laptop), pointing at the production inventory described in `src/msai_setup/lab/README.md` (same one used for the initial build):
+
+```bash
+cd src/msai_setup/lab/ansible
+
+# Same production inventory as the initial build (see src/msai_setup/lab/README.md).
+INV=~/msai-prod-inventory.yml
+
+ansible-playbook -i "$INV" playbooks/bootstrap.yml            -l production   # base packages, user, sudoers, timezone
+ansible-playbook -i "$INV" playbooks/ssh-hardening.yml        -l production   # key-only auth, PermitRootLogin no, hardened ciphers
+ansible-playbook -i "$INV" playbooks/ufw.yml                 -l production   # default-deny firewall + SSH
+ansible-playbook -i "$INV" playbooks/zfs.yml -e topology=stripe -l production # ARC cap + dataset layout/properties
+ansible-playbook -i "$INV" playbooks/docker.yml              -l production   # Docker CE + daemon.json
+ansible-playbook -i "$INV" playbooks/services.yml            -l production   # bring up the Compose stack
+```
+
+!!! note "zfs.yml on an already-imported pool"
+    You imported `tank` in Phase 3, so `zfs.yml` detects the existing pool and **skips pool creation** — it only reasserts the ARC cap and ensures the dataset layout/properties. It will not repartition disks or destroy data. If you'd rather keep pool/dataset management entirely manual on the real box, skip `zfs.yml` and rely on the imported pool as-is.
+
+After the playbooks finish, you can jump straight to Phase 5 (ROCm) and Phase 6 (KVM/libvirt), which the playbooks don't cover, then use Phase 8's ordering to verify the Compose stack came up cleanly. The manual Phases 4/7/10 remain below for the no-Ansible fallback.
+
 ## Phase 4 — Restore host config from snapshot
 
 ```bash

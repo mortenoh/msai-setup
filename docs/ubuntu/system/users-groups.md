@@ -204,6 +204,22 @@ getent group groupname
 | libvirt | KVM/QEMU access | Manage VMs |
 | www-data | Web server | Web application files |
 | systemd-journal | Journal access | Read journalctl |
+| render | GPU compute node access | `/dev/kfd` for ROCm |
+| video | GPU/DRI device access | `/dev/dri/*` for the iGPU |
+
+!!! note "ROCm / iGPU service accounts need render + video"
+    On this build, a service account that talks to the Radeon 8060S iGPU through ROCm — for example running **Ollama or llama.cpp outside Docker** on the host — must be a member of both the `render` and `video` groups. Without them, `/dev/kfd` (the KFD compute node) and `/dev/dri/renderD*` are inaccessible and the runtime falls back to CPU or fails to see the GPU entirely.
+
+    ```bash
+    # Add an existing service account to the GPU groups
+    sudo usermod -aG render,video ollama
+
+    # Verify device access after re-login / service restart
+    getent group render video
+    ls -l /dev/kfd /dev/dri/renderD*
+    ```
+
+    Containers get GPU access differently (via `--device /dev/kfd --device /dev/dri` plus group mapping), so this applies specifically to processes running directly on the host.
 
 ### Deleting Groups
 

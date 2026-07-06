@@ -212,7 +212,8 @@ find . -name "*.txt" -print0 | xargs -0 -P 4 -I {} process {}
 ### With GNU Parallel
 
 ```bash
-# Install: brew install parallel
+# Install (Ubuntu/Debian): sudo apt install parallel
+# Install (macOS):          brew install parallel
 parallel process {} ::: *.txt
 parallel -j 4 process {} ::: *.txt  # 4 jobs
 ```
@@ -358,8 +359,16 @@ done
 idx=$max_workers
 while (( ${#pids[@]} > 0 )); do
     wait -n -p finished_pid
-    # Remove finished PID
-    pids=("${pids[@]/$finished_pid}")
+
+    # Remove finished PID by rebuilding the array without it.
+    # Note: assigning "${pids[@]/$finished_pid}" only blanks the
+    # matching element, so ${#pids[@]} never shrinks and this loop
+    # would hang. Filter it out and compact instead.
+    remaining=()
+    for pid in "${pids[@]}"; do
+        [[ "$pid" != "$finished_pid" ]] && remaining+=("$pid")
+    done
+    pids=("${remaining[@]}")
 
     # Start next item
     if (( idx < ${#queue[@]} )); then

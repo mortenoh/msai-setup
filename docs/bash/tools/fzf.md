@@ -451,12 +451,26 @@ export FZF_ALT_C_OPTS="
   --preview 'eza --tree --color=always --level=2 {} | head -200'
 "
 
-# Ctrl+R: History search
+# Copy to the clipboard via OSC 52 (default: works over SSH to a headless
+# server). The escape sequence is written to the terminal, which puts the
+# text on the clipboard of the machine you are sitting at -- the only
+# mechanism that works when fzf runs on a remote, display-less box like the
+# MS-S1 MAX. Write it to /dev/tty so it survives fzf's execute-silent.
+osc52_copy() {
+    printf '\033]52;c;%s\033\\' "$(printf %s "$1" | base64 | tr -d '\n')" > /dev/tty
+}
+
+# Ctrl+R: History search (yank selected command to clipboard via OSC 52)
 export FZF_CTRL_R_OPTS="
   --preview 'echo {}'
   --preview-window down:3:hidden:wrap
-  --bind 'ctrl-y:execute-silent(echo -n {2..} | pbcopy)+abort'
+  --bind 'ctrl-y:execute-silent(osc52_copy {2..})+abort'
 "
+
+# Local-machine equivalent: when fzf runs on your own workstation (not over
+# SSH), pipe directly to the platform clipboard tool instead of OSC 52.
+# macOS: pbcopy   Linux/Wayland: wl-copy   Linux/X11: xclip -selection clipboard
+# export FZF_CTRL_R_OPTS="... --bind 'ctrl-y:execute-silent(echo -n {2..} | pbcopy)+abort'"
 ```
 
 ## Performance Tips

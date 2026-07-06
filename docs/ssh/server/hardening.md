@@ -74,8 +74,8 @@ LoginGraceTime 20
 # Key exchange
 KexAlgorithms curve25519-sha256,curve25519-sha256@libssh.org,diffie-hellman-group16-sha512,diffie-hellman-group18-sha512
 
-# Ciphers
-Ciphers chacha20-poly1305@openssh.com,aes256-gcm@openssh.com,aes128-gcm@openssh.com,aes256-ctr,aes192-ctr,aes128-ctr
+# Ciphers (AEAD only — no non-AEAD CTR modes)
+Ciphers chacha20-poly1305@openssh.com,aes256-gcm@openssh.com,aes128-gcm@openssh.com
 
 # MACs
 MACs hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com,umac-128-etm@openssh.com
@@ -130,16 +130,26 @@ iptables -A INPUT -p tcp -s 192.168.1.0/24 --dport 22 -j ACCEPT
 iptables -A INPUT -p tcp --dport 22 -j DROP
 ```
 
-### TCP Wrappers
+### TCP Wrappers (does not work on modern Ubuntu)
 
-```bash
-# /etc/hosts.allow
-sshd: 192.168.1.0/24
-sshd: trusted.example.com
+!!! danger "hosts.allow / hosts.deny have no effect on this build"
+    TCP Wrappers (`/etc/hosts.allow`, `/etc/hosts.deny`) only ever worked
+    because sshd was linked against `libwrap`. Upstream OpenSSH removed
+    libwrap support back in 6.7 (2014), and the OpenSSH shipped with modern
+    Ubuntu — including 26.04 — is built **without** it. Editing these files
+    does nothing to sshd: connections are neither allowed nor denied by them.
 
-# /etc/hosts.deny
-sshd: ALL
-```
+    Do **not** rely on TCP Wrappers for SSH access control on this host. The
+    actual source-IP access control on this build is **UFW** (see the Firewall
+    Rules above, and the networking section):
+
+    ```bash
+    sudo ufw allow from 192.168.1.0/24 to any port 22 proto tcp
+    sudo ufw deny 22/tcp
+    ```
+
+    For per-connection controls inside sshd itself, use a `Match Address`
+    block in `/etc/ssh/sshd_config.d/`.
 
 ### Listen on Specific Interface
 
@@ -161,18 +171,29 @@ apt install fail2ban
 
 ### Configure for SSH
 
+!!! warning "26.04 has no /var/log/auth.log by default"
+    Ubuntu Server 26.04 headless logs to **journald**, and does not install
+    rsyslog, so `/var/log/auth.log` does not exist. A jail with
+    `logpath = /var/log/auth.log` silently matches nothing and never bans
+    anyone. Use `backend = systemd` so fail2ban reads sshd events straight
+    from the journal (do not set `logpath` with the systemd backend).
+
 ```bash
 # /etc/fail2ban/jail.local
 [sshd]
 enabled = true
 port = ssh
 filter = sshd
-logpath = /var/log/auth.log
+backend = systemd
 maxretry = 3
 findtime = 300
 bantime = 3600
 ignoreip = 127.0.0.1/8 192.168.1.0/24
 ```
+
+The systemd backend reads the sshd journal unit directly. If you run sshd
+under a non-default unit name, pin it with
+`journalmatch = _SYSTEMD_UNIT=ssh.service + _COMM=sshd`.
 
 ### Aggressive Settings
 
@@ -181,7 +202,7 @@ ignoreip = 127.0.0.1/8 192.168.1.0/24
 enabled = true
 port = ssh
 filter = sshd
-logpath = /var/log/auth.log
+backend = systemd
 maxretry = 2
 findtime = 3600
 bantime = 86400
@@ -227,12 +248,37 @@ auth required pam_google_authenticator.so
 
 Configure SSHD:
 
-```bash
-# /etc/ssh/sshd_config
+```ini
 KbdInteractiveAuthentication yes
 AuthenticationMethods publickey,keyboard-interactive
 UsePAM yes
 ```
+
+!!! danger "Drop-in ordering: a new file will be silently overridden"
+    This build's hardening lives in `/etc/ssh/sshd_config.d/00-hardening.conf`,
+    which sets `KbdInteractiveAuthentication no`. sshd is **first-match-wins**
+    for each directive, and it reads `sshd_config.d/*.conf` in **lexical
+    order**. So if you drop these MFA settings into, say,
+    `/etc/ssh/sshd_config.d/99-mfa.conf`, the `no` in `00-hardening.conf` is
+    parsed first and **wins** — your `KbdInteractiveAuthentication yes` is
+    silently ignored and MFA never engages. Verify with
+    `sudo sshd -T | grep -i kbdinteractive`; you would see `no`.
+
+    Two correct fixes:
+
+    - **Preferred:** make the change directly in `00-hardening.conf` (flip
+      `KbdInteractiveAuthentication` to `yes` and add the
+      `AuthenticationMethods` line there), so hardening and MFA stay in one
+      authoritative file.
+    - **Or** name the new drop-in so it sorts **before** `00-hardening.conf`,
+      e.g. `/etc/ssh/sshd_config.d/00-a-mfa.conf`. Because it is parsed first,
+      its `KbdInteractiveAuthentication yes` becomes the winning first match.
+
+    After either change, confirm the effective value:
+
+    ```bash
+    sudo sshd -T | grep -iE 'kbdinteractive|authenticationmethods'
+    ```
 
 ### YubiKey
 
@@ -432,10 +478,9 @@ knock server.example.com 9000 8000 7000
 - [ ] AllowUsers/AllowGroups configured
 
 ### Network
-- [ ] Firewall limits source IPs
+- [ ] UFW limits SSH source IPs (the access-control mechanism on this build)
 - [ ] Non-standard port (optional)
-- [ ] fail2ban installed
-- [ ] TCP wrappers (optional)
+- [ ] fail2ban installed with `backend = systemd` (journald, no auth.log)
 
 ### Cryptography
 - [ ] Weak ciphers removed
@@ -493,7 +538,7 @@ AllowGroups ssh-users
 # Sessions
 ClientAliveInterval 300
 ClientAliveCountMax 2
-MaxSessions 3
+MaxSessions 2
 MaxStartups 10:30:60
 
 # Forwarding

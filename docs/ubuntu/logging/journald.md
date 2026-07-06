@@ -361,11 +361,16 @@ sudo nano /etc/systemd/journal-upload.conf
 
 ```ini
 [Upload]
-URL=https://logserver.example.com:19532
+# This build reaches the log collector over Tailscale, not the public
+# internet. Use the collector's MagicDNS name on the tailnet.
+URL=https://logserver.<tailnet>.ts.net:19532
 ServerKeyFile=/etc/ssl/private/journal-upload.pem
 ServerCertificateFile=/etc/ssl/certs/journal-upload.pem
 TrustedCertificateFile=/etc/ssl/certs/ca-certificates.crt
 ```
+
+!!! note "Ship logs over the tailnet"
+    Replace `<tailnet>` with your actual tailnet name (see `tailscale status`). Sending journal uploads across the tailnet keeps the log stream off the public internet and lets you scope the collector's firewall to `tailscale0`, consistent with the rest of this build's remote-access model.
 
 ### Forward to Syslog
 

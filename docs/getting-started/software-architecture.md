@@ -29,7 +29,7 @@ graph TB
         Nextcloud[Nextcloud]
     end
 
-    GPU[AMD GPU] --> Win11
+    GPU[AMD iGPU / ROCm] --> Host
     KVM --> VMs
     Docker --> Services
     Services --> Storage
@@ -53,7 +53,7 @@ graph TB
 ### Virtual Machines are First-Class
 
 - KVM/QEMU on the host
-- GPU passthrough for Windows/Linux VMs
+- No GPU passthrough by default — the iGPU stays with the host for ROCm; the Windows 11 VM uses virtio-gpu
 - No containers around virtualization
 
 ### Services are Containerized
@@ -80,12 +80,12 @@ graph TB
 
 ## Display Model
 
-The HDMI output is owned by the VM, not the host:
+By default the host is headless and the iGPU stays with the host:
 
-- GPU is passed through to Windows VM
-- Monitor connects directly to GPU
-- Host is managed over SSH
-- VNC/RDP/SPICE are admin tools only
+- The host runs without a graphical console and is managed over SSH
+- The single HDMI output is mostly unused — it is only needed for BIOS access and the initial install
+- The iGPU is owned by the host for ROCm / AI inference
+- VMs get a virtual display via virtio-gpu (Spice/VNC), and the Windows 11 VM is reached over RDP
 
-!!! info
-    Once GPU passthrough is enabled, the GPU may no longer be available to the host console.
+!!! info "GPU passthrough is an optional trade-off"
+    Passing the iGPU through to a VM is possible but not the default: it takes the GPU away from the host, so host ROCm / AI inference goes offline whenever that VM runs. See [GPU Passthrough](../virtualization/gpu-passthrough.md) and [Windows 11 VM](../virtualization/windows-vm.md) for the trade-off and the default virtio-gpu setup.

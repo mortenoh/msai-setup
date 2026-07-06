@@ -230,8 +230,8 @@ In template:
 # Initialize encryption
 chezmoi init --config-path ~/.config/chezmoi/chezmoi.toml
 
-# Add encryption key
-chezmoi age key add
+# Generate an age encryption key
+chezmoi age-keygen
 ```
 
 In `chezmoi.toml`:
