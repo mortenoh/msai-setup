@@ -18,6 +18,7 @@ from __future__ import annotations
 import hashlib
 import logging
 import secrets
+import shlex
 import shutil
 import subprocess
 import tempfile
@@ -214,6 +215,58 @@ def render_user_data(
         "shutdown": "reboot",
     }
 
+    body = yaml.safe_dump(
+        {"autoinstall": autoinstall},
+        default_flow_style=False,
+        sort_keys=False,
+        width=1000,
+    )
+    return "#cloud-config\n" + body
+
+
+def render_live_install_user_data(*, ssh_public_key: str) -> str:
+    """Produce autoinstall user-data that opens SSH into the LIVE installer env.
+
+    This is a deliberately different autoinstall config from
+    :func:`render_user_data`: it does NOT drive a normal guided install. Its
+    only job is to hand control to us over SSH so the root-on-ZFS install can be
+    driven from the Python side (`msai lab install-zfs-root`), exactly the way a
+    human would from a rescue shell.
+
+    Two mechanisms combine:
+
+    * ``early-commands`` run as root, very early — before storage/network
+      probing — and authorise ``ssh_public_key`` for ``root`` in the live
+      session, then start sshd. This is the documented technique for reaching an
+      in-progress install remotely.
+    * ``interactive-sections: [storage]`` makes Subiquity pause at the storage
+      screen instead of auto-installing, so the live environment stays up
+      indefinitely and never wipes a disk or reboots on its own. We do all the
+      real work (partition, ``zpool create``, ``debootstrap``, chroot,
+      ZFSBootMenu) over SSH against that paused live session.
+
+    Args:
+        ssh_public_key: The public key to authorise for ``root`` in the live
+            installer environment.
+
+    Returns:
+        A ``#cloud-config`` document to write to the CIDATA ISO's ``user-data``.
+    """
+    key = ssh_public_key.strip()
+    autoinstall = {
+        "version": 1,
+        # Pause here so Subiquity never runs a real install or reboots; the
+        # live session stays alive for us to drive over SSH.
+        "interactive-sections": ["storage"],
+        "early-commands": [
+            "mkdir -p /root/.ssh",
+            "chmod 700 /root/.ssh",
+            f"printf '%s\\n' {shlex.quote(key)} > /root/.ssh/authorized_keys",
+            "chmod 600 /root/.ssh/authorized_keys",
+            "systemctl enable ssh || true",
+            "systemctl start ssh || true",
+        ],
+    }
     body = yaml.safe_dump(
         {"autoinstall": autoinstall},
         default_flow_style=False,

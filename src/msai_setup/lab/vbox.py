@@ -158,6 +158,24 @@ def configure_vm(
     _run(common)
 
 
+def set_boot_order(name: str, devices: list[str]) -> None:
+    """Set the VM boot order (up to four slots).
+
+    e.g. ``set_boot_order(name, ["dvd", "disk"])`` boots the optical drive
+    first. The root-on-ZFS live-install flow uses this so the VM always
+    re-enters the live installer ISO on reboot — on the aarch64 lab the
+    firmware cannot execute the ZFSBootMenu EFI binary on the installed disk, so
+    a deterministic DVD-first order is what makes reboots land back in the live
+    environment for offline verification.
+    """
+    slots = (devices + ["none", "none", "none", "none"])[:4]
+    args = ["modifyvm", name]
+    for i, dev in enumerate(slots, start=1):
+        args.extend([f"--boot{i}", dev])
+    _run(args)
+    log.info("set boot order on %s: %s", name, ", ".join(slots))
+
+
 def enable_vrde(name: str, *, port: int = 3389) -> None:
     """Enable VRDE (VirtualBox Remote Desktop) so a headless VM has a console.
 

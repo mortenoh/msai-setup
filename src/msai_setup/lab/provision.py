@@ -95,8 +95,8 @@ def main() -> None:
     # Dedicated root-on-ZFS install disks, appended after the practice disks
     # (see config.py). These are additional to the 6 practice disks, so the
     # README's ZFS walkthrough is untouched.
-    for i in range(1, cfg.migration_disk_count + 1):
-        vbox.create_disk(cfg.migration_disk_path(i), size_mb=cfg.migration_disk_size_mb(i))
+    for i in range(1, cfg.install_disk_count + 1):
+        vbox.create_disk(cfg.install_disk_path(i), size_mb=cfg.install_disk_size_mb(i))
 
     # 6. Storage controllers and attachments
     vbox.ensure_storage_controller(
@@ -110,8 +110,8 @@ def main() -> None:
     # On x86, IDE is the conventional place for install ISOs. On ARM, the IDE
     # controller crashes VBox 7.2's firmware enumeration (VERR_NOT_SUPPORTED) -
     # so on ARM we attach the ISOs on SATA ports instead, past both the practice
-    # disks (ports 1..lab_disk_count) and the migration disks (the next block).
-    data_disk_total = cfg.lab_disk_count + cfg.migration_disk_count
+    # disks (ports 1..lab_disk_count) and the install disks (the next block).
+    data_disk_total = cfg.lab_disk_count + cfg.install_disk_count
     iso_controller = "IDE" if cfg.platform == "x86" else "SATA"
     iso_primary_port = 0 if cfg.platform == "x86" else data_disk_total + 1
     iso_cidata_port = 1 if cfg.platform == "x86" else data_disk_total + 2
@@ -134,11 +134,11 @@ def main() -> None:
             cfg.vm_name, controller="SATA", port=i, device=0,
             medium=cfg.lab_disk_path(i),
         )
-    # Migration disks on the SATA ports immediately after the lab disks.
-    for i in range(1, cfg.migration_disk_count + 1):
+    # Install disks on the SATA ports immediately after the lab disks.
+    for i in range(1, cfg.install_disk_count + 1):
         vbox.attach_disk(
             cfg.vm_name, controller="SATA", port=cfg.lab_disk_count + i, device=0,
-            medium=cfg.migration_disk_path(i),
+            medium=cfg.install_disk_path(i),
         )
     # Ubuntu install ISO (the remastered one with `autoinstall` in GRUB)
     vbox.attach_iso(
@@ -192,7 +192,7 @@ def main() -> None:
         cidata=str(cfg.cidata_iso_path),
         primary_disk=str(cfg.primary_disk_path),
         lab_disk_count=cfg.lab_disk_count,
-        migration_disk_count=cfg.migration_disk_count,
+        install_disk_count=cfg.install_disk_count,
     )
 
 

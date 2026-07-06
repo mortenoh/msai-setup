@@ -110,26 +110,20 @@ class LabConfig:
     # Root-on-ZFS install disks, standing in for the MS-S1 MAX's two physical
     # NVMe drives (see docs/ubuntu/installation/disk-partitioning.md).
     #
-    # These are DEDICATED, ADDITIONAL disks appended after the `lab_disk_count`
-    # practice disks — they do NOT consume any of the 6 disks the README's ZFS
-    # walkthrough (section 2) uses, so both exercises coexist in one VM with no
-    # ordering constraint between them.
+    # These are the two dedicated stand-in drives the root-on-ZFS install flow
+    # (`msai lab install-zfs-root`) partitions into rpool + tank. On the ext4
+    # `msai create` VM they are also created (harmless, unused) so both VM
+    # shapes share one config surface.
     #   index 1 = "fast" drive -> rpool (larger, EFI + pool member)
     #   index 2 = "slow" drive -> tank  (smaller, single pool member)
-    # The size split is deliberate and load-bearing: whatever provisions these
-    # disks should identify them as the two LARGEST VirtualBox disks, then treat
-    # the larger of the pair as the fast/rpool drive and the smaller as
-    # slow/tank — mirroring the real 4 TB (fast) vs 2 TB (slow) asymmetry. Keep
-    # fast > slow > lab_disk_size_mb so that ordering stays unambiguous.
-    #
-    # NOTE: as of this commit there is no automation consuming these yet — the
-    # rsync-based "migrate an already-running ext4 VM" approach that used to use
-    # them was removed (it didn't rehearse the real fresh-install process; see
-    # README.md section 3). They're kept because the real install path needs
-    # the same two stand-in disks regardless of migrate-vs-fresh-install.
-    migration_disk_count: int = _env_int("MIGRATION_DISK_COUNT", 2)
-    migration_fast_disk_size_mb: int = _env_int("MIGRATION_FAST_DISK_SIZE_MB", 24000)
-    migration_slow_disk_size_mb: int = _env_int("MIGRATION_SLOW_DISK_SIZE_MB", 16000)
+    # The size split is deliberate and load-bearing: the install playbook
+    # identifies the two disks by stable /dev/disk/by-id/... path and treats the
+    # LARGER as the fast/rpool drive and the smaller as slow/tank — mirroring the
+    # real 4 TB (fast) vs 2 TB (slow) asymmetry. Keep fast > slow so that
+    # ordering stays unambiguous.
+    install_disk_count: int = _env_int("INSTALL_DISK_COUNT", 2)
+    install_fast_disk_size_mb: int = _env_int("INSTALL_FAST_DISK_SIZE_MB", 24000)
+    install_slow_disk_size_mb: int = _env_int("INSTALL_SLOW_DISK_SIZE_MB", 16000)
 
     # Ubuntu ISO + VirtualBox platform.
     #
@@ -208,16 +202,16 @@ class LabConfig:
         """Local path to this instance's Nth extra lab VDI disk (1-indexed)."""
         return self.target_dir / f"{self.vm_name}-lab-{index:02d}.vdi"
 
-    def migration_disk_path(self, index: int) -> Path:
-        """Local path to this instance's Nth root-on-ZFS migration disk (1-indexed).
+    def install_disk_path(self, index: int) -> Path:
+        """Local path to this instance's Nth root-on-ZFS install disk (1-indexed).
 
         Index 1 is the fast/rpool stand-in, index 2 the slow/tank stand-in.
         """
-        return self.target_dir / f"{self.vm_name}-migration-{index:02d}.vdi"
+        return self.target_dir / f"{self.vm_name}-install-{index:02d}.vdi"
 
-    def migration_disk_size_mb(self, index: int) -> int:
-        """Size (MiB) for the Nth migration disk (1 = fast/rpool, 2 = slow/tank)."""
-        return self.migration_fast_disk_size_mb if index == 1 else self.migration_slow_disk_size_mb
+    def install_disk_size_mb(self, index: int) -> int:
+        """Size (MiB) for the Nth install disk (1 = fast/rpool, 2 = slow/tank)."""
+        return self.install_fast_disk_size_mb if index == 1 else self.install_slow_disk_size_mb
 
     @property
     def ssh_host(self) -> str:

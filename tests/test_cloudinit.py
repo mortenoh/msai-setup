@@ -110,6 +110,34 @@ def test_crypt_password_random_salt_differs() -> None:
     assert a.startswith("$6$") and b.startswith("$6$")
 
 
+def test_live_install_user_data_opens_ssh_not_a_real_install() -> None:
+    """The live-install autoinstall only opens SSH; it must never drive a real install."""
+    text = cloudinit.render_live_install_user_data(ssh_public_key=SSH_KEY)
+    assert text.startswith("#cloud-config\n")
+    ai = yaml.safe_load(text)["autoinstall"]
+    # Paused at storage so Subiquity never wipes a disk or reboots on its own.
+    assert ai["interactive-sections"] == ["storage"]
+    # No identity/storage/late-commands that would drive a guided install.
+    for key in ("identity", "storage", "late-commands", "packages"):
+        assert key not in ai
+    joined = "\n".join(ai["early-commands"])
+    # The key is authorised for root in the live session and sshd is started.
+    assert SSH_KEY in joined
+    assert "/root/.ssh/authorized_keys" in joined
+    assert "systemctl start ssh" in joined
+
+
+def test_live_install_user_data_quotes_key_safely() -> None:
+    """The public key is shell-quoted so a crafted comment can't break out."""
+    tricky = "ssh-ed25519 AAAAtest lab@example; rm -rf /"
+    ai = yaml.safe_load(
+        cloudinit.render_live_install_user_data(ssh_public_key=tricky)
+    )["autoinstall"]
+    joined = "\n".join(ai["early-commands"])
+    # The whole value (including the injection attempt) is single-quoted intact.
+    assert "'ssh-ed25519 AAAAtest lab@example; rm -rf /'" in joined
+
+
 def test_meta_data_round_trips() -> None:
     text = cloudinit.render_meta_data(hostname="testvm")
     doc = yaml.safe_load(text)
