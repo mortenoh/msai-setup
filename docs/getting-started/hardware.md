@@ -42,8 +42,8 @@ For detailed architecture information, see [Hardware Architecture](hardware-arch
 | GPU ID | `gfx1151` |
 | RAM | 128GB LPDDR5X-8000 MT/s, quad-channel, soldered (~256 GB/s peak) |
 | ECC Memory | No |
-| Internal NVMe (slot 1) | 2 TB installed, PCIe 4.0 x4 (M.2 2280 slot supports up to 8 TB) |
-| Secondary NVMe (slot 2) | 4 TB installed, PCIe 4.0 **x1** (M.2 2280 slot supports up to 8 TB) |
+| Internal NVMe (slot 1) | 4 TB installed, PCIe 4.0 x4 (M.2 2280 slot supports up to 8 TB) |
+| Secondary NVMe (slot 2) | 2 TB installed, PCIe 4.0 **x1** (M.2 2280 slot supports up to 8 TB) |
 | Networking | 2 x 10GbE (Realtek RTL8127) |
 | Wireless | MediaTek MT7925 (Wi-Fi + Bluetooth combo) |
 | Display | HDMI 2.1 FRL (up to 8K@60 / 4K@120) plus DisplayPort Alt Mode over all 4 USB4/USB4 V2 ports (same resolution ceiling) — up to 5 physical outputs, though this build runs headless over SSH |
@@ -52,8 +52,8 @@ For detailed architecture information, see [Hardware Architecture](hardware-arch
 | Power | 320W external PSU (100-240V AC); ~160W peak / 130W sustained at the wall |
 | BIOS Reset | Physical reset hole on the rear I/O (CMOS clear) — see [BIOS Setup](bios-setup.md#recovering-from-a-bad-bios-state) |
 
-!!! note "Asymmetric NVMe slots"
-    The second M.2 slot is only PCIe 4.0 **x1**, capping it at ~2 GB/s vs the ~8 GB/s available on slot 1. This is fine for ZFS-backed media and cold data, but VM disks and hot databases should live on the primary 2 TB drive.
+!!! note "Asymmetric NVMe slots — the 4 TB drive gets the fast slot"
+    The second M.2 slot is only PCIe 4.0 **x1**, capping it at ~2 GB/s vs the ~8 GB/s available on slot 1. This build puts the **4 TB drive in slot 1** (fast) as `rpool` — root, Incus storage, databases, model files — and the **2 TB drive in slot 2** (slow) as `tank` — media, backups, cold data. Two independent pools, not one spanning both drives — see [Disk Partitioning](../ubuntu/installation/disk-partitioning.md).
 
 !!! note "No ECC"
     This platform does not support ECC memory. That's not a reason to avoid ZFS here — see [ZFS Concepts -> "ZFS needs ECC RAM"](../zfs/concepts.md) for why that's mostly folklore — but it's worth knowing plainly rather than assuming it either way.
@@ -88,25 +88,28 @@ See [BIOS Setup](bios-setup.md) for optimizing APU performance and [GPU Setup](.
 
 ### Storage Layout
 
-#### Internal NVMe (2 TB, PCIe 4.0 x4) — host OS + hot data
+#### Internal NVMe (4 TB, PCIe 4.0 x4) — root + hot data (`rpool`)
 
 | Partition | Size | Filesystem | Mount |
 |-----------|------|------------|-------|
-| EFI | 512 MB | FAT32 | `/boot/efi` |
-| Boot | 1 GB | ext4 | `/boot` |
-| Root | 1 TB | ext4 | `/` |
-| Free | ~1 TB | — | ZFS pool member |
+| EFI | 512 MB | FAT32 | `/boot/efi` (holds the ZFSBootMenu EFI binary) |
+| Pool member | ~4 TB | (ZFS) | `rpool` |
 
-#### Secondary NVMe (4 TB, PCIe 4.0 x1) — bulk ZFS data
+Root, home, Incus's storage backend, databases, and AI model files all live on `rpool` — everything that benefits from the fast x4 link and, for root specifically, from ZFS snapshots as boot environments.
 
-Entire disk allocated as a second ZFS pool member. The x1 link is the bottleneck — use this drive for media, backups, model files, and other read-heavy or cold data; keep VM disks and hot databases on the primary drive.
+#### Secondary NVMe (2 TB, PCIe 4.0 x1) — bulk cold data (`tank`)
 
-### Why ext4 for Root?
+Entire disk allocated as its own independent ZFS pool — not striped with `rpool`. The x1 link is the bottleneck, so this drive holds media, backups, and other read-heavy or cold data that doesn't need the fast pool's bandwidth.
 
-- Extremely stable
-- Excellent recovery tooling
-- Zero operational surprises
-- Root filesystem is infrastructure, not a feature
+See [Disk Partitioning](../ubuntu/installation/disk-partitioning.md) for the full layout and creation commands.
+
+### Why ZFS for Root?
+
+- **Boot environments**: every OS update is a snapshot; a bad kernel or `apt upgrade` is a boot-environment rollback via [ZFSBootMenu](https://zfsbootmenu.org/), not a reinstall.
+- **Checksums and compression** apply to the OS itself, not just data.
+- **One filesystem to operate**, not two — the same `zfs`/`zpool` toolchain covers root and data alike.
+
+Ext4 root remains documented as a simpler alternative if you'd rather skip ZFSBootMenu's boot-environment machinery — see [Disk Partitioning -> Ext4 Root](../ubuntu/installation/disk-partitioning.md#ext4-root-documented-alternative).
 
 !!! note
-    `/boot` lives on the same disk as `/` — not on ZFS, not on a separate drive.
+    There's no separate `/boot` partition with ZFSBootMenu — it finds the kernel/initramfs pair directly inside a dataset, unlike GRUB.

@@ -1,326 +1,182 @@
-# LXD Network Overview
+# Incus network overview
 
-## LXC vs LXD
+!!! note "This build uses Incus — the fuller networking guide is in the Incus section"
+    This page is the networking-section summary of how container/VM
+    networking works on this build. The **detailed, canonical treatment** —
+    the `incusbr0` bridge, UFW forwarding integration (the `ufw-docker`
+    equivalent), Netplan/systemd-networkd ownership, Tailscale reachability —
+    lives in [Incus networking](../../incus/networking.md). Read that for
+    depth; this page is the quick orientation and points into it.
 
-- **LXC** (classic) - Low-level container runtime. Managed with the
-  `lxc-*` tools: `lxc-create`, `lxc-start`, `lxc-stop`, `lxc-attach`,
-  `lxc-ls`. Per-container config lives in `/etc/lxc/` and
-  `~/.local/share/lxc/<name>/config`; networking is typically a system bridge
-  (`lxcbr0`) plus veth entries in that config file.
-- **LXD** - High-level management layer built on top of LXC. Its client is
-  confusingly named `lxc` (no dash), e.g. `lxc launch`, `lxc network`,
-  `lxc config`. This is a different command from classic LXC's `lxc-*`.
-- **This guide focuses on LXD**, which is the common way these systems are run.
-  Every command below that starts with `lxc ` (space, no dash) is the **LXD**
-  client, not classic LXC.
+    An earlier draft of these pages was written against LXD (and blurred LXD
+    with classic LXC's `lxc-*` tools). This build runs **[Incus](../../incus/index.md)**,
+    the community fork of LXD. The commands here are the `incus` client
+    accordingly — same concepts LXD used, `incus` in place of `lxc`.
 
-!!! warning "`lxc` (LXD) is not `lxc-*` (classic LXC)"
-    The single most common point of confusion: `lxc launch ubuntu:26.04 web`
-    is an **LXD** command. The classic-LXC equivalent is a different tool
-    entirely, e.g. `sudo lxc-create -n web -t download -- -d ubuntu -r noble -a amd64`
-    then `sudo lxc-start -n web`. Concepts like `lxc network` and
-    `lxc config device add ... proxy` shown on this page are **LXD-only** —
-    classic LXC has no managed-network CLI; you edit the container's config
-    file and use host bridges/veth directly. Where a mechanism genuinely
-    differs, this page calls out which tool it belongs to.
+## The one tool, the one bridge
 
-## Network Types
-
-### Managed Bridge (Default)
-
-LXD manages a bridge with NAT:
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                          Host                                │
-│                                                              │
-│   ┌─────────────────────────────────────────────────────┐   │
-│   │              lxdbr0 bridge                           │   │
-│   │              10.10.10.1/24                           │   │
-│   │              (managed by LXD)                        │   │
-│   │                                                      │   │
-│   │    ┌────────┐  ┌────────┐                           │   │
-│   │    │ veth0  │  │ veth1  │                           │   │
-│   └────┴───┬────┴──┴───┬────┴───────────────────────────┘   │
-│            │           │                                     │
-│   ┌────────v────────┐ ┌v───────────────┐                    │
-│   │   Container 1   │ │  Container 2   │                    │
-│   │   10.10.10.10   │ │  10.10.10.11   │                    │
-│   └─────────────────┘ └────────────────┘                    │
-│                                                              │
-│   eth0 ─────────────────────────────────> Internet          │
-│   NAT: 10.10.10.0/24 masquerade                            │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### External Bridge
-
-Using a pre-existing bridge:
+Incus manages instance networking through a **managed bridge**, created by
+`incus admin init` and named **`incusbr0`** on this build. It NATs instances
+out to the internet and runs a built-in DHCP/DNS server on the bridge, so
+instances get an address automatically and resolve each other by name.
 
 ```bash
-lxc network attach-profile br0 default eth0
-```
-
-### macvlan
-
-Direct network access with separate MAC:
-
-```yaml
-config:
-  nictype: macvlan
-  parent: eth0
-```
-
-### Physical NIC
-
-Dedicated NIC for container:
-
-```yaml
-config:
-  nictype: physical
-  parent: eth1
-```
-
-## Initial Setup
-
-### Install LXD
-
-```bash
-sudo snap install lxd
-sudo lxd init
-```
-
-### Default Network Configuration
-
-During `lxd init`:
-
-```
-Would you like to create a new local network bridge? (yes/no) [default=yes]: yes
-What should the new bridge be called? [default=lxdbr0]: lxdbr0
-What IPv4 address should be used? (CIDR subnet notation, "auto" or "none") [default=auto]: auto
-What IPv6 address should be used? (CIDR subnet notation, "auto" or "none") [default=auto]: none
-```
-
-### View Network
-
-```bash
-lxc network list
-lxc network show lxdbr0
+incus network list
+incus network show incusbr0
 ```
 
 ```yaml
+name: incusbr0
+type: bridge
 config:
-  ipv4.address: 10.10.10.1/24
+  ipv4.address: 10.x.x.1/24     # auto-generated subnet
   ipv4.nat: "true"
   ipv6.address: none
-description: ""
-name: lxdbr0
-type: bridge
+  ipv4.firewall: "true"          # Incus manages firewall rules for this bridge
 managed: true
 status: Created
 ```
 
-## Managing Networks
+With `ipv4.nat: true`, instances reach the internet but are **not reachable
+from the LAN** unless you forward ports (see [exposing a service](#exposing-a-service),
+below).
 
-### Create Network
+## Network types
+
+### Managed bridge (default)
+
+```text
+┌──────────────────────────────────────────────────────────────┐
+│                            Host                                │
+│                                                               │
+│   ┌──────────────────────────────────────────────────────┐   │
+│   │              incusbr0 bridge                          │   │
+│   │              10.x.x.1/24  (managed by Incus)          │   │
+│   │              built-in DHCP + DNS                      │   │
+│   │    ┌────────┐  ┌────────┐                            │   │
+│   │    │ veth0  │  │ veth1  │                            │   │
+│   └────┴───┬────┴──┴───┬────┴────────────────────────────┘   │
+│            │           │                                      │
+│   ┌────────v────────┐ ┌v───────────────┐                     │
+│   │   Instance 1    │ │   Instance 2   │                     │
+│   │   10.x.x.10     │ │   10.x.x.11    │                     │
+│   └─────────────────┘ └────────────────┘                     │
+│                                                               │
+│   uplink (10GbE) ────────────────────────> Internet          │
+│   NAT: 10.x.x.0/24 masquerade                                │
+└──────────────────────────────────────────────────────────────┘
+```
+
+### Bridged onto the LAN
+
+To give an instance its own LAN IP (from your router's DHCP) instead of NAT,
+attach it to a bridge over the physical interface rather than `incusbr0`. On
+this build the host-side bridge should be defined in **Netplan** and attached
+to by Incus as an unmanaged bridge, so Netplan and Incus don't both try to
+own the same L2 interface. The full pattern is in
+[Incus networking → bridged onto the LAN](../../incus/networking.md#pattern-2-bridged-onto-the-lan-instance-gets-a-lan-ip).
+
+### Internal-only (no internet)
+
+For a database tier or an air-gapped experiment, create a network with NAT
+off:
 
 ```bash
-# Managed bridge
-lxc network create mynet
+incus network create internal ipv4.address=10.20.0.1/24 ipv4.nat=false ipv4.firewall=false
+incus config device override db eth0 network=internal
+```
 
-# With specific config
-lxc network create mynet \
+Instances on `internal` reach each other but not the internet or the LAN.
+
+## Managing networks
+
+```bash
+# List / inspect
+incus network list
+incus network show incusbr0
+incus network info incusbr0          # live state, DHCP leases
+
+# Create a managed bridge with explicit config
+incus network create mynet \
     ipv4.address=10.20.0.1/24 \
     ipv4.nat=true \
     ipv6.address=none
+
+# Edit
+incus network edit incusbr0
+incus network set incusbr0 ipv4.address 10.x.x.1/24
+
+# Delete
+incus network delete mynet
 ```
 
-### Edit Network
+## Attaching instances
+
+Instances inherit an `eth0` NIC on `incusbr0` from the `default` profile.
+To attach explicitly or add a second interface:
 
 ```bash
-# Interactive edit
-lxc network edit lxdbr0
+# At launch, onto a specific network
+incus launch images:ubuntu/24.04 web --network incusbr0
 
-# Set specific option
-lxc network set lxdbr0 ipv4.address 10.10.10.1/24
+# Add a second NIC on another network
+incus config device add web eth1 nic network=mynet
+
+# Override a static IP on the inherited NIC
+incus config device override web eth0 ipv4.address=10.x.x.50
 ```
 
-### Delete Network
+## Exposing a service
+
+By default NAT means instances are outbound-only. The recommended way to
+reach an instance service from the LAN is a **proxy device with
+`bind=host`** — the listener runs in the host's network namespace, so UFW
+rules apply to it and you keep one firewall front-end:
 
 ```bash
-lxc network delete mynet
-```
-
-## Network Options
-
-### IPv4 Configuration
-
-```bash
-lxc network set lxdbr0 ipv4.address 10.10.10.1/24
-lxc network set lxdbr0 ipv4.nat true
-lxc network set lxdbr0 ipv4.dhcp true
-lxc network set lxdbr0 ipv4.dhcp.ranges 10.10.10.100-10.10.10.200
-```
-
-### DNS Configuration
-
-```bash
-lxc network set lxdbr0 dns.domain lxd.local
-lxc network set lxdbr0 dns.mode managed
-```
-
-### Firewall
-
-```bash
-# Enable LXD firewall management
-lxc network set lxdbr0 ipv4.firewall true
-
-# Or disable (manage manually)
-lxc network set lxdbr0 ipv4.firewall false
-```
-
-## Container Network Configuration
-
-### Attach to Network
-
-```bash
-# At creation
-lxc launch ubuntu:26.04 mycontainer --network lxdbr0
-
-# Or add device
-lxc network attach lxdbr0 mycontainer eth0
-```
-
-### Static IP
-
-```bash
-lxc config device override mycontainer eth0 ipv4.address=10.10.10.50
-```
-
-### Multiple NICs
-
-```bash
-# Add second interface
-lxc config device add mycontainer eth1 nic network=mynet
-```
-
-## Profiles
-
-### Default Profile
-
-```bash
-lxc profile show default
-```
-
-```yaml
-config: {}
-description: Default LXD profile
-devices:
-  eth0:
-    name: eth0
-    network: lxdbr0
-    type: nic
-  root:
-    path: /
-    pool: default
-    type: disk
-name: default
-```
-
-### Custom Profile
-
-```bash
-# Create profile
-lxc profile create isolated
-
-# Add network device
-lxc profile device add isolated eth0 nic network=isolated-net
-
-# Apply to container
-lxc profile add mycontainer isolated
-```
-
-## Proxy Devices
-
-Expose container ports via host.
-
-### TCP Proxy
-
-```bash
-# Forward host:8080 to container:80
-lxc config device add mycontainer myproxy proxy \
-    listen=tcp:0.0.0.0:8080 \
-    connect=tcp:127.0.0.1:80
-```
-
-### With bind=host
-
-```bash
-# Proxy runs on host (UFW applies!)
-lxc config device add mycontainer myproxy proxy \
+incus config device add web http proxy \
     listen=tcp:0.0.0.0:8080 \
     connect=tcp:127.0.0.1:80 \
     bind=host
+
+sudo ufw allow from 192.168.0.0/24 to any port 8080 proto tcp
 ```
 
-### Remove Proxy
+This, and the UFW forwarding rules the bridge needs, are covered in depth on
+the [Incus networking page](../../incus/networking.md) and summarized in
+[UFW integration](ufw-integration.md).
+
+## DNS resolution
+
+Instances on `incusbr0` resolve each other by name through Incus's built-in
+DNS:
 
 ```bash
-lxc config device remove mycontainer myproxy
+incus exec web -- ping -c1 db          # short name resolves on the bridge
 ```
 
-## DNS Resolution
-
-### Container to Container
-
-Containers can resolve each other by name:
+## Troubleshooting quick hits
 
 ```bash
-# From container1
-ping container2.lxd.local
-ping container2  # Short name works too
+# Instance has no network — check its devices and the bridge
+incus config device show web
+incus network list
+
+# From inside the instance
+incus exec web -- ip addr
+incus exec web -- ip route
+
+# NAT / forwarding (the usual culprits)
+incus network get incusbr0 ipv4.nat
+sysctl net.ipv4.conf.all.forwarding    # must be 1
 ```
 
-### From Host
+Full networking troubleshooting — including the UFW `DEFAULT_FORWARD_POLICY`
+trap — is in [Incus networking](../../incus/networking.md#troubleshooting-quick-hits)
+and [Incus troubleshooting](../../incus/troubleshooting.md).
 
-```bash
-# Add to host's resolv.conf
-# Or use:
-dig @10.10.10.1 container1.lxd.local
-```
+## See also
 
-## Troubleshooting
-
-### Container Has No Network
-
-```bash
-# Check container's devices
-lxc config show mycontainer | grep -A5 devices
-
-# Check network is running
-lxc network list
-
-# Check in container
-lxc exec mycontainer -- ip addr
-lxc exec mycontainer -- ip route
-```
-
-### DNS Not Working
-
-```bash
-# Check dnsmasq
-ps aux | grep dnsmasq | grep lxd
-
-# Check DNS config
-lxc network get lxdbr0 dns.mode
-```
-
-### NAT Not Working
-
-```bash
-# Check NAT setting
-lxc network get lxdbr0 ipv4.nat
-
-# Check iptables
-sudo iptables -t nat -L -n | grep 10.10.10
-```
+- [Incus networking](../../incus/networking.md) - the full bridge/UFW/Netplan/Tailscale story.
+- [UFW integration](ufw-integration.md) - the firewall-specific summary.
+- [Incus containers](../../incus/containers.md) - building the instances that attach to the bridge.

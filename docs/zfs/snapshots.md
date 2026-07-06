@@ -44,14 +44,14 @@ sudo zfs destroy tank/foo@a%c                        # range: snapshot 'a' throu
 Each dataset exposes its snapshots through a hidden directory:
 
 ```bash
-ls /mnt/tank/nextcloud-data/.zfs/snapshot/
+ls /tank/nextcloud-data/.zfs/snapshot/
 # autosnap_2026-05-17_03:00:00_daily/
 
 # Look around as of that snapshot
-ls /mnt/tank/nextcloud-data/.zfs/snapshot/autosnap_2026-05-17_03:00:00_daily/
+ls /tank/nextcloud-data/.zfs/snapshot/autosnap_2026-05-17_03:00:00_daily/
 
 # Recover a single file
-cp /mnt/tank/nextcloud-data/.zfs/snapshot/<snap>/path/to/file /tmp/
+cp /tank/nextcloud-data/.zfs/snapshot/<snap>/path/to/file /tmp/
 ```
 
 `.zfs/snapshot/...` is read-only and acts like a normal directory tree for most purposes. `tar`, `rsync`, `cp` all work against it.
@@ -60,7 +60,7 @@ By default this `.zfs` directory is **hidden** from `ls` (it doesn't show up wit
 
 ```bash
 sudo zfs set snapdir=visible tank/nextcloud-data
-ls -la /mnt/tank/nextcloud-data/         # now .zfs shows up
+ls -la /tank/nextcloud-data/             # now .zfs shows up
 ```
 
 ## Space accounting
@@ -111,17 +111,20 @@ The `-r` flag is irreversible — newer snapshots are gone. Use sparingly. Usual
 A clone is a writable filesystem forked from a snapshot. Initially shares all blocks with the snapshot; diverges as you write.
 
 ```bash
-sudo zfs snapshot tank/win11-vm@golden
-sudo zfs clone tank/win11-vm@golden tank/win11-vm-experiment
+sudo zfs snapshot rpool/db@golden
+sudo zfs clone rpool/db@golden rpool/db-experiment
 
-# Make changes in tank/win11-vm-experiment without touching tank/win11-vm
+# Make changes in rpool/db-experiment without touching rpool/db
 
 # When done:
-sudo zfs destroy tank/win11-vm-experiment       # destroy the clone
-sudo zfs destroy tank/win11-vm@golden            # destroy the snapshot (if no clones remain)
+sudo zfs destroy rpool/db-experiment       # destroy the clone
+sudo zfs destroy rpool/db@golden           # destroy the snapshot (if no clones remain)
 ```
 
 Clones depend on their parent snapshot. You can't destroy the snapshot while a clone exists — `zfs destroy` will refuse.
+
+!!! note "For Incus instances, clone through Incus, not raw `zfs`"
+    The clone/promote mechanics below apply to any dataset you own — but **don't raw-clone datasets under `rpool/incus`**. Instance copies go through `incus copy` (which uses ZFS clones under the hood and keeps Incus's database consistent) — see [Incus storage → clones](../incus/storage.md#clones). Raw `zfs clone` is for datasets you manage directly (`rpool/db`, `tank/media`, …).
 
 ### Promote
 
@@ -129,17 +132,17 @@ Swap parent and clone roles. Useful when the clone is the new canonical:
 
 ```bash
 # Before promote:
-#   tank/win11-vm           (original) - has snapshot @golden
-#   tank/win11-vm-new       (clone of @golden)
+#   rpool/db            (original) - has snapshot @golden
+#   rpool/db-new        (clone of @golden)
 
-sudo zfs promote tank/win11-vm-new
+sudo zfs promote rpool/db-new
 
 # After promote:
-#   tank/win11-vm-new       now holds @golden
-#   tank/win11-vm           is now the "clone" of @golden on tank/win11-vm-new
+#   rpool/db-new        now holds @golden
+#   rpool/db            is now the "clone" of @golden on rpool/db-new
 
 # Now you can destroy the original:
-sudo zfs destroy tank/win11-vm
+sudo zfs destroy rpool/db
 ```
 
 Promote is how you "graduate" an experimental clone to be the new primary.
@@ -197,10 +200,10 @@ sudo zfs diff tank/foo@s1 tank/foo@s2
 Output:
 
 ```
-M       /mnt/tank/foo/file1            (modified)
-+       /mnt/tank/foo/file2            (added)
--       /mnt/tank/foo/file3            (deleted)
-R       /mnt/tank/foo/oldname -> /mnt/tank/foo/newname    (renamed)
+M       /tank/foo/file1            (modified)
++       /tank/foo/file2            (added)
+-       /tank/foo/file3            (deleted)
+R       /tank/foo/oldname -> /tank/foo/newname    (renamed)
 ```
 
 Compare a snapshot to the live filesystem:
@@ -341,23 +344,32 @@ sudo tee /etc/sanoid/sanoid.conf > /dev/null <<'EOF'
     autosnap = yes
     autoprune = yes
 
-[template_disposable]
-    autosnap = no
+[template_os]
+    daily = 14
+    weekly = 4
+    monthly = 2
+    autosnap = yes
     autoprune = yes
-    daily = 7
 
-[tank/nextcloud-data]
+# rpool — root + hot data + Incus instances
+[rpool/ROOT/ubuntu]
+    use_template = os
+
+[rpool/incus]
     use_template = data
+    recursive = yes
 
-[tank/db]
+[rpool/db]
     use_template = db
     recursive = yes
 
-[tank/containers]
-    use_template = disposable
-    recursive = yes
+# tank — Nextcloud + cold data
+[tank/nextcloud-data]
+    use_template = data
 EOF
 ```
+
+This mirrors the canonical [backup config](../operations/backup.md#zfs-snapshots) — sanoid owns the schedule for `rpool/incus` too (leave Incus's own `snapshots.schedule` unset). See [Incus storage → composing with sanoid](../incus/storage.md#composing-with-sanoid-and-syncoid).
 
 sanoid's systemd timers handle the rest:
 
@@ -384,34 +396,38 @@ zfs list -t snapshot | grep autosnap_
 
 ```bash
 # Find the most recent snapshot that has it
-ls /mnt/tank/nextcloud-data/.zfs/snapshot/
+ls /tank/nextcloud-data/.zfs/snapshot/
 
 # Copy it back
-cp /mnt/tank/nextcloud-data/.zfs/snapshot/autosnap_2026-05-17_03:00:00_hourly/path/to/file \
-   /mnt/tank/nextcloud-data/path/to/file
+cp /tank/nextcloud-data/.zfs/snapshot/autosnap_2026-05-17_03:00:00_hourly/path/to/file \
+   /tank/nextcloud-data/path/to/file
 ```
 
-### "I borked a service config; roll the dataset back"
+### "I borked a service's data; roll the dataset back"
+
+Services run as Docker stacks nested inside an Incus container, but their persistent data lives on host datasets (`tank/nextcloud-data`, `rpool/db`, …). Stop the consuming service, roll the host dataset back, restart:
 
 ```bash
-# Stop the service first
-docker compose -f /mnt/tank/containers/foo/compose.yml down
+# Stop the compose stack inside the Docker-in-Incus container
+incus exec docker-host -- sh -c 'cd /opt/compose/nextcloud && docker compose down'
 
 # List recent snapshots
-zfs list -t snapshot tank/containers/foo -s creation
+zfs list -t snapshot tank/nextcloud-data -s creation
 
 # Roll back to before the change
-sudo zfs rollback -r tank/containers/foo@autosnap_2026-05-17_03:00:00_hourly
+sudo zfs rollback -r tank/nextcloud-data@autosnap_2026-05-17_03:00:00_hourly
 
 # Restart
-docker compose -f /mnt/tank/containers/foo/compose.yml up -d
+incus exec docker-host -- sh -c 'cd /opt/compose/nextcloud && docker compose up -d'
 ```
+
+For an Incus *instance's own* dataset (a container rootfs or VM zvol under `rpool/incus`), stop the instance first (`incus stop <name>`) before any `zfs rollback` — see the [stop-before-you-receive warning](../incus/storage.md#composing-with-sanoid-and-syncoid).
 
 ### "The whole pool is dead; restore from backup-host"
 
 ```bash
-# After rebuilding host and creating new pool 'tank'
-ssh backup-host 'sudo zfs send -R backup/foo@latest' | sudo zfs receive tank/foo
+# After rebuilding host and recreating the pool
+ssh backup-host 'sudo zfs send -R backup/nextcloud-data@latest' | sudo zfs receive tank/nextcloud-data
 ```
 
 `-R` sends the full subtree (descendants, snapshots, properties, clone hierarchy). Restoring is symmetrical to the original send.

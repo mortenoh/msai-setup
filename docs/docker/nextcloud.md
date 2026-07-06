@@ -1,5 +1,13 @@
 # Nextcloud
 
+!!! note "Docker now runs nested inside Incus"
+    On this build Docker is no longer installed on the host — it runs inside an
+    Incus system container with `security.nesting=true`, per
+    [Docker in Incus](../incus/docker-in-incus.md). The compose content on this
+    page is otherwise unchanged and still valid; it just runs one layer down,
+    inside that container. See the Incus section for the container creation,
+    ZFS storage, GPU, and networking wiring.
+
 Self-hosted cloud storage, calendar, contacts, and office collaboration with data on ZFS.
 
 ## Overview

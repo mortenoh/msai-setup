@@ -1,7 +1,31 @@
-# GPU Passthrough
+# GPU Passthrough (to a VM)
 
-!!! warning "Not the default for this build"
-    This build does **not** pass the iGPU through to a VM. The default is documented in [Windows 11 VM](windows-vm.md): the host keeps the GPU for ROCm and the VM uses virtio-gpu + RDP. There is only one iGPU, so passthrough is mutually exclusive with host ROCm — enabling it means host ROCm / AI inference goes offline whenever the VM is running. Only follow this page if you have deliberately chosen that trade-off.
+!!! warning "Not the default for this build — and this is VM-level passthrough, a different thing from how this build reaches the GPU"
+    This build does **not** pass the iGPU through to a VM. The default is
+    documented in [Incus Windows 11 VM](../incus/windows-vm.md): the host
+    keeps the GPU for ROCm and the VM uses virtio-gpu + RDP. There is only
+    one iGPU, so VM passthrough is mutually exclusive with host ROCm —
+    enabling it means host ROCm / AI inference goes offline whenever the VM
+    is running. Only follow this page if you have deliberately chosen that
+    trade-off.
+
+    **How this build actually reaches the GPU** is *container* passthrough,
+    not VM passthrough: the host keeps the iGPU, and Incus hands `/dev/dri`
+    + `/dev/kfd` to the containers that run ROCm inference. That is a
+    different mechanism entirely (device passthrough into a shared-kernel
+    container, no VFIO, no driver unbinding) and is the supported path — see
+    [Incus GPU passthrough](../incus/gpu-passthrough.md). This page is only
+    about the still-available-but-not-default option of giving the *whole
+    GPU* to a VM.
+
+!!! note "If you do choose VM passthrough, it's an Incus VM device now"
+    The VFIO/IOMMU host preparation below (binding the GPU to `vfio-pci`,
+    blacklisting `amdgpu`) is unchanged — it's a host-kernel concern. What
+    changes is the last step: instead of attaching the PCI device in
+    `virt-manager`/`virsh`, you attach it to an [Incus VM](../incus/vms.md)
+    with a `gpu` device (`incus config device add <vm> gpu gpu
+    pci=<addr>`). The "Attach GPU to VM" section below describes the old
+    libvirt flow; treat it as background for the concept.
 
 ## Overview
 

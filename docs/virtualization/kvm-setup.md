@@ -1,6 +1,37 @@
 # KVM Setup
 
-## Install Virtualization Packages
+!!! note "Background — Incus manages VMs on this build, not bare libvirt"
+    This build creates and runs VMs through **[Incus](../incus/index.md)**
+    ([Incus VMs](../incus/vms.md)), which drives QEMU/KVM itself. You do
+    **not** need to install `libvirt-daemon-system`/`virtinst` or run
+    `virsh`/`virt-manager` to run the VMs documented for this box — Incus
+    (installed per [Incus installation](../incus/installation.md)) provides
+    the VM lifecycle, TPM, Secure Boot, and storage.
+
+    This page is retained as **background on the KVM/QEMU stack Incus sits
+    on** — what the pieces are, how to confirm KVM is available on the
+    hardware. The libvirt-specific setup below (storage pools, `virsh`
+    networks, `virt-manager` over SSH) describes the *old* direct-libvirt
+    path and is superseded; read it to understand the stack, not to operate
+    this build.
+
+## Confirming KVM is available
+
+The one genuinely still-relevant check: the hardware and kernel support KVM.
+Incus needs this too.
+
+```bash
+# CPU virtualization (AMD-V / SVM on this Ryzen part) — expect a non-zero count
+egrep -c '(vmx|svm)' /proc/cpuinfo
+
+# KVM kernel modules loaded (kvm + kvm_amd on AMD)
+lsmod | grep kvm
+```
+
+If those are healthy, Incus can run VMs. The remainder of this page is the
+legacy direct-libvirt setup, kept for background only.
+
+## Install Virtualization Packages (legacy direct-libvirt path)
 
 ```bash
 sudo apt install -y \

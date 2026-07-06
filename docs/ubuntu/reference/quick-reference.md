@@ -191,23 +191,69 @@ sudo mount /dev/nvme0n1p3 /mnt
 sudo umount /mnt
 ```
 
-## ZFS (pool `tank`)
+## ZFS (two pools: `rpool` + `tank`)
+
+`rpool` (fast 4 TB) = root + hot data + Incus's storage backend (`rpool/incus`). `tank` (slow 2 TB) = media, backups, cold data.
 
 ```bash
-# Pool health
-zpool status                      # Pool state, errors, scrub status
-zpool status tank
-zpool list                        # Capacity/health summary
-sudo zpool scrub tank             # Start a scrub
+# Pool health — check BOTH pools
+zpool status -v rpool             # Root pool: state, errors, scrub status
+zpool status -v tank              # Data pool
+zpool list                        # Capacity/health summary (all pools)
+sudo zpool scrub rpool            # Start a scrub (ZFS has no fsck)
+sudo zpool scrub tank
 
 # Datasets and snapshots
-zfs list                          # Datasets, used/avail/mountpoint
+zfs list                          # Datasets across both pools
 zfs list -t snapshot              # All snapshots (sanoid-managed)
-zfs get compression,recordsize tank
+zfs list -t snapshot -r rpool/ROOT   # Boot-environment rollback targets
+zfs get compression,recordsize rpool tank
 
 # Snapshot / rollback
-sudo zfs snapshot tank/dataset@manual
+sudo zfs snapshot rpool/ROOT/ubuntu@pre-upgrade-$(date +%F)   # OS boot environment
+sudo zfs snapshot tank/nextcloud-data@manual
 sudo zfs rollback tank/dataset@snap
+```
+
+## ZFSBootMenu / Boot Environments
+
+Root boots via ZFSBootMenu (no GRUB). A broken OS is usually a boot-environment rollback, not a reinstall. Full hotkey table and recovery commands: [Boot Issues — ZFSBootMenu Recovery](../troubleshooting/boot-issues.md#zfsbootmenu-recovery).
+
+```bash
+# At the ZFSBootMenu screen (interrupt the countdown with any key):
+#   Enter    Boot selected boot environment
+#   Ctrl+E   Edit kernel command line for this boot
+#   Ctrl+S   Snapshot menu (roll back a boot environment)
+#   Ctrl+A   Set selected environment as default
+#   Ctrl+R   Recovery shell
+#   Ctrl+P   zpool status
+
+# From a running system:
+zfs list -t snapshot -r rpool/ROOT                       # List rollback targets
+efibootmgr -v                                            # EFI entries + boot order (ZBM first)
+zfs get org.zfsbootmenu:commandline rpool/ROOT/ubuntu    # Kernel cmdline (set via ZFS property)
+```
+
+## Incus (containers + VMs)
+
+Incus is the one virtualization layer — Docker nests inside an Incus container, VMs are Incus instances. See the [Incus deep-dive](../../incus/index.md).
+
+```bash
+# Instances
+incus list                        # All instances (state, IP, type)
+incus list --type=virtual-machine # VMs only
+incus info <instance>             # Detail: config, snapshots, resource use
+incus start|stop|restart <instance>
+incus exec <instance> -- <cmd>    # Run a command inside (e.g. docker ps)
+
+# Storage (ZFS backend on rpool/incus)
+incus storage list
+incus storage show default        # driver: zfs, source: rpool/incus
+
+# Snapshots (deliberate, Incus-aware) — see docs/incus/snapshots-backup.md
+incus snapshot create <instance> before-change
+incus snapshot list <instance>
+incus snapshot restore <instance> before-change
 ```
 
 ## GPU / ROCm

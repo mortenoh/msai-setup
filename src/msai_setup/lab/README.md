@@ -42,7 +42,7 @@ That command:
 - Remasters the ISO to add `autoinstall` to GRUB's kernel cmdline (so Subiquity skips its language/keyboard/storage menus)
 - Generates a dedicated SSH keypair at `target/lab_id_ed25519` (separate from your real keys; throwaway with the lab)
 - Builds a small "CIDATA" cloud-init ISO with your hostname/user/sudo/SSH-key config
-- Creates a VirtualBox VM with **6 extra blank disks** (for ZFS), boots it headless, and waits until you can SSH in as the lab user
+- Creates a VirtualBox VM with **6 extra blank disks** (8 GB each, for the ZFS practice in section 2) **plus 2 larger disks** (24 GB + 16 GB) that mirror the MS-S1 MAX's two NVMe drives, boots it headless, and waits until you can SSH in as the lab user (the root-on-ZFS install in section 3 spins up its own dedicated live-boot VM instead)
 
 When it's done:
 
@@ -208,7 +208,86 @@ echo 17179869184 | sudo tee /sys/module/zfs/parameters/zfs_arc_max
 
 ---
 
-## 3. SSH hardening — what actually matters
+## 3. Root on ZFS — rehearsing the real install
+
+Sections 1–2 gave you an ext4-rooted VM with ZFS *data* pools. The real MS-S1 MAX
+goes further: **the OS itself lives on ZFS**, booted by [ZFSBootMenu](https://zfsbootmenu.org/),
+so a bad upgrade is a snapshot rollback instead of a reinstall. Subiquity has no
+root-on-ZFS path, so this is a **fresh, manual install**: boot a live environment
+and `debootstrap` straight into `rpool/ROOT/ubuntu` — there is no ext4 stage at
+any point (see the [installation walkthrough](../../../docs/ubuntu/installation/installation-walkthrough.md)).
+
+This one command rehearses that whole process against a throwaway VM:
+
+```bash
+msai lab install-zfs-root
+```
+
+Unlike `msai create` (which installs a normal ext4 system), this spins up its own
+**dedicated live-boot VM** with exactly two disks — standing in for the MS-S1 MAX's
+two NVMe drives (larger → `rpool`, smaller → `tank`). It then:
+
+- Boots the Ubuntu Server ISO but, instead of letting Subiquity run a guided
+  install, uses an `autoinstall` whose **`early-commands` only open SSH into the
+  live installer environment** (authorize the lab key for `root`, start sshd) and
+  whose `interactive-sections: [storage]` **pauses Subiquity at the storage
+  screen** so it never wipes a disk or reboots. The live session just sits there,
+  reachable over SSH, exactly like a rescue shell.
+- Drives the real install over that SSH connection (the `zfs-root-install` Ansible
+  playbook): identify the two disks by stable `/dev/disk/by-id/...` path, partition
+  both, `zpool create` `rpool` + `tank`, create `rpool/ROOT/ubuntu` (`canmount=noauto`)
+  + `rpool/home`, **`debootstrap` a fresh Ubuntu 26.04 in** (falling back to `noble`
+  if `resolute` isn't published yet), chroot to install the kernel + `zfsutils-linux`
+  + a ZFS-aware (dracut) initramfs, write an EFI-only fstab, create your admin user
+  with SSH key + passwordless sudo, install **ZFSBootMenu** (prebuilt EFI on x86_64,
+  built from source with `generate-zbm` on aarch64), register the EFI boot entry, and
+  export the pools.
+
+When it finishes you'll see the verification roll by:
+
+```
+verify-A: PASS: rpool + tank both ONLINE
+verify-A: PASS: BE holds a fresh Ubuntu system with a ZFS-aware initramfs
+verify-A: PASS: admin user morten present with a complete SSH key + passwordless sudo
+verify-A: PASS: target /etc/fstab is EFI-only (no ext4 root)
+verify-A: PASS: ZFSBootMenu EFI binary present on the ESP (+ removable-media fallback)
+...
+verify-B: PASS: boot-environment change survived a genuine VM power cycle (BE is durable on-disk)
+verify-B: PASS: boot-environment rollback works: reboot -> marker persisted -> rollback -> marker gone
+```
+
+### Why it verifies "offline" instead of just booting the new system
+
+On this **aarch64** lab, VirtualBox's ARM firmware cannot execute the ZFSBootMenu
+EFI binary — so the installed disk can't actually boot ZBM here (the pools,
+initramfs and ZBM artifacts are still fully real and correct; the firmware just
+can't launch them). So the command verifies the install the way you'd verify a
+rescue: from the live environment, it imports the pools the install created —
+where `rpool/ROOT/ubuntu` is a plain dataset, not the running root — and asserts
+every artifact. Then it proves the single most important property, **boot-environment
+rollback across a real reboot**: snapshot the boot environment, write a marker into
+it, **power-cycle the whole VM**, confirm the marker *survived* (the on-disk boot
+environment is durable), then `zfs rollback` and confirm the marker is *gone* —
+the exact operation ZFSBootMenu drives from its menu to undo a bad upgrade.
+
+On the **real x86_64 MS-S1 MAX**, the firmware honours the EFI entry, so there you
+run it with `--do-reboot` and the box boots straight into ZFSBootMenu:
+
+```bash
+msai lab install-zfs-root --do-reboot
+```
+
+When you're done, clean up like any lab VM (`msai lab destroy`). The same
+`msai list` / `msai ssh` / `msai lab snapshot` commands work on it.
+
+> **Deeper reading**:
+> - [installation-walkthrough.md](../../../docs/ubuntu/installation/installation-walkthrough.md) — the manual process this command automates, step for step
+> - [disk-partitioning.md](../../../docs/ubuntu/installation/disk-partitioning.md) — the canonical two-pool partition scheme it follows
+> - [boot-issues.md](../../../docs/ubuntu/troubleshooting/boot-issues.md) — ZFSBootMenu recovery, hotkeys, boot environments
+
+---
+
+## 4. SSH hardening — what actually matters
 
 The default Ubuntu sshd config is fine for a private network. For an internet-exposed box (which the MS-S1 MAX shouldn't be, but might be via Tailscale Funnel etc.), there are four real things to do:
 
@@ -282,7 +361,7 @@ For the real MS-S1 MAX, you'd add rules for whatever else you expose (80/443 for
 
 ---
 
-## 4. Docker vs LXC — the decision
+## 5. Docker vs LXC — the decision
 
 This comes up because Linux has two distinct "container" worlds:
 
@@ -360,7 +439,7 @@ Compare the vibes: that container feels like a real machine with its own apt/sys
 
 ---
 
-## 5. Snapshot, reset, iterate
+## 6. Snapshot, reset, iterate
 
 This is the whole point of the lab — make experimentation cheap.
 
@@ -384,7 +463,7 @@ VM-level snapshots cover everything (OS + ZFS state + Docker state). For finer-g
 
 ---
 
-## 6. When you're done
+## 7. When you're done
 
 ```bash
 msai lab destroy             # asks confirmation, removes VM + disks
@@ -400,7 +479,7 @@ rm -rf target/
 
 ---
 
-## 7. From lab to real MS-S1 MAX
+## 8. From lab to real MS-S1 MAX
 
 The Ansible playbooks here are **the same playbooks you'd run on the real MS-S1 MAX**. Only the inventory changes:
 

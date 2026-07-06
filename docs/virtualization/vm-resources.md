@@ -1,6 +1,26 @@
 # VM Resource Allocation
 
-Proper resource allocation for KVM/libvirt VMs ensures stable performance and prevents host resource exhaustion.
+!!! note "Background — the concepts apply, the libvirt XML doesn't"
+    On this build you allocate VM resources through **[Incus](../incus/index.md)**
+    config keys, not libvirt XML or `virsh`. The mapping is direct:
+
+    | This page (libvirt) | Incus equivalent |
+    |---|---|
+    | `<vcpu>` / `virsh setvcpus` | `incus config set <vm> limits.cpu 8` |
+    | `<cputune><vcpupin>` (CCX pinning) | `incus config set <vm> limits.cpu.pin '8-15'` |
+    | `<memory>` / `virsh setmem` | `incus config set <vm> limits.memory 16GiB` |
+    | `<iotune>` disk limits | `incus config device set <vm> root limits.read/write` |
+    | `<numatune>` / hugepages | `limits.memory.hugepages` and instance options |
+
+    See [Incus VMs → resource allocation](../incus/vms.md#resource-allocation)
+    for the current commands. The **sizing guidance and the Strix Halo CCX
+    reasoning** below are still correct and worth reading — they explain
+    *what* to allocate and why; just translate the mechanism to `incus`
+    config keys rather than hand-writing XML.
+
+Proper resource allocation for a VM ensures stable performance and prevents
+host resource exhaustion. The XML and `virsh` examples below are the
+under-the-hood form of what Incus configures for you.
 
 ## Memory Allocation
 
@@ -384,7 +404,7 @@ For a 128GB / 16-core host running mixed workloads:
 | Workload | Memory | vCPUs | Notes |
 |----------|--------|-------|-------|
 | Host reserved | 8GB | 4 | OS, Docker, services |
-| Windows VM | 24GB | 6 | Gaming, GPU passthrough |
+| Windows VM | 24GB | 6 | Admin/utility, virtio-gpu (no passthrough by default) |
 | Linux VM | 16GB | 4 | Development |
 | LLM inference | 64GB | 8 | Ollama containers |
 | Available | 16GB | - | Headroom |

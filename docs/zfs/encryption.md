@@ -10,7 +10,7 @@ This build defaults to **no disk encryption**: the host lives behind UFW/Tailsca
 - You hold **regulated data** (health, financial, customer PII) that needs encryption at rest as a compliance requirement.
 - Specific datasets need extra protection (e.g. `tank/secrets`) while the rest of the pool stays unencrypted.
 
-If you want **full-disk encryption of root**, that's LUKS territory ([Disk Partitioning -> Encrypted Alternative](../ubuntu/installation/disk-partitioning.md#encrypted-alternative--luks--lvm)). ZFS native encryption doesn't cover `/boot` or the EFI partition.
+If you want **encryption of root itself**: since root is `rpool` (see [Disk Partitioning](../ubuntu/installation/disk-partitioning.md#creating-the-layout)), ZFS native encryption on the pool is now the natural default — set it at `zpool create` time and ZFSBootMenu can prompt for the passphrase at boot. LUKS+LVM is only relevant if you went with the [ext4-root alternative](../ubuntu/installation/disk-partitioning.md#ext4-root-documented-alternative) instead. Either way, native encryption doesn't cover `/boot/efi` — the EFI partition is always unencrypted, same as any LUKS+GRUB setup.
 
 ## How it works
 

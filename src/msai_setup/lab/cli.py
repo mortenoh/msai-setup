@@ -11,6 +11,7 @@ from msai_setup.lab import apply as apply_mod
 from msai_setup.lab import pipeline as pipeline_mod
 from msai_setup.lab import state as state_mod
 from msai_setup.lab import vbox as vbox_mod
+from msai_setup.lab import zfsroot as zfsroot_mod
 from msai_setup.lab.apply import KNOWN_PLAYBOOKS
 from msai_setup.lab.config import load_config
 
@@ -113,6 +114,50 @@ def all(
     )
 
 
+@lab_app.command(name="install-zfs-root")
+def install_zfs_root(
+    do_reboot: Annotated[
+        bool,
+        typer.Option(
+            "--do-reboot/--no-reboot",
+            help="Reboot into ZFSBootMenu at the end (real x86_64 hardware path). "
+            "Off in the lab, where the install is verified offline.",
+        ),
+    ] = False,
+    skip_verify: Annotated[
+        bool,
+        typer.Option("--skip-verify", help="Skip offline verification + rollback proof."),
+    ] = False,
+    extra_var: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--extra-var", "-e",
+            help="Forwarded as -e to the install playbook (repeatable), e.g. fast_disk=...",
+        ),
+    ] = None,
+    verbose: _VerboseOption = False,
+) -> None:
+    """Fresh-install root-on-ZFS + ZFSBootMenu, rehearsing the real MS-S1 MAX process.
+
+    Boots the current instance's VM into the live-server ISO, opens SSH into the
+    LIVE environment via autoinstall early-commands, then debootstraps a fresh
+    Ubuntu into rpool/ROOT/ubuntu, installs ZFSBootMenu, and (in the lab) proves
+    boot-environment rollback across a real reboot. Create the instance first
+    with `msai create <name>` is NOT required — this provisions its own live VM;
+    just pick the current instance name with `msai use <name>` or let it use the
+    default. Use a fresh instance name to avoid clashing with an ext4 VM.
+    """
+    _configure_logging(verbose)
+    extras: list[str] = []
+    for v in extra_var or []:
+        extras.extend(["-e", v])
+    zfsroot_mod.run_install_zfs_root(
+        do_reboot=do_reboot,
+        skip_verify=skip_verify,
+        extra_args=extras,
+    )
+
+
 @lab_app.command()
 def status() -> None:
     """Show the current state of the lab (VM, phase markers, snapshots)."""
@@ -168,7 +213,17 @@ def destroy(
     # default for state files that predate this recording.
     saved = state_mod.load(cfg.state_path)
     provision_info = saved.get("phases", {}).get("provision", {})
+    zfs_info = saved.get("phases", {}).get("zfs_root_install", {})
     disk_count = provision_info.get("lab_disk_count", cfg.lab_disk_count)
+    # Install disks are recorded by both the ext4 provision phase and the
+    # root-on-ZFS install flow; fall back to the legacy "migration" key for VMs
+    # created before the rename, then to the config default.
+    install_count = (
+        provision_info.get("install_disk_count")
+        or zfs_info.get("install_disk_count")
+        or provision_info.get("migration_disk_count")
+        or cfg.install_disk_count
+    )
 
     vbox_mod.unregister_and_delete(cfg.vm_name)
 
@@ -187,6 +242,16 @@ def destroy(
         if path.exists():
             path.unlink()
             typer.echo(f"removed {path}")
+    for i in range(1, install_count + 1):
+        path = cfg.install_disk_path(i)
+        if path.exists():
+            path.unlink()
+            typer.echo(f"removed {path}")
+        # Also clean up any legacy "-migration-" disks from before the rename.
+        legacy = cfg.target_dir / f"{cfg.vm_name}-migration-{i:02d}.vdi"
+        if legacy.exists():
+            legacy.unlink()
+            typer.echo(f"removed {legacy}")
     typer.echo("done.")
 
 

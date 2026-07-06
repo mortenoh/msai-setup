@@ -290,33 +290,33 @@ For comprehensive firewall configuration, see the [Networking & Firewall](../../
 
 ## Secure Mount Options
 
-### Update fstab
+### EFI fstab entry, ZFS dataset properties for the rest
 
-This build uses the plain-ext4 layout (no LVM, no LUKS): `nvme0n1p1` = `/boot/efi`, `nvme0n1p2` = `/boot`, `nvme0n1p3` = `/`. Harden mount options in `/etc/fstab`:
+This build is **root-on-ZFS** (see [Disk Partitioning](disk-partitioning.md)). The only fstab entry is the EFI partition — `rpool` and `tank` datasets mount natively via ZFS, so hardening flags like `nodev,nosuid,noexec` become per-dataset ZFS **properties** instead of fstab columns.
+
+Confirm the EFI entry created during install is present and hardened in `/etc/fstab`:
 
 ```bash
 sudo nano /etc/fstab
 ```
 
-Update mount options:
+It should read (UUID from `blkid` on your EFI partition):
 
 ```
-/dev/nvme0n1p1   /boot/efi  vfat   umask=0077,fmask=0077,dmask=0077  0 1
-/dev/nvme0n1p2   /boot      ext4   defaults,nodev,nosuid,noexec      0 2
-/dev/nvme0n1p3   /          ext4   defaults                          0 1
+UUID=<efi-uuid>   /boot/efi   vfat   umask=0077,fmask=0077,dmask=0077   0 1
 ```
 
-Apply changes:
+For everything else, set ZFS properties on the datasets where it makes sense (e.g. scratch/tmp datasets that never need to execute binaries):
 
 ```bash
-# Remount
-sudo mount -o remount /boot
+# Example: lock down a service scratch dataset
+sudo zfs set devices=off setuid=off exec=off rpool/some-dataset
 
-# Verify
-mount | grep -E "(boot|nvme0n1)"
+# Root itself keeps the defaults — it needs exec/setuid/devices for a working system
+zfs get exec,setuid,devices rpool/ROOT/ubuntu
 ```
 
-See [Disk Partitioning → Mount Options for Security](disk-partitioning.md#mount-options-for-security) for the authoritative reference and stricter per-filesystem isolation options.
+See [Disk Partitioning -> Mount Options for Security](disk-partitioning.md#mount-options-for-security) for the authoritative reference on the per-dataset property approach.
 
 ### Secure /dev/shm
 
@@ -507,6 +507,37 @@ sudo journalctl -b -p err
 sudo journalctl -u ssh --since today
 ```
 
+## Verify ZFS Pools and Boot Environment
+
+Confirm both pools imported and are healthy, and that a boot environment exists to roll back to if a future upgrade goes wrong.
+
+```bash
+# Both pools ONLINE, no errors
+zpool status rpool
+zpool status tank
+
+# tank auto-imports on subsequent boots once imported once; if it is missing:
+#   sudo zpool import -d /dev/disk/by-id tank
+
+# The running root is the ZFS boot environment
+zfs list -o name,mountpoint,canmount rpool/ROOT/ubuntu
+mount | grep -q 'rpool/ROOT/ubuntu on / ' && echo "Root is a ZFS boot environment"
+```
+
+### Take a baseline boot environment snapshot
+
+Before the system goes into production, snapshot the freshly hardened root so there is always a known-good environment to return to via ZFSBootMenu:
+
+```bash
+# Snapshot the current root boot environment
+sudo zfs snapshot rpool/ROOT/ubuntu@post-install-baseline
+
+# Confirm it exists (this is the rollback target if a bad upgrade breaks boot)
+zfs list -t snapshot -r rpool/ROOT
+```
+
+To roll back later, select the snapshot as a boot environment from the ZFSBootMenu screen at boot — see [Boot Issues](../troubleshooting/boot-issues.md) for the recovery flow.
+
 ## Quick Verification Checklist
 
 Run through this checklist before considering the system ready:
@@ -514,6 +545,13 @@ Run through this checklist before considering the system ready:
 ```bash
 # SSH key auth works
 ssh -o PasswordAuthentication=no user@server echo "Key auth OK"
+
+# Both ZFS pools healthy
+zpool status rpool | grep -q "state: ONLINE"
+zpool status tank | grep -q "state: ONLINE"
+
+# A boot environment snapshot exists to roll back to
+zfs list -t snapshot rpool/ROOT/ubuntu@post-install-baseline
 
 # Firewall enabled
 sudo ufw status | grep -q "Status: active"
@@ -540,12 +578,14 @@ systemctl --failed --quiet
 |------|--------|
 | System updated | Required |
 | Timezone configured | Required |
+| Both ZFS pools ONLINE (`rpool`, `tank`) | Required |
+| Baseline boot-environment snapshot taken | Required |
 | Tailscale installed | Required |
 | SSH hardened | Required |
 | Firewall enabled | Required |
 | Auto-updates enabled | Recommended |
 | Kernel hardening | Recommended |
-| Mount options secured | Recommended |
+| Mount options secured (EFI fstab + dataset properties) | Recommended |
 | Unnecessary services disabled | Recommended |
 
 ## Next Steps

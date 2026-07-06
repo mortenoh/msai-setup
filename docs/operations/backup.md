@@ -1,19 +1,38 @@
 # Backup & Recovery
 
-This page covers backup strategies, recovery testing, and disaster recovery procedures.
+This page covers the whole-build backup strategy, recovery testing, and disaster recovery. It spans **both pools** — `rpool` (root + hot data + Incus's storage backend, on the fast 4 TB NVMe) and `tank` (media, backups, cold data, on the slow 2 TB NVMe). For how **Incus instances** (containers and VMs, which are ZFS datasets under `rpool/incus`) fit this same model, see [Incus Snapshots &amp; backup](../incus/snapshots-backup.md) — this page doesn't duplicate that; it references it.
+
+## What lives where
+
+The two pools split hot-vs-cold, and the backup schedule follows the [canonical dataset placement](../zfs/datasets.md) ([hardware](../getting-started/hardware.md) confirms the physical layout):
+
+| Pool | Dataset | Holds | Backup priority |
+|---|---|---|---|
+| `rpool` | `rpool/ROOT/ubuntu` | The OS root (a boot environment) | Local snapshots = boot environments; on-site replica only (see below) |
+| `rpool` | `rpool/home` | User home dirs | Snapshot + replicate |
+| `rpool` | `rpool/incus` | Every Incus instance (container rootfs + VM zvols) | Snapshot + replicate — see [Incus backup](../incus/snapshots-backup.md) |
+| `rpool` | `rpool/db` | Service databases (Postgres, MariaDB), `recordsize=16K` | Snapshot hourly + replicate |
+| `rpool` | `rpool/ai` | GGUF / safetensors model files, `compression=off` | Manual snapshot; replicate optional (large, re-downloadable) |
+| `tank` | `tank/media` | Plex / Jellyfin libraries | Weekly snapshot; off-site optional |
+| `tank` | `tank/nextcloud-data` | Nextcloud user data — the snapshot-critical one | Hourly + off-site (restic) |
+| `tank` | `tank/nextcloud-app` | Nextcloud application state | Daily + replicate |
+| `tank` | `tank/backups` | Cold-archive target (`zstd-3`) — instance exports, DB dumps | Daily; is itself covered |
+
+!!! note "Databases and AI models moved to `rpool`"
+    Under the old single-pool layout these lived on `tank`. In the two-pool build they're on the fast `rpool` (`rpool/db`, `rpool/ai`). The container/VM datasets that used to be `tank/containers` and `tank/vm` no longer exist as such — **Incus owns that storage now under `rpool/incus`**, one dataset per instance. Back them up via `rpool/incus` (below), not as standalone `tank` datasets.
 
 ## Backup Strategy
 
-### Two Layers of Protection
+### Two layers of protection
 
-| Layer | Protects Against | Tool |
+| Layer | Protects against | Tool |
 |-------|------------------|------|
-| Snapshots | Accidental deletion, bad upgrades | ZFS snapshots |
-| Backups | Disk failure, host loss | zfs send/receive |
+| Snapshots | Accidental deletion, bad upgrades | ZFS snapshots (sanoid), ZFSBootMenu boot environments for root |
+| Replication | Disk failure, host loss, site loss | syncoid (block) + restic (file) |
 
 ## ZFS Snapshots
 
-This project uses **sanoid** (automatic local snapshot retention) plus **syncoid** (incremental replication to a remote ZFS host) — both from the `sanoid` package. `zfs-auto-snapshot` is upstream-abandoned and is not used here.
+This build uses **sanoid** (automatic local snapshot retention) plus **syncoid** (incremental replication to a remote ZFS host) — both from the `sanoid` package. `zfs-auto-snapshot` is upstream-abandoned and is not used here.
 
 ### Install sanoid
 
@@ -21,7 +40,7 @@ This project uses **sanoid** (automatic local snapshot retention) plus **syncoid
 sudo apt install -y sanoid
 ```
 
-Sanoid configuration lives at `/etc/sanoid/sanoid.conf`. Template-based retention is the clean pattern:
+Sanoid configuration lives at `/etc/sanoid/sanoid.conf`. Template-based retention is the clean pattern. Note the datasets span **both pools**, and `rpool/ROOT` is included so the OS itself has boot-environment snapshots:
 
 ```ini
 # /etc/sanoid/sanoid.conf
@@ -45,23 +64,43 @@ Sanoid configuration lives at `/etc/sanoid/sanoid.conf`. Template-based retentio
     autosnap = yes
     autoprune = yes
 
-[template_disposable]
-    autosnap = no
+[template_os]
+    # Boot environments: enough history to roll back a bad upgrade, not a hoard.
+    frequently = 0
+    hourly = 0
+    daily = 14
+    weekly = 4
+    monthly = 2
+    autosnap = yes
     autoprune = yes
-    daily = 7
 
-# Apply templates to datasets
-[tank/nextcloud-data]
+# --- rpool (root + hot data + Incus) ---
+
+[rpool/ROOT/ubuntu]
+    use_template = os
+
+[rpool/home]
     use_template = data
 
-[tank/db]
+[rpool/incus]
+    use_template = data
+    recursive = yes
+
+[rpool/db]
     use_template = db
     recursive = yes
 
-[tank/containers]
-    use_template = disposable
-    recursive = yes
+# --- tank (media / cold data) ---
+
+[tank/nextcloud-data]
+    use_template = data
+
+[tank/nextcloud-app]
+    use_template = data
 ```
+
+!!! note "sanoid owns the schedule for `rpool/incus` too"
+    Incus instances are datasets under `rpool/incus`, so sanoid snapshots them like anything else — leave Incus's own `snapshots.schedule` unset and let sanoid drive the always-on retention, reserving `incus snapshot create` for deliberate pre-change checkpoints. This is spelled out in [Incus Snapshots &amp; backup](../incus/snapshots-backup.md#scheduled-incus-snapshots-or-let-sanoid-do-it) — don't configure two competing schedulers on the same dataset.
 
 Sanoid's systemd timers run automatically:
 
@@ -72,97 +111,111 @@ systemctl list-timers sanoid
 
 ### Manual snapshots
 
-Before major changes:
+Before major changes (note: snapshot the *specific pool* you're about to disturb):
 
 ```bash
-sudo zfs snapshot -r tank@pre-upgrade-$(date +%F)
+# Before an OS upgrade — this IS the boot-environment safety net
+sudo zfs snapshot rpool/ROOT/ubuntu@pre-upgrade-$(date +%F)
+
+# Before a data change on tank
+sudo zfs snapshot -r tank@pre-change-$(date +%F)
 ```
+
+A `rpool/ROOT/ubuntu@…` snapshot is directly bootable/rollback-able from the [ZFSBootMenu screen](../ubuntu/troubleshooting/boot-issues.md#zfsbootmenu-recovery) — that's the mechanism behind Scenario A in the [rebuild checklist](rebuild-checklist.md#scenario-a-os-broken-pools-fine-boot-environment-rollback).
 
 ## Remote Backups
 
 ### Replicate with syncoid
 
-`syncoid` wraps `zfs send|receive` with sensible defaults (resumable transfers, incremental detection, automatic bookmarks). Set up SSH keys to the backup host first, then:
-
-```bash
-# Initial transfer (recursive)
-syncoid -r tank/nextcloud-data backup-host:backup/nextcloud-data
-
-# Subsequent incremental runs
-syncoid -r tank/nextcloud-data backup-host:backup/nextcloud-data
-```
-
-Schedule via systemd timer or cron. Example daily cron:
+`syncoid` wraps `zfs send|receive` with resumable transfers, incremental detection, and automatic bookmarks. Set up SSH keys to the backup host first, then replicate **each dataset that the "restore everything from off-site" runbook expects** — across both pools:
 
 ```bash
 # /etc/cron.daily/syncoid-replicate
 #!/bin/sh
-# Every dataset the "restore everything from offsite" runbook expects must
-# have a job here — otherwise it can't be recovered from the offsite host.
-/usr/sbin/syncoid -r tank/nextcloud-data backup-host:backup/nextcloud-data
-/usr/sbin/syncoid -r tank/nextcloud-app  backup-host:backup/nextcloud-app
-/usr/sbin/syncoid -r tank/db              backup-host:backup/db
-/usr/sbin/syncoid -r tank/ai             backup-host:backup/ai
-/usr/sbin/syncoid -r tank/containers     backup-host:backup/containers
-/usr/sbin/syncoid -r tank/backups        backup-host:backup/backups
-# Optional (large, and lower-value offsite): media and VM disk images.
-# /usr/sbin/syncoid -r tank/media          backup-host:backup/media
-# /usr/sbin/syncoid -r tank/vm             backup-host:backup/vm
+# Every dataset the "restore from off-site" runbook needs must have a job here,
+# or it can't be recovered from the off-site host.
+
+# rpool — hot data + Incus instances
+/usr/sbin/syncoid -r rpool/incus            backup-host:backup/incus
+/usr/sbin/syncoid -r rpool/db               backup-host:backup/db
+/usr/sbin/syncoid -r rpool/home             backup-host:backup/home
+
+# tank — Nextcloud + cold archive
+/usr/sbin/syncoid -r tank/nextcloud-data    backup-host:backup/nextcloud-data
+/usr/sbin/syncoid -r tank/nextcloud-app     backup-host:backup/nextcloud-app
+/usr/sbin/syncoid -r tank/backups           backup-host:backup/backups
+
+# On-site convenience replica of the OS root (see "Replicating root" below).
+# Skipped off-site — the host is rebuildable, the data isn't.
+/usr/sbin/syncoid -r rpool/ROOT             backup-host:backup/rpool-ROOT
+
+# Optional (large, lower off-site value): AI models and media.
+# /usr/sbin/syncoid -r rpool/ai             backup-host:backup/ai
+# /usr/sbin/syncoid -r tank/media           backup-host:backup/media
 ```
 
-Each dataset lands under its own target on the backup host (`backup/nextcloud-data`, `backup/db`, `backup/ai`, `backup/containers`, `backup/backups`, ...). There is no single recursive `backup/tank` replica — the restore runbooks below pull each dataset back individually.
+Each dataset lands under its own target on the backup host. There is **no single recursive `backup/rpool` or `backup/tank` replica** — the restore runbooks pull each dataset back individually. For the Incus tree specifically, `rpool/incus` sends the container rootfs datasets and VM zvols and all their snapshots, so a restore rebuilds instance storage bit-for-bit — see [Incus replication with syncoid](../incus/snapshots-backup.md#replication-with-syncoid).
+
+### Replicating root (`rpool/ROOT`) — the reasoned call
+
+**Decision for this build:** snapshot `rpool/ROOT/ubuntu` locally with sanoid (mandatory — that *is* the boot-environment rollback mechanism), replicate it to the **on-site** LAN replica as a convenience, and **do not** push it off-site (no Tailscale/restic copy of the OS root).
+
+Reasoning, from START.md's "the host is rebuildable, the data isn't" philosophy:
+
+- **Local snapshots of `rpool/ROOT` are non-negotiable** — without them there are no boot environments and Scenario A (one-keystroke rollback) doesn't exist. sanoid's `[template_os]` above provides them.
+- **On-site replication is cheap and speeds recovery.** A `syncoid rpool/ROOT` to the LAN replica means a same-hardware rebuild can `zfs receive` a working root instead of re-running the whole [root-on-ZFS install](../ubuntu/installation/installation-walkthrough.md). Low cost, real time savings.
+- **Off-site replication of the OS root is not worth the bytes.** The OS is fully reproducible from the install walkthrough plus the captured host config (netplan, SSH keys, sanoid config, the Incus preseed). Off-site capacity and transfer budget are better spent on the irreplaceable data — Nextcloud user files, photos, databases, and the Incus instance datasets. A stale off-site root image would likely be rebuilt from docs anyway.
+
+So `rpool/ROOT` is **local + on-site**, never off-site. If you disagree for your threat model (e.g. you keep heavy per-host customization that's painful to reproduce), adding `rpool/ROOT` to the off-site syncoid job is harmless — it's a deliberate trade of off-site capacity for rebuild speed.
 
 ### Off-site target
 
-On-site replication protects against disk failure on the primary host. **It does not protect against site loss (theft, fire, full-pool corruption).** Add an off-site target:
+On-site replication protects against disk failure on the primary host. **It does not protect against site loss (theft, fire, full-pool corruption).** For this build the recommended split is:
 
-- **restic to B2 / S3 / Wasabi** — encrypted, deduplicated, cross-platform restore. Good for the file-level layer (Nextcloud data, photos).
-- **rclone crypt to B2 / S3** — encrypted object-storage sync, no client-side dedup but simple.
-- **syncoid over Tailscale** to a remote ZFS host (a friend's box, a VPS with attached storage) — keeps the ZFS abstraction end-to-end.
+| Layer | Tool | Target | Scope |
+|---|---|---|---|
+| Local snapshots | sanoid | `rpool` + `tank` (incl. `rpool/ROOT`, `rpool/incus`) | Everything |
+| On-site replica | syncoid | Always-on ZFS host on LAN | Everything incl. `rpool/ROOT` |
+| Off-site (block) | syncoid over Tailscale | Remote ZFS host (e.g. friend's homelab) | Data datasets + `rpool/incus`; **not** `rpool/ROOT` |
+| Off-site (file) | restic | B2/S3 (encrypted) | Nextcloud user data + photos |
 
-For this build, the recommended split is:
-
-| Layer | Tool | Target |
-|---|---|---|
-| Local snapshots | sanoid | `tank` itself |
-| On-site replica | syncoid | Always-on ZFS host on LAN |
-| Off-site (block) | syncoid over Tailscale | Remote ZFS host (e.g. friend's homelab) |
-| Off-site (file) | restic | B2/S3 (encrypted, for Nextcloud + photos) |
+restic handles the file layer for user data that warrants encrypted, deduplicated, cross-platform off-site backup; syncoid over Tailscale handles the block layer. For data that lives *inside* an Incus instance, the pattern is to keep it on a host dataset bind-mounted into the instance and back up the host path — see [Incus restic guidance](../incus/snapshots-backup.md#restic-for-file-level-data-inside-instances).
 
 ## Database Backups
 
-### MariaDB Dump
+Databases live on `rpool/db` and run inside the Docker-in-Incus container. Dump before schema-affecting changes, writing the dump to the cold-archive dataset:
 
 ```bash
-docker exec nextcloud-db mysqldump -u root -p nextcloud > \
-    /mnt/tank/backups/nextcloud-db-$(date +%Y%m%d).sql
+# Exec into the Docker-in-Incus container, dump, land it on tank/backups
+incus exec docker-host -- \
+  docker exec nextcloud-db mysqldump -u root -p nextcloud \
+  > /tank/backups/nextcloud-db-$(date +%Y%m%d).sql
 ```
 
-### Before Container Updates
+### Before container updates
 
-Always snapshot before updating:
+Always snapshot the database dataset before updating (stop the instance for a consistent VM/zvol snapshot):
 
 ```bash
-sudo zfs snapshot tank/db/nextcloud@pre-update
-docker compose pull
-docker compose up -d
+sudo zfs snapshot rpool/db@pre-update-$(date +%F)
+incus exec docker-host -- sh -c 'cd /opt/compose/nextcloud && docker compose pull && docker compose up -d'
 ```
 
 ## Backup Verification
 
-### Test Restore Regularly
+### Test restore regularly
 
-1. Clone snapshot to temporary dataset
-2. Start service against clone
+1. Clone snapshot to a temporary dataset
+2. Start service against the clone
 3. Verify data integrity
-4. Destroy clone
+4. Destroy the clone
 
 ```bash
-# Clone
-zfs clone tank/nextcloud-data@backup tank/test-restore
+# Clone (data dataset on tank)
+zfs clone tank/nextcloud-data@$(SNAP) tank/test-restore
 
 # Verify
-ls /mnt/tank/test-restore
+ls /tank/test-restore
 
 # Cleanup
 zfs destroy tank/test-restore
@@ -170,299 +223,187 @@ zfs destroy tank/test-restore
 
 ## Backup Schedule
 
-| Data | Snapshot Frequency | Remote Backup (syncoid) |
-|------|-------------------|---------------|
-| nextcloud-data | Hourly | Daily |
-| nextcloud-app | Daily | Daily |
-| db | Hourly | Daily |
-| ai | Manual (pre-change) | Daily |
-| containers | Hourly | Daily |
-| backups | Daily | Daily |
-| media | Weekly | Optional (see cron above) |
-| vm | Manual (pre-change) | Optional (see cron above) |
+| Data | Pool | Snapshot frequency | Remote backup (syncoid) |
+|------|------|-------------------|---------------|
+| `ROOT/ubuntu` (OS) | rpool | Daily (boot environments) | On-site only |
+| `home` | rpool | Hourly | Daily |
+| `incus` (instances) | rpool | Hourly | Daily |
+| `db` | rpool | Hourly | Daily |
+| `ai` (models) | rpool | Manual (pre-change) | Optional |
+| `nextcloud-data` | tank | Hourly | Daily + off-site (restic) |
+| `nextcloud-app` | tank | Daily | Daily |
+| `media` | tank | Weekly | Optional (see cron) |
+| `backups` | tank | Daily | Daily |
 
-Everything with a scheduled remote backup above has a matching syncoid job in the daily cron and is therefore restorable from offsite. `media` and `vm` are offsite only if you enable the optional jobs — otherwise they rely on local snapshots and the on-site replica.
+Everything with a scheduled remote backup above has a matching syncoid job in the daily cron and is therefore restorable from off-site (except `rpool/ROOT`, which is on-site only by design — see [Replicating root](#replicating-root-rpoolroot-the-reasoned-call)). `ai` and `media` are off-site only if you enable the optional jobs — otherwise they rely on local snapshots and the on-site replica.
 
 ## Recovery Testing
 
 Regular recovery testing validates that backups are actually restorable.
 
-### Test Schedule
+### Test schedule
 
 | Test | Frequency | Duration |
 |------|-----------|----------|
 | File restore from snapshot | Monthly | 15 min |
+| Boot-environment rollback (Scenario A) | Quarterly | 10 min |
 | Clone dataset and verify service | Quarterly | 1 hour |
 | Full rebuild on test hardware | Yearly | 4+ hours |
 
-### Monthly: File Restore Test
-
-Verify you can restore individual files from snapshots:
+### Monthly: file restore test
 
 ```bash
-# List available snapshots
-ls /mnt/tank/nextcloud-data/.zfs/snapshot/
+# List available snapshots (sanoid-managed) on the data dataset
+ls /tank/nextcloud-data/.zfs/snapshot/
 
-# Pick a recent snapshot and verify file access
-ls /mnt/tank/nextcloud-data/.zfs/snapshot/hourly-$(date +%Y-%m-%d)/
+# Copy a file from a recent snapshot to verify access
+cp /tank/nextcloud-data/.zfs/snapshot/<snap>/test-file.txt /tmp/
 
-# Copy a file to verify
-cp /mnt/tank/nextcloud-data/.zfs/snapshot/hourly-$(date +%Y-%m-%d)/test-file.txt /tmp/
-
-# Log the test
 echo "$(date): File restore test PASSED" >> /var/log/recovery-tests.log
 ```
 
-### Quarterly: Service Restore Test
+### Quarterly: boot-environment rollback test
 
-Clone a dataset and verify the service starts:
+Confirm the OS-rollback path actually works before you need it in anger: snapshot `rpool/ROOT/ubuntu`, make a trivial change, then reboot and roll back to the snapshot from the [ZFSBootMenu screen](../ubuntu/troubleshooting/boot-issues.md#boot-a-different-working-boot-environment). Verify the change is gone and log it.
+
+### Quarterly: service restore test
+
+Clone an Incus instance and verify it starts, using Incus's own tooling (which keeps its database consistent):
 
 ```bash
-# Stop services to avoid conflicts
-cd ~/docker/nextcloud && docker compose down
+# ZFS-clone-backed copy of a service instance
+incus copy docker-host docker-host-restoretest
+incus start docker-host-restoretest
+# ... verify services inside respond ...
+incus delete --force docker-host-restoretest
 
-# Clone the current snapshot
-sudo zfs snapshot tank/nextcloud-data@restore-test
-sudo zfs clone tank/nextcloud-data@restore-test tank/restore-test
-
-# Verify data integrity
-ls /mnt/tank/restore-test
-
-# Start service with cloned data (modify compose to use clone path)
-# ... verify service works ...
-
-# Cleanup
-sudo zfs destroy tank/restore-test
-sudo zfs destroy tank/nextcloud-data@restore-test
-
-# Restart production
-docker compose up -d
-
-# Log the test
 echo "$(date): Quarterly service restore test PASSED" >> /var/log/recovery-tests.log
 ```
 
-### Yearly: Full Rebuild Test
+### Yearly: full rebuild test
 
-On spare or test hardware:
-
-1. Install fresh Ubuntu Server
-2. Install ZFS and import pool (or restore from backup)
-3. Follow [Rebuild Checklist](rebuild-checklist.md)
-4. Verify all services operational
-5. Document any issues encountered
-
-### Test Result Logging
-
-Maintain a log of all recovery tests:
-
-```bash
-# /var/log/recovery-tests.log format
-# DATE: Test type - PASSED/FAILED - Notes
-
-2024-01-15: Monthly file restore - PASSED
-2024-02-15: Monthly file restore - PASSED
-2024-03-01: Quarterly service clone - PASSED
-2024-03-15: Monthly file restore - PASSED
-```
+On spare or test hardware, follow the [Rebuild Checklist](rebuild-checklist.md) Scenario B end to end and verify all services return.
 
 ## Disaster Scenarios
 
-### Scenario 1: Single Disk Failure
+### Scenario 1: bad OS upgrade / broken root
 
-**Symptoms**: ZFS pool shows degraded or faulted disk
+**Symptoms**: box won't boot cleanly, or boots to a broken userspace after an `apt upgrade` or kernel change; **the pools are fine**.
 
-**Recovery**:
+**Recovery**: this is a boot-environment rollback, **not** a restore. Interrupt the ZFSBootMenu countdown, boot a previous environment or roll a `rpool/ROOT/ubuntu` snapshot back — full steps in [Boot Issues — ZFSBootMenu Recovery](../ubuntu/troubleshooting/boot-issues.md#zfsbootmenu-recovery) and [Rebuild Checklist — Scenario A](rebuild-checklist.md#scenario-a-os-broken-pools-fine-boot-environment-rollback).
 
-1. Identify failed disk:
-   ```bash
-   zpool status tank
-   ```
+**Estimated recovery time**: minutes.
 
-2. If mirrored, replace the disk:
-   ```bash
-   sudo zpool replace tank /dev/old-disk /dev/new-disk
-   sudo zpool status  # Monitor resilver
-   ```
+### Scenario 2: single disk / pool failure
 
-3. If no redundancy, restore from backup. Offsite replication is **per-dataset** (there is no single recursive `backup/tank@latest`), so recreate the pool and pull each replicated dataset back individually:
-   ```bash
-   # Replace the disk(s), recreate the pool (see Pool Creation for the full flags)
-   sudo zpool create tank <primary-part> <secondary>
+**Symptoms**: `zpool status` shows a degraded or faulted disk. Each pool is a single-disk vdev, so a disk failure means the *whole pool* is lost — there is no in-pool redundancy to resilver from.
 
-   # Pull each replicated dataset back from the offsite host
-   for ds in nextcloud-data nextcloud-app db ai containers backups; do
-       syncoid -r backup-host:backup/$ds tank/$ds
-   done
-   # media / vm only if you enabled their optional offsite jobs.
-   ```
+**Recovery**: replace the drive, recreate the pool, and pull each replicated dataset back from off-site individually (there is no single recursive `backup/rpool@latest` or `backup/tank@latest`):
 
-**Estimated Recovery Time**: 1-4 hours (mirror) or 4-24 hours (full restore)
+```bash
+# After replacing the failed drive and recreating the pool (see Pool Creation)
+# rpool datasets:
+for ds in incus db home; do
+    syncoid -r backup-host:backup/$ds rpool/$ds
+done
+# tank datasets:
+for ds in nextcloud-data nextcloud-app backups; do
+    syncoid -r backup-host:backup/$ds tank/$ds
+done
+# ai / media only if you enabled their optional off-site jobs.
+```
 
-### Scenario 2: Complete Host Loss
+If it's `rpool` that was lost, you also reinstall root-on-ZFS + ZFSBootMenu first (Scenario B) before re-attaching Incus to the recovered `rpool/incus`.
 
-**Symptoms**: Hardware failure, cannot boot, physical damage
+**Estimated recovery time**: 4-24 hours depending on data volume.
 
-**Recovery**:
+### Scenario 3: data corruption discovery
 
-1. If disks are intact:
-   - Install fresh Ubuntu on new hardware
-   - Import existing pool: `sudo zpool import tank`
-   - Follow [Rebuild Checklist](rebuild-checklist.md)
-
-2. If disks are lost:
-   - Restore from offsite backup
-   - Follow full recovery procedure below
-
-**Estimated Recovery Time**: 4-8 hours (disks intact) or 24+ hours (full restore)
-
-### Scenario 3: Data Corruption Discovery
-
-**Symptoms**: Files unreadable, checksum errors, application errors
+**Symptoms**: files unreadable, checksum errors, application errors.
 
 **Recovery**:
 
-1. Run ZFS scrub to identify extent:
-   ```bash
-   sudo zpool scrub tank
-   zpool status tank  # Check for errors
-   ```
+```bash
+# Identify extent — scrub the affected pool
+sudo zpool scrub tank
+zpool status -v tank
 
-2. For corrupted files, restore from snapshot:
-   ```bash
-   # Find snapshot before corruption
-   ls /mnt/tank/data/.zfs/snapshot/
+# Restore a corrupted file from a snapshot
+cp /tank/nextcloud-data/.zfs/snapshot/<good-snap>/path/file /tank/nextcloud-data/path/file
 
-   # Copy clean version
-   cp /mnt/tank/data/.zfs/snapshot/daily-2024-01-14/corrupted-file \
-      /mnt/tank/data/corrupted-file
-   ```
+# Widespread: roll the dataset back (stop consumers first)
+sudo zfs rollback tank/nextcloud-data@<last-good-snapshot>
+```
 
-3. For widespread corruption, rollback dataset:
-   ```bash
-   sudo zfs rollback tank/data@last-good-snapshot
-   ```
+For a corrupted **Incus instance** dataset, stop the instance before any `zfs rollback` — see the [stop-before-you-receive warning](../incus/snapshots-backup.md#restore-workflows).
 
-**Estimated Recovery Time**: 1-4 hours
+**Estimated recovery time**: 1-4 hours.
 
-### Scenario 4: Ransomware Recovery
+### Scenario 4: ransomware recovery
 
-**Symptoms**: Files encrypted, ransom notes present
+**Symptoms**: files encrypted, ransom notes present.
 
 **Recovery**:
 
-1. **Immediately**: Disconnect from network
+1. **Immediately** disconnect from the network (`sudo ip link set <iface> down`).
+2. Do NOT pay.
+3. Assess which datasets and which pools are affected, and when encryption started (`zfs list -t snapshot -o name,creation`).
+4. Roll affected datasets back to a pre-infection snapshot (stop Incus instances first for `rpool/incus` datasets):
    ```bash
-   sudo ip link set eth0 down
+   sudo incus stop --all
+   sudo zfs rollback rpool/incus/containers/<name>@pre-infection
+   sudo zfs rollback tank/nextcloud-data@pre-infection
    ```
+5. Before reconnecting: investigate the vector, patch, rotate all credentials.
 
-2. Do NOT pay ransom
-
-3. Assess damage:
-   - Which datasets are affected?
-   - When did encryption start?
-
-4. Rollback to pre-infection snapshot:
-   ```bash
-   # Find clean snapshot (before infection date)
-   zfs list -t snapshot -o name,creation
-
-   # Rollback affected datasets
-   sudo zfs rollback tank/data@pre-infection
-   ```
-
-5. Before reconnecting:
-   - Investigate infection vector
-   - Patch vulnerabilities
-   - Change all credentials
-
-**Estimated Recovery Time**: 4-24 hours
+**Estimated recovery time**: 4-24 hours.
 
 ## Recovery Runbooks
 
-### Runbook: Nextcloud Restore
+### Runbook: Nextcloud restore
 
-**Prerequisites**: SSH access to server, ZFS snapshots available
+**Prerequisites**: SSH access, ZFS snapshots available. Nextcloud runs in the Docker-in-Incus container; its data is on `tank/nextcloud-data` / `tank/nextcloud-app`, its DB on `rpool/db`.
 
-1. Stop Nextcloud:
+1. Stop Nextcloud inside the container:
    ```bash
-   cd ~/docker/nextcloud
-   docker compose down
+   incus exec docker-host -- sh -c 'cd /opt/compose/nextcloud && docker compose down'
    ```
-
-2. Rollback datasets:
+2. Roll the datasets back:
    ```bash
-   sudo zfs rollback tank/nextcloud-data@backup
-   sudo zfs rollback tank/nextcloud-app@backup
-   sudo zfs rollback tank/db/nextcloud@backup
+   sudo zfs rollback tank/nextcloud-data@<snap>
+   sudo zfs rollback tank/nextcloud-app@<snap>
+   sudo zfs rollback rpool/db@<snap>
    ```
-
 3. Start Nextcloud:
    ```bash
-   docker compose up -d
+   incus exec docker-host -- sh -c 'cd /opt/compose/nextcloud && docker compose up -d'
    ```
+4. Verify: web UI reachable, file listing correct, recent files present.
 
-4. Verify:
-   - Access web UI
-   - Check file listing
-   - Verify recent files exist
+### Runbook: database restore from dump
 
-### Runbook: Database Restore from Dump
+**Prerequisites**: SQL dump on `tank/backups`.
 
-**Prerequisites**: SQL dump file available
+```bash
+incus exec docker-host -- docker compose -f /opt/compose/nextcloud/docker-compose.yml stop nextcloud
+incus exec docker-host -- sh -c \
+  'docker exec -i nextcloud-db mysql -u root -p"${MYSQL_ROOT_PASSWORD}" nextcloud < /backups/nextcloud-db.sql'
+incus exec docker-host -- docker compose -f /opt/compose/nextcloud/docker-compose.yml start nextcloud
+incus exec docker-host -- docker exec -u www-data nextcloud php occ files:scan --all
+```
 
-1. Stop application:
-   ```bash
-   docker compose stop nextcloud
-   ```
+### Runbook: full system recovery
 
-2. Restore database:
-   ```bash
-   docker exec -i nextcloud-db mysql -u root -p"${MYSQL_ROOT_PASSWORD}" nextcloud < backup.sql
-   ```
+**Prerequisites**: backup host accessible, new hardware ready.
 
-3. Restart application:
-   ```bash
-   docker compose start nextcloud
-   ```
+This is the [Rebuild Checklist](rebuild-checklist.md) Scenario B in full — reinstall root-on-ZFS + ZFSBootMenu, re-import `tank`, `incus admin init --preseed` at `rpool/incus`, restore the instances (from syncoid replicas or exports), and restore file-level user data from restic. The off-site copy is a set of **per-dataset** replicas, not a single recursive image — pull each one back individually:
 
-4. Run maintenance:
-   ```bash
-   docker exec -u www-data nextcloud php occ maintenance:repair
-   docker exec -u www-data nextcloud php occ files:scan --all
-   ```
+```bash
+for ds in incus db home; do syncoid -r backup-host:backup/$ds rpool/$ds; done
+for ds in nextcloud-data nextcloud-app backups; do syncoid -r backup-host:backup/$ds tank/$ds; done
+```
 
-### Runbook: Full System Recovery
-
-**Prerequisites**: Backup server accessible, new hardware ready
-
-1. Install Ubuntu Server (minimal)
-
-2. Install ZFS:
-   ```bash
-   sudo apt update && sudo apt install -y zfsutils-linux
-   ```
-
-3. Create pool (if restoring from backup):
-   ```bash
-   sudo zpool create tank <primary-part> <secondary>
-   ```
-
-4. Restore data. The offsite copy is a set of **per-dataset** replicas (`backup/nextcloud-data`, `backup/nextcloud-app`, `backup/db`, `backup/ai`, `backup/containers`, `backup/backups`), **not** a single recursive `tank@latest`. Pull each one back individually:
-   ```bash
-   for ds in nextcloud-data nextcloud-app db ai containers backups; do
-       syncoid -r backup-host:backup/$ds tank/$ds
-   done
-   ```
-   Datasets without an offsite job (`media` and `vm`, unless you enabled the optional jobs) are **not** recoverable from offsite — restore those from their original source or the on-site replica.
-
-5. Follow [Rebuild Checklist](rebuild-checklist.md) for:
-   - Docker installation
-   - Container configuration
-   - Network setup
-   - Service verification
-
-### Required Access and Credentials
+### Required access and credentials
 
 Keep secure, offline copies of:
 
@@ -471,9 +412,10 @@ Keep secure, offline copies of:
 | SSH keys | Password manager, printed |
 | Root/admin passwords | Password manager |
 | Backup server credentials | Password manager |
-| Docker .env files | In ZFS snapshot, password manager |
+| Docker `.env` files (inside the Incus container's compose dirs) | ZFS snapshot, password manager |
+| Incus preseed (`incus-preseed.yaml`) + profiles | Private git repo, `tank/backups`, off-site |
 | BIOS password | Printed, secure location |
-| Encryption keys (if applicable) | Multiple secure locations |
+| Encryption keys (if you enabled ZFS native encryption) | Multiple secure locations |
 
-!!! warning "Credential Storage"
+!!! warning "Credential storage"
     Recovery is impossible without access credentials. Store them in multiple secure locations.

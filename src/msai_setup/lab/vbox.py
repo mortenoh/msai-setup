@@ -14,6 +14,7 @@ from __future__ import annotations
 import logging
 import re
 import subprocess
+import time
 from pathlib import Path
 
 log = logging.getLogger(__name__)
@@ -157,6 +158,24 @@ def configure_vm(
     _run(common)
 
 
+def set_boot_order(name: str, devices: list[str]) -> None:
+    """Set the VM boot order (up to four slots).
+
+    e.g. ``set_boot_order(name, ["dvd", "disk"])`` boots the optical drive
+    first. The root-on-ZFS live-install flow uses this so the VM always
+    re-enters the live installer ISO on reboot — on the aarch64 lab the
+    firmware cannot execute the ZFSBootMenu EFI binary on the installed disk, so
+    a deterministic DVD-first order is what makes reboots land back in the live
+    environment for offline verification.
+    """
+    slots = (devices + ["none", "none", "none", "none"])[:4]
+    args = ["modifyvm", name]
+    for i, dev in enumerate(slots, start=1):
+        args.extend([f"--boot{i}", dev])
+    _run(args)
+    log.info("set boot order on %s: %s", name, ", ".join(slots))
+
+
 def enable_vrde(name: str, *, port: int = 3389) -> None:
     """Enable VRDE (VirtualBox Remote Desktop) so a headless VM has a console.
 
@@ -293,6 +312,22 @@ def acpi_power_button(name: str) -> None:
         log.info("vm %s is not running", name)
         return
     _run(["controlvm", name, "acpipowerbutton"])
+
+
+def wait_until_stopped(name: str, *, timeout: int = 180, interval: int = 3) -> None:
+    """Poll until the VM is no longer running, or raise on timeout.
+
+    Used after asking a guest to power off (e.g. `poweroff` over SSH) before
+    reconfiguring storage host-side, since VBoxManage storageattach requires the
+    VM to be fully stopped.
+    """
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if not vm_running(name):
+            log.info("vm %s has stopped", name)
+            return
+        time.sleep(interval)
+    raise VBoxError(f"vm {name} did not stop within {timeout}s")
 
 
 # --- Snapshots ---------------------------------------------------------------

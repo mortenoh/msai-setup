@@ -1,0 +1,578 @@
+---
+# Fresh root-on-ZFS + ZFSBootMenu install, driven from the LIVE installer
+# environment over SSH — the real MS-S1 MAX process, rehearsed.
+#
+# This runs against the Ubuntu Server live ISO booted with an autoinstall whose
+# `early-commands` only opened SSH into the live session (see
+# src/msai_setup/lab/cloudinit.py:render_live_install_user_data and
+# src/msai_setup/lab/zfsroot.py). Subiquity is paused at its interactive storage
+# screen and never touches a disk; ALL install work happens here.
+#
+# It mirrors docs/ubuntu/installation/installation-walkthrough.md step for step.
+# The ONLY meaningful difference from the (removed) zfs-root-migrate.yml is the
+# system source: instead of `rsync`-ing an already-running system into
+# rpool/ROOT/ubuntu, it `debootstrap`s a fresh Ubuntu base system in. Partition
+# scheme, `zpool create` flags, ZFSBootMenu install (x86_64 prebuilt binary AND
+# aarch64 build-from-source), efibootmgr registration and the EFI-only fstab are
+# all identical to the canonical docs and the proven historical playbook.
+#
+# The two target disks stand in for the MS-S1 MAX's two physical NVMe drives:
+#   fast/large -> rpool  (EFI System Partition + pool member, root + hot data)
+#   slow/small -> tank   (single pool member, bulk cold data)
+#
+# Reboot handling: on real x86_64 hardware run with `do_reboot=true` and the
+# firmware honours the efibootmgr entry, landing in ZFSBootMenu. In the
+# VirtualBox aarch64 lab, `msai lab install-zfs-root` passes `do_reboot=false`
+# and verifies the result offline (VirtualBox's ARM firmware cannot execute the
+# ZFSBootMenu EFI binary — the pools/initramfs/artifacts are still fully real).
+#
+#   ansible-playbook zfs-root-install.yml                       # real hw, reboots
+#   ansible-playbook zfs-root-install.yml -e do_reboot=false    # lab
+#   ansible-playbook zfs-root-install.yml -e fast_disk=/dev/disk/by-id/... \
+#                                         -e slow_disk=/dev/disk/by-id/...
+
+- hosts: lab
+  # We connect to the live installer session as root; there is no unprivileged
+  # sudo user to escalate from, so become is off (the inventory sets this too).
+  become: false
+  gather_facts: true
+
+  vars:
+    rpool_name: rpool
+    tank_name: tank
+    root_ds: rpool/ROOT/ubuntu
+    target_mnt: /mnt
+    # ZFSBootMenu reads this from a ZFS property and appends root=zfs:<bootfs>.
+    zbm_cmdline: "quiet loglevel=4"
+    # Reboot into the new system at the end (true on real x86_64 hardware; the
+    # lab command sets this false and verifies offline instead).
+    do_reboot: true
+    reboot_timeout: 900
+    # Leave empty to auto-detect the two disks; the LARGER becomes rpool (fast),
+    # the smaller becomes tank (slow). Override with stable /dev/disk/by-id/...
+    # paths on real hardware.
+    fast_disk: ""
+    slow_disk: ""
+    # Target system identity. Overridden by the driver.
+    target_hostname: ms-s1-max
+    admin_user: morten
+    admin_ssh_pubkey: ""
+    # Debootstrap suite + mirror. resolute is 26.04; fall back to noble (24.04)
+    # if the archive has not published resolute yet — the same convention this
+    # repo uses for the Docker and Tailscale repos. arm64 packages live on
+    # ports.ubuntu.com; amd64 on archive.ubuntu.com.
+    suite: resolute
+    fallback_suite: noble
+
+  tasks:
+    # -- Guard rails ----------------------------------------------------------
+
+    - name: install — resolve the arch-appropriate Ubuntu mirrors
+      ansible.builtin.set_fact:
+        pkg_mirror: >-
+          {{ 'http://ports.ubuntu.com/ubuntu-ports'
+             if ansible_facts['architecture'] == 'aarch64'
+             else 'http://archive.ubuntu.com/ubuntu' }}
+        security_mirror: >-
+          {{ 'http://ports.ubuntu.com/ubuntu-ports'
+             if ansible_facts['architecture'] == 'aarch64'
+             else 'http://security.ubuntu.com/ubuntu' }}
+
+    - name: install — confirm we are in a live/rescue environment
+      ansible.builtin.command: findmnt -no FSTYPE /
+      register: live_root_fstype
+      changed_when: false
+
+    - name: install — refuse to run against a real (non-live) system
+      ansible.builtin.assert:
+        that: (live_root_fstype.stdout | trim) in ['overlay', 'squashfs', 'tmpfs']
+        fail_msg: >-
+          Root filesystem is '{{ live_root_fstype.stdout | trim }}', not a live
+          ISO overlay. This playbook wipes disks and must only run in the live
+          installer environment. Refusing to touch what looks like a real system.
+        success_msg: "Live environment confirmed (root is {{ live_root_fstype.stdout | trim }})."
+
+    - name: install — require an admin SSH public key
+      ansible.builtin.assert:
+        that: admin_ssh_pubkey | length > 0
+        fail_msg: "admin_ssh_pubkey is empty — pass the lab public key via -e."
+
+    # -- Tooling in the live installer environment ----------------------------
+
+    - name: install — install ZFS + debootstrap + partitioning tooling (live env)
+      ansible.builtin.apt:
+        name:
+          - debootstrap
+          - gdisk
+          - dosfstools
+          - zfsutils-linux
+          - efibootmgr
+          - curl
+        state: present
+        update_cache: true
+
+    - name: install — load the ZFS kernel module
+      ansible.builtin.command: modprobe zfs
+      changed_when: false
+
+    # A stable hostid must exist BEFORE pool creation and be identical in the
+    # installed system, or ZFS treats the pool as "owned by another host" at
+    # import time. Generate it now and copy it into the target below.
+    - name: install — ensure a persistent /etc/hostid exists
+      ansible.builtin.command: zgenhostid
+      args:
+        creates: /etc/hostid
+
+    # -- Identify the two target disks ----------------------------------------
+
+    # Enumerate real disks (TYPE=disk, excluding loop/rom/CD), resolve each to a
+    # stable by-id path, sort by size descending. The two largest are our
+    # targets: larger -> rpool (fast), smaller -> tank (slow). In the live env
+    # the root filesystem is an overlay backed by loop devices, so unlike the
+    # migrate flow there is no running-root disk to exclude.
+    - name: install — enumerate candidate disks (largest first)
+      ansible.builtin.shell: |
+        set -euo pipefail
+        lsblk -bdn -o NAME,SIZE,TYPE | awk '$3=="disk"{print $2, $1}' | sort -rn | \
+        while read -r size name; do
+          byid=""
+          for l in /dev/disk/by-id/*; do
+            [ -L "$l" ] || continue
+            case "$l" in *-part*) continue ;; esac
+            [ "$(readlink -f "$l")" = "/dev/$name" ] || continue
+            case "$l" in */nvme-*|*/ata-VBOX*|*/scsi-*|*/wwn-*) byid="$l"; break ;; esac
+            [ -z "$byid" ] && byid="$l"
+          done
+          [ -n "$byid" ] && echo "$size $byid"
+        done
+      register: disk_scan
+      changed_when: false
+
+    - name: install — auto-pick fast (rpool) and slow (tank) disks
+      when: fast_disk | length == 0 or slow_disk | length == 0
+      ansible.builtin.set_fact:
+        fast_disk: "{{ disk_scan.stdout_lines[0].split()[1] }}"
+        slow_disk: "{{ disk_scan.stdout_lines[1].split()[1] }}"
+
+    - name: install — show the chosen target disks
+      ansible.builtin.debug:
+        msg:
+          - "candidates (size by-id): {{ disk_scan.stdout_lines }}"
+          - "fast/rpool -> {{ fast_disk }}"
+          - "slow/tank  -> {{ slow_disk }}"
+
+    - name: install — sanity-check the disk choice
+      ansible.builtin.assert:
+        that:
+          - fast_disk | length > 0
+          - slow_disk | length > 0
+          - fast_disk != slow_disk
+        fail_msg: "Could not identify two distinct target disks. Pass fast_disk / slow_disk explicitly."
+
+    # Whether the pools already exist decides whether the destructive disk-prep
+    # runs — so a resumed run after a mid-flight failure skips re-partitioning
+    # devices already held by imported pools (which would fail "device busy").
+    - name: install — check whether rpool already exists
+      ansible.builtin.command: "zpool list -H -o name {{ rpool_name }}"
+      register: rpool_check
+      failed_when: false
+      changed_when: false
+
+    - name: install — check whether tank already exists
+      ansible.builtin.command: "zpool list -H -o name {{ tank_name }}"
+      register: tank_check
+      failed_when: false
+      changed_when: false
+
+    # -- Partition both disks (docs: disk-partitioning.md) ---------------------
+
+    - name: install — partition and prep the target disks
+      when: rpool_check.rc != 0
+      block:
+        - name: install — partition the fast disk (EFI + rpool member)
+          ansible.builtin.shell: |
+            set -euo pipefail
+            sgdisk --zap-all "{{ fast_disk }}"
+            sgdisk -n1:1M:+512M -t1:EF00 "{{ fast_disk }}"
+            sgdisk -n2:0:0      -t2:BF00 "{{ fast_disk }}"
+          changed_when: true
+
+        - name: install — partition the slow disk (single tank member)
+          ansible.builtin.shell: |
+            set -euo pipefail
+            sgdisk --zap-all "{{ slow_disk }}"
+            sgdisk -n1:0:0 -t1:BF00 "{{ slow_disk }}"
+          changed_when: true
+
+        - name: install — re-read partition tables and settle udev
+          ansible.builtin.shell: |
+            set -euo pipefail
+            partprobe "{{ fast_disk }}" "{{ slow_disk }}" || true
+            udevadm settle
+          changed_when: false
+
+        - name: install — wait for the partition device nodes to appear
+          ansible.builtin.wait_for:
+            path: "{{ item }}"
+            timeout: 30
+          loop:
+            - "{{ fast_disk }}-part1"
+            - "{{ fast_disk }}-part2"
+            - "{{ slow_disk }}-part1"
+
+        - name: install — wipe stale signatures on the new partitions
+          ansible.builtin.command: "wipefs -a {{ item }}"
+          loop:
+            - "{{ fast_disk }}-part1"
+            - "{{ fast_disk }}-part2"
+            - "{{ slow_disk }}-part1"
+          changed_when: true
+
+    # -- Create rpool + datasets (docs: disk-partitioning.md) ------------------
+
+    - name: install — create rpool and its root/home datasets
+      when: rpool_check.rc != 0
+      block:
+        - name: install — zpool create rpool (fast drive)
+          ansible.builtin.command: >-
+            zpool create
+            -o ashift=12 -o autotrim=on
+            -O acltype=posixacl -O xattr=sa -O compression=lz4
+            -O relatime=on -O canmount=off -O mountpoint=none
+            -R {{ target_mnt }}
+            {{ rpool_name }} {{ fast_disk }}-part2
+          changed_when: true
+
+        - name: install — create rpool/ROOT container
+          ansible.builtin.command: "zfs create -o canmount=off -o mountpoint=none {{ rpool_name }}/ROOT"
+          changed_when: true
+
+        - name: install — create the boot environment rpool/ROOT/ubuntu
+          ansible.builtin.command: "zfs create -o canmount=noauto -o mountpoint=/ {{ root_ds }}"
+          changed_when: true
+
+        - name: install — create rpool/home
+          ansible.builtin.command: "zfs create -o mountpoint=/home {{ rpool_name }}/home"
+          changed_when: true
+
+    # Mount order is load-bearing. `zfs create rpool/home` auto-mounts it at
+    # {{ target_mnt }}/home immediately (canmount=on under the altroot) BEFORE
+    # the BE is mounted; mounting the BE at {{ target_mnt }} on top then SHADOWS
+    # /home underneath it, and it can no longer be unmounted (breaking a later
+    # `zpool export`). So: unmount home, mount the BE, THEN mount home on top.
+    - name: install — mount the boot environment then home (correct nesting)
+      ansible.builtin.shell: |
+        set -euo pipefail
+        zfs unmount {{ rpool_name }}/home 2>/dev/null || true
+        zfs mount | grep -q " {{ target_mnt }}$"       || zfs mount {{ root_ds }}
+        zfs mount | grep -q " {{ target_mnt }}/home$"  || zfs mount {{ rpool_name }}/home
+      changed_when: true
+
+    # -- Create tank (docs: disk-partitioning.md) ------------------------------
+
+    - name: install — zpool create tank (slow drive)
+      when: tank_check.rc != 0
+      ansible.builtin.command: >-
+        zpool create
+        -o ashift=12 -o autotrim=on
+        -O acltype=posixacl -O xattr=sa -O compression=lz4
+        -O relatime=on
+        -R {{ target_mnt }}
+        {{ tank_name }} {{ slow_disk }}-part1
+      changed_when: true
+
+    # -- Debootstrap a fresh Ubuntu base system into rpool/ROOT/ubuntu ---------
+
+    - name: install — pick the debootstrap suite (resolute, fallback noble)
+      ansible.builtin.shell: |
+        set -euo pipefail
+        s="{{ suite }}"
+        if ! curl -sfI "{{ pkg_mirror }}/dists/$s/Release" >/dev/null 2>&1; then
+          echo "suite '$s' not published on {{ pkg_mirror }}; falling back to {{ fallback_suite }}" >&2
+          s="{{ fallback_suite }}"
+        fi
+        echo "$s"
+      register: suite_probe
+      changed_when: false
+
+    - name: install — record the chosen suite
+      ansible.builtin.set_fact:
+        chosen_suite: "{{ suite_probe.stdout | trim }}"
+
+    - name: install — debootstrap {{ chosen_suite }} into the boot environment
+      ansible.builtin.command: "debootstrap {{ chosen_suite }} {{ target_mnt }} {{ pkg_mirror }}"
+      args:
+        creates: "{{ target_mnt }}/bin"
+      changed_when: true
+
+    - name: install — copy hostid + pool cache into the target
+      ansible.builtin.shell: |
+        set -euo pipefail
+        mkdir -p {{ target_mnt }}/etc/zfs
+        [ -f /etc/zfs/zpool.cache ] && cp -f /etc/zfs/zpool.cache {{ target_mnt }}/etc/zfs/ || true
+        cp -f /etc/hostid {{ target_mnt }}/etc/hostid
+      changed_when: true
+
+    # -- Format + mount the EFI System Partition ------------------------------
+
+    - name: install — mkfs the EFI System Partition
+      when: rpool_check.rc != 0
+      ansible.builtin.command: "mkfs.vfat -F32 -n EFI {{ fast_disk }}-part1"
+      changed_when: true
+
+    - name: install — mount the ESP at the target /boot/efi
+      ansible.builtin.shell: |
+        set -euo pipefail
+        mkdir -p {{ target_mnt }}/boot/efi
+        mountpoint -q {{ target_mnt }}/boot/efi || mount {{ fast_disk }}-part1 {{ target_mnt }}/boot/efi
+      changed_when: true
+
+    # -- Bind-mount pseudo-filesystems and prepare the chroot -----------------
+
+    - name: install — bind-mount /dev /proc /sys into the target
+      ansible.builtin.shell: |
+        set -euo pipefail
+        for fs in dev proc sys; do
+          mountpoint -q {{ target_mnt }}/$fs || mount --make-private --rbind /$fs {{ target_mnt }}/$fs
+        done
+      changed_when: true
+
+    - name: install — give the chroot a working resolv.conf
+      ansible.builtin.shell: |
+        set -euo pipefail
+        rm -f {{ target_mnt }}/etc/resolv.conf
+        printf 'nameserver 1.1.1.1\nnameserver 8.8.8.8\n' > {{ target_mnt }}/etc/resolv.conf
+      changed_when: true
+
+    - name: install — write the target APT sources
+      ansible.builtin.copy:
+        dest: "{{ target_mnt }}/etc/apt/sources.list"
+        mode: "0644"
+        content: |
+          deb {{ pkg_mirror }} {{ chosen_suite }} main restricted universe multiverse
+          deb {{ pkg_mirror }} {{ chosen_suite }}-updates main restricted universe multiverse
+          deb {{ security_mirror }} {{ chosen_suite }}-security main restricted universe multiverse
+
+    # -- Inside the chroot: kernel + ZFS boot support + initramfs -------------
+
+    # Ubuntu 26.04 builds its initramfs with dracut (update-initramfs is a
+    # dracut shim), so the ZFS boot hook comes from zfs-dracut. A dracut.conf.d
+    # drop-in force-includes the zfs module so the regenerated initramfs can
+    # import rpool and mount root=zfs:rpool/ROOT/ubuntu. debootstrap leaves NO
+    # kernel, so linux-generic (the 26.04 7.0 kernel) is installed here.
+    - name: install — install kernel, ZFS, and base packages (chroot)
+      ansible.builtin.command:
+        cmd: "chroot {{ target_mnt }} /usr/bin/env DEBIAN_FRONTEND=noninteractive bash -euo pipefail -c '{{ item }}'"
+      loop:
+        - "apt-get update"
+        - >-
+          apt-get install -y --no-install-recommends
+          linux-generic zfsutils-linux zfs-dracut dosfstools efibootmgr curl
+          openssh-server sudo netplan.io ca-certificates locales
+        - "mkdir -p /etc/dracut.conf.d && printf 'add_dracutmodules+=\" zfs \"\\n' > /etc/dracut.conf.d/90-zfs-root.conf"
+        - "update-initramfs -c -k all"
+      changed_when: true
+
+    # -- Inside the chroot: hostname, hosts, netplan, fstab, admin user -------
+
+    - name: install — set hostname and hosts
+      ansible.builtin.shell: |
+        set -euo pipefail
+        echo "{{ target_hostname }}" > {{ target_mnt }}/etc/hostname
+        cat > {{ target_mnt }}/etc/hosts <<EOF
+        127.0.0.1   localhost
+        127.0.1.1   {{ target_hostname }}
+        EOF
+      changed_when: true
+
+    # DHCP with the networkd renderer (matches the repo's networking convention,
+    # and the VirtualBox NAT hands out an address). On real hardware, replace
+    # with the static netplan from the installation walkthrough.
+    - name: install — write the netplan (networkd, DHCP, match all ethernets)
+      ansible.builtin.copy:
+        dest: "{{ target_mnt }}/etc/netplan/00-installer-config.yaml"
+        mode: "0600"
+        content: |
+          network:
+            version: 2
+            renderer: networkd
+            ethernets:
+              primary:
+                match:
+                  name: "e*"
+                dhcp4: true
+                optional: true
+
+    - name: install — write an EFI-only /etc/fstab on the target
+      ansible.builtin.shell: |
+        set -euo pipefail
+        efi_uuid=$(blkid -s UUID -o value "{{ fast_disk }}-part1")
+        cat > {{ target_mnt }}/etc/fstab <<EOF
+        # Managed by zfs-root-install.yml — ZFS datasets mount natively (no fstab).
+        UUID=${efi_uuid}  /boot/efi  vfat  umask=0077,fmask=0077,dmask=0077  0 1
+        EOF
+      changed_when: true
+
+    - name: install — create the admin user with SSH key + passwordless sudo (chroot)
+      ansible.builtin.shell: |
+        set -euo pipefail
+        chroot {{ target_mnt }} /usr/bin/env bash -euo pipefail -c '
+          id -u {{ admin_user }} >/dev/null 2>&1 || useradd -m -s /bin/bash {{ admin_user }}
+          usermod -aG sudo {{ admin_user }}
+          install -d -m 0700 -o {{ admin_user }} -g {{ admin_user }} /home/{{ admin_user }}/.ssh
+          printf "%s\n" "{{ admin_ssh_pubkey }}" > /home/{{ admin_user }}/.ssh/authorized_keys
+          chown {{ admin_user }}:{{ admin_user }} /home/{{ admin_user }}/.ssh/authorized_keys
+          chmod 600 /home/{{ admin_user }}/.ssh/authorized_keys
+          echo "{{ admin_user }} ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/90-{{ admin_user }}
+          chmod 0440 /etc/sudoers.d/90-{{ admin_user }}
+          systemctl enable ssh >/dev/null 2>&1 || true
+        '
+      changed_when: true
+
+    # -- Inside the chroot: install ZFSBootMenu (arch-aware) ------------------
+
+    - name: install — set the ZFSBootMenu kernel command line property
+      ansible.builtin.command: >-
+        chroot {{ target_mnt }} zfs set
+        org.zfsbootmenu:commandline="{{ zbm_cmdline }}" {{ root_ds }}
+      changed_when: true
+
+    # x86_64 uses the canonical prebuilt EFI binary from get.zfsbootmenu.org/efi
+    # (exactly as the walkthrough documents). Both the NVRAM loader path and the
+    # ESP removable-media fallback (\EFI\BOOT\BOOTX64.EFI) get the binary so
+    # firmware that ignores NVRAM entries still boots ZFSBootMenu from the disk.
+    - name: install — install ZFSBootMenu (x86_64 prebuilt binary)
+      when: ansible_facts['architecture'] == 'x86_64'
+      ansible.builtin.shell: |
+        set -euo pipefail
+        chroot {{ target_mnt }} bash -euo pipefail -c '
+          mkdir -p /boot/efi/EFI/ZBM /boot/efi/EFI/BOOT
+          curl -sSfL -o /boot/efi/EFI/ZBM/VMLINUZ.EFI https://get.zfsbootmenu.org/efi
+          cp /boot/efi/EFI/ZBM/VMLINUZ.EFI /boot/efi/EFI/ZBM/VMLINUZ-BACKUP.EFI
+          cp /boot/efi/EFI/ZBM/VMLINUZ.EFI /boot/efi/EFI/BOOT/BOOTX64.EFI
+        '
+      changed_when: true
+
+    # Ubuntu ships no `zfsbootmenu` package, so on aarch64 ZFSBootMenu is built
+    # from the upstream source release with generate-zbm (ZBM >= 3.1 supports
+    # aarch64; it uses the systemd linuxaa64.efi.stub from systemd-boot-efi).
+    # Two build deps are needed here that a minimal debootstrap lacks (the old
+    # rsync-based migrate flow never hit this because it copied a full system):
+    #   - util-linux-extra: provides /usr/bin/switch_root, which ZBM's non-systemd
+    #     dracut image installs (the main system initramfs uses systemd instead).
+    #   - binutils: generate-zbm shells out to objdump/objcopy to read the EFI
+    #     stub's section alignment and assemble the unified aarch64 EFI.
+    - name: install — install ZFSBootMenu (aarch64 built from source with generate-zbm)
+      when: ansible_facts['architecture'] == 'aarch64'
+      ansible.builtin.shell: |
+        set -euo pipefail
+        chroot {{ target_mnt }} /usr/bin/env DEBIAN_FRONTEND=noninteractive bash -euo pipefail -c '
+          apt-get install -y --no-install-recommends \
+            libsort-versions-perl libboolean-perl libyaml-pp-perl \
+            git fzf make mbuffer kexec-tools dracut-core efibootmgr \
+            bsdextrautils systemd-boot-efi util-linux-extra binutils
+          mkdir -p /usr/local/src/zfsbootmenu
+          cd /usr/local/src/zfsbootmenu
+          curl -sSfL https://get.zfsbootmenu.org/source | tar -zxv --strip-components=1 -f -
+          make core dracut
+          mkdir -p /etc/zfsbootmenu/dracut.conf.d /boot/efi/EFI/ZBM /boot/efi/EFI/BOOT
+          cat > /etc/zfsbootmenu/config.yaml <<EOF
+        Global:
+          ManageImages: true
+          BootMountPoint: /boot/efi
+          DracutConfDir: /etc/zfsbootmenu/dracut.conf.d
+        Components:
+          Enabled: false
+        EFI:
+          ImageDir: /boot/efi/EFI/ZBM
+          Versions: false
+          Enabled: true
+        Kernel:
+          CommandLine: quiet loglevel=0
+        EOF
+          generate-zbm --debug
+          img=$(ls -1 /boot/efi/EFI/ZBM/*.EFI 2>/dev/null | head -1)
+          test -n "$img"
+          # generate-zbm emits vmlinuz.EFI; the ESP is case-insensitive vfat, so
+          # the efibootmgr loader \EFI\ZBM\VMLINUZ.EFI already resolves to it. We
+          # only need the removable-media fallback copy (a different directory).
+          cp -f "$img" /boot/efi/EFI/BOOT/BOOTAA64.EFI
+        '
+      changed_when: true
+
+    # -- Register the EFI boot entry (docs: installation-walkthrough.md) ------
+
+    # On real hardware this is THE mechanism that makes the box boot ZFSBootMenu.
+    # In VirtualBox, NVRAM persistence is unreliable, so this is best-effort (the
+    # \EFI\BOOT fallback above is what a lab VM would boot). We still register +
+    # reorder it so the flow matches production faithfully.
+    - name: install — register ZFSBootMenu with efibootmgr and put it first
+      ansible.builtin.shell: |
+        set -euo pipefail
+        loader='\EFI\ZBM\VMLINUZ.EFI'
+        for b in $(efibootmgr | sed -n 's/^Boot\([0-9A-Fa-f]\{4\}\).* ZFSBootMenu$/\1/p'); do
+          efibootmgr -b "$b" -B >/dev/null 2>&1 || true
+        done
+        efibootmgr --create --disk "{{ fast_disk }}" --part 1 \
+          --label "ZFSBootMenu" --loader "$loader"
+        efibootmgr -v || true
+      register: efibootmgr_out
+      changed_when: true
+      failed_when: false
+
+    - name: install — efibootmgr result (best-effort in VirtualBox)
+      ansible.builtin.debug:
+        var: efibootmgr_out.stdout_lines
+
+    # -- Tear down the chroot and export the pools ----------------------------
+
+    - name: install — unmount the chroot binds and the ESP
+      ansible.builtin.shell: |
+        set -euo pipefail
+        umount -R {{ target_mnt }}/boot/efi 2>/dev/null || true
+        umount -R {{ target_mnt }}/dev {{ target_mnt }}/proc {{ target_mnt }}/sys 2>/dev/null || true
+      changed_when: true
+
+    # Export both pools so the installed system (or the offline verifier) gets a
+    # clean first import. Stop zed and unmount everything first — a live ZFS
+    # Event Daemon or a still-mounted dataset makes `zpool export` fail "busy".
+    # Best-effort: on real hardware the reboot releases the pools regardless.
+    - name: install — export the pools for a clean first import
+      ansible.builtin.shell: |
+        set -uo pipefail
+        systemctl stop zfs-zed 2>/dev/null || true
+        zfs unmount -a 2>/dev/null || true
+        for pool in {{ tank_name }} {{ rpool_name }}; do
+          zpool list -H -o name "$pool" >/dev/null 2>&1 || continue
+          for attempt in 1 2 3 4 5; do
+            if zpool export "$pool" 2>/dev/null || zpool export -f "$pool" 2>/dev/null; then
+              echo "exported $pool (attempt $attempt)"; break
+            fi
+            sleep 2
+          done
+        done
+        systemctl start zfs-zed 2>/dev/null || true
+        echo "remaining imported pools: $(zpool list -H -o name 2>/dev/null | tr '\n' ' ')"
+      register: export_out
+      changed_when: true
+
+    - name: install — export result
+      ansible.builtin.debug:
+        var: export_out.stdout_lines
+
+    - name: install — summary
+      ansible.builtin.debug:
+        msg:
+          - "Fresh root-on-ZFS install complete ({{ chosen_suite }} debootstrapped)."
+          - "rpool -> {{ fast_disk }} (EFI on -part1, pool on -part2)"
+          - "tank  -> {{ slow_disk }}-part1"
+          - "ZFSBootMenu installed to the ESP (+ \\EFI\\BOOT fallback)."
+          - "{{ 'Rebooting into ZFSBootMenu now.' if do_reboot | bool else 'do_reboot=false — caller verifies offline.' }}"
+
+    # -- Reboot into the new system (real hardware path) ----------------------
+
+    - name: install — reboot into ZFSBootMenu
+      when: do_reboot | bool
+      ansible.builtin.reboot:
+        reboot_timeout: "{{ reboot_timeout }}"
+        msg: "Rebooting into root-on-ZFS via ZFSBootMenu (zfs-root-install)"

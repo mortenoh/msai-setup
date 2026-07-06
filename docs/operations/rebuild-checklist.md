@@ -1,80 +1,141 @@
 # Rebuild Checklist
 
-End-to-end checklist for reinstalling Ubuntu Server 26.04 on the MS-S1 MAX without losing data. The ZFS pool is the source of truth; the host OS is rebuildable. Plan for a few hours plus restore time.
+Recovery runbook for the MS-S1 MAX. This build runs **root-on-ZFS via [ZFSBootMenu](https://zfsbootmenu.org/)** on two independent pools — `rpool` (root + hot data + Incus's storage backend at `rpool/incus`, on the fast 4 TB NVMe) and `tank` (media, backups, cold data, on the slow 2 TB NVMe) — with **[Incus](../incus/index.md) as the single virtualization layer** (Docker nests inside Incus system containers, VMs are Incus VM instances). See [Hardware](../getting-started/hardware.md) and [Disk Partitioning](../ubuntu/installation/disk-partitioning.md) for the layout, and the repo-root `START.md` for the architectural intent.
 
-This checklist assumes the canonical architecture: **host owns the iGPU for ROCm**, Windows VM uses virtio-gpu/Spice (no passthrough), plain ext4 root, ZFS data pool spanning the leftover ~1 TB on the primary NVMe + the entire 4 TB secondary NVMe, all services in Docker with bind mounts to `/mnt/tank/`. See [Hardware](../getting-started/hardware.md) and [Disk Partitioning](../ubuntu/installation/disk-partitioning.md) for the layout.
+Because root lives on ZFS, **"my OS is broken" and "my hardware is gone" are now two very different jobs.** Pick the scenario before you touch anything:
 
-## When to Use
+| Scenario | What happened | What it actually is |
+|---|---|---|
+| **A — OS broken, pools fine** | Bad kernel, bad `apt upgrade`, corrupted root dataset | A [ZFSBootMenu boot-environment rollback](#scenario-a-os-broken-pools-fine-boot-environment-rollback) — one keystroke, not a rebuild |
+| **B — full rebuild** | Hardware replaced, both drives gone, starting over | A [full root-on-ZFS reinstall + Incus re-init](#scenario-b-full-rebuild) |
 
-- Host OS is corrupted
-- Major OS upgrade (fresh install preferred over in-place)
-- Hardware replacement
-- Disk-layout change
-
-## Prerequisites
-
-- [ ] ZFS pool is healthy (`zpool status tank`)
-- [ ] Recent ZFS snapshots verified ([Backup &amp; Recovery](backup.md))
-- [ ] Off-site backups verified (in case the rebuild also damages the pool)
-- [ ] Ubuntu Server 26.04 LTS ISO ready, written to a USB stick
-- [ ] SSH keys backed up to the off-host store
-- [ ] Compose files / .env / VM XML stored somewhere outside `/` (private git repo, ZFS dataset, password manager)
+Most "the box won't come up right" incidents are Scenario A. Try that first; only fall through to Scenario B when the pools themselves are gone.
 
 ---
 
-## Phase 0 — Capture state (before you touch anything)
+## Scenario A — OS broken, pools fine (boot-environment rollback)
 
-Run this **while the existing host still boots**. If it doesn't, fall back to the "Offline rescue" section at the bottom of this page.
+If `rpool` and `tank` are healthy and only the running OS is broken (a bad kernel, a failed `apt upgrade`, a corrupted `rpool/ROOT/ubuntu`), **do not reinstall.** Roll back to a previous boot environment. The kernel, the packages, and everything else the bad change touched revert together in one atomic step.
+
+The commands and hotkeys live in one place — the [ZFSBootMenu Recovery section of Boot Issues](../ubuntu/troubleshooting/boot-issues.md#zfsbootmenu-recovery). The short version:
+
+1. **Interrupt the ZFSBootMenu countdown** — press a key (Esc/Space/arrow) as the box boots to stay in the menu.
+2. **Pick a healthy environment or snapshot** — highlight a previous boot environment, or an older snapshot of `rpool/ROOT/ubuntu`, with the arrow keys.
+3. **Boot it (`Enter`) or roll back (`Ctrl+S`)** — boot once to confirm it's good, then `Ctrl+A` to make it the persistent default, or use the `Ctrl+S` snapshot menu to clone/roll a snapshot back into the live environment. Full hotkey table and the recovery-shell path are in [Boot Issues](../ubuntu/troubleshooting/boot-issues.md#zfsbootmenu-hotkeys).
+
+### Verify and move on
+
+Once booted into a known-good environment:
 
 ```bash
-# Working directory on ZFS (survives the reinstall)
-mkdir -p /mnt/tank/backups/rebuild-$(date +%F)
-cd /mnt/tank/backups/rebuild-$(date +%F)
+# You are on the environment you expect
+zfs list -o name,mountpoint rpool/ROOT/ubuntu
 
-# Snapshot every dataset before any further changes
+# Both pools are still ONLINE and error-free
+zpool status -v rpool
+zpool status -v tank
+
+# Incus and its instances came back with the pool (they live on rpool/incus)
+incus list
+incus storage info default
+
+# Services inside the instances are healthy (spot-check the ones that matter)
+incus exec docker-host -- docker ps
+```
+
+Then confirm the generic health items in the [Verification Checklist](#verification-checklist) (DNS resolves, Tailscale reconnected, backups resumed) and you're done — no reinstall, no data restore. Take a fresh snapshot to mark the known-good state:
+
+```bash
+sudo zfs snapshot rpool/ROOT/ubuntu@post-recovery-$(date +%F)
+```
+
+!!! note "This is the whole point of boot environments"
+    A bad upgrade is a rollback, not a rebuild. Keep a few boot environments around and snapshot `rpool/ROOT/ubuntu` before risky changes — sanoid does this automatically (see [Backup &amp; Recovery](backup.md)). Only proceed to Scenario B if the pool itself is damaged or gone.
+
+---
+
+## Scenario B — full rebuild
+
+Use this only when a boot-environment rollback can't help: **hardware replaced, `rpool` destroyed, or both drives gone.** Plan for a few hours plus restore time. If `tank` survived but `rpool` did not (or vice versa), you still run this path but skip the parts that recreate the pool that's intact.
+
+The source of truth is what survived on the pools plus your off-host backups. The host OS is rebuildable; the data is not.
+
+### When to use
+
+- `rpool` is destroyed or the primary NVMe was replaced (a broken *OS* is Scenario A, not this)
+- Both drives replaced / starting on fresh hardware
+- Deliberate disk-layout change (repartition, repool)
+
+### Prerequisites
+
+- [ ] Both pools' health known before you started (`zpool status rpool`, `zpool status tank`)
+- [ ] Recent snapshots verified on both pools ([Backup &amp; Recovery](backup.md))
+- [ ] Off-site backups verified (in case the rebuild also damages a pool)
+- [ ] Ubuntu Server 26.04 LTS ISO written to a USB stick
+- [ ] SSH keys backed up to the off-host store
+- [ ] Preserved **Incus preseed** (`incus-preseed.yaml`), instance profiles, and any `docker-compose.yml` stacks stored outside `/` (private git repo, `tank/backups`, password manager) — see [Incus installation](../incus/installation.md#the-equivalent-preseed-file)
+
+---
+
+### Phase 0 — Capture state (before you touch anything)
+
+Run this **while the existing host still boots**. If it doesn't, but the pools are intact, do the [offline capture](#offline-rescue-when-the-host-wont-boot) at the bottom instead.
+
+```bash
+# Working directory on the cold-archive dataset (survives the reinstall)
+sudo mkdir -p /tank/backups/rebuild-$(date +%F)
+cd /tank/backups/rebuild-$(date +%F)
+
+# Snapshot both pools before any further changes
+sudo zfs snapshot -r rpool@pre-rebuild-$(date +%F)
 sudo zfs snapshot -r tank@pre-rebuild-$(date +%F)
 
-# ZFS layout, properties, and pool config
+# ZFS layout, properties, and pool config — BOTH pools
 zfs list -o name,used,available,mountpoint > zfs-datasets.txt
 zfs get all > zfs-properties.txt
 zpool status -v > zpool-status.txt
 zpool list -v > zpool-list.txt
-sudo zpool get all tank > zpool-properties.txt
+sudo zpool get all rpool > zpool-rpool-properties.txt
+sudo zpool get all tank  > zpool-tank-properties.txt
 
-# Disk identity (helps re-import on the new install)
+# Disk identity + EFI / ZFSBootMenu boot entries (needed to reinstall the bootloader)
 ls -l /dev/disk/by-id/ > disk-by-id.txt
 sudo blkid > blkid.txt
 lsblk -o NAME,SIZE,FSTYPE,MOUNTPOINT,UUID,SERIAL > lsblk.txt
+sudo efibootmgr -v > efi-boot-entries.txt
+zfs get org.zfsbootmenu:commandline rpool/ROOT/ubuntu > zbm-commandline.txt
+sudo cp -a /boot/efi/EFI/ZBM zbm-efi-binary 2>/dev/null || true
 
-# libvirt VM definitions — these live on /, NOT in the pool
-mkdir -p libvirt
-for vm in $(sudo virsh list --all --name); do
-    [ -z "$vm" ] && continue
-    sudo virsh dumpxml "$vm" > "libvirt/${vm}.xml"
+# Incus configuration — the SHAPE of the deployment (instances are datasets on rpool/incus)
+sudo incus admin init --dump > incus-preseed.yaml 2>/dev/null || true
+incus list > incus-instances.txt
+incus profile list > incus-profiles.txt
+for p in $(incus profile list -f csv -c n); do
+    incus profile show "$p" > "incus-profile-${p}.yaml"
 done
-sudo virsh net-dumpxml default > libvirt/net-default.xml 2>/dev/null || true
-sudo virsh pool-dumpxml vm-pool > libvirt/pool-vm.xml 2>/dev/null || true
-sudo virsh list --all > vm-list.txt
+incus storage list > incus-storage.txt
+incus network list > incus-networks.txt
 
-# Docker containers, images in use, networks
-docker ps -a --format 'table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}' > docker-containers.txt
-docker network ls > docker-networks.txt
-docker volume ls > docker-volumes.txt
+# Optional but recommended: portable per-instance exports (self-contained tarballs).
+# For bulk/incremental off-host backup, syncoid on rpool/incus is more efficient —
+# see docs/incus/snapshots-backup.md. Export is for portability / one-off archives.
+for inst in $(incus list -f csv -c n); do
+    incus export "$inst" "instance-${inst}.tar.gz" --optimized-storage 2>/dev/null || true
+done
 
-# Compose files (assumes you keep them under ~/docker or /opt/compose)
-# Adjust the source path if yours is different.
-cp -a ~/docker docker-configs/ 2>/dev/null || true
+# Compose stacks live INSIDE the Docker-in-Incus container, not on the host.
+# If you keep the compose files in a git repo, note the remote here; otherwise
+# pull them out of the container so they're captured off the instance too:
+# incus file pull -r docker-host/opt/compose ./compose-configs 2>/dev/null || true
 
-# .env files — these contain secrets, store carefully
-find ~/docker -name '.env' -exec cp --parents {} . \; 2>/dev/null || true
-
-# System state worth preserving
-sudo cp /etc/fstab fstab.bak
+# Host system state worth preserving
+sudo cp /etc/fstab fstab.bak                # only the /boot/efi line matters on this build
 sudo cp /etc/hostname hostname.bak
 sudo cp -r /etc/netplan netplan.bak
 sudo cp -r /etc/ssh ssh-config.bak
 sudo cp -r /etc/sudoers.d sudoers.d.bak 2>/dev/null || true
-sudo crontab -l > root-crontab.txt 2>/dev/null || true
+sudo cp /etc/sanoid/sanoid.conf sanoid.conf.bak 2>/dev/null || true
+sudo cp -r /etc/modprobe.d modprobe.d.bak
 crontab -l > user-crontab.txt 2>/dev/null || true
 systemctl list-unit-files --state=enabled --type=service > enabled-services.txt
 dpkg -l > installed-packages.txt
@@ -82,111 +143,73 @@ dpkg -l > installed-packages.txt
 # Tailscale state (so you don't burn a new device slot)
 sudo tailscale status > tailscale-status.txt 2>/dev/null || true
 
-# Final: copy this snapshot directory off-host as well
-# (rsync to backup target, restic, or rclone to B2/S3)
+# Final: mirror this directory off-host as well (rsync / restic / rclone to B2/S3)
 ```
 
-Verify everything you need is in `/mnt/tank/backups/rebuild-<date>/` and that it's mirrored off-host. **Do not skip the off-host copy** — a rebuild that also damages the pool is rare but not impossible.
+Verify everything is in `/tank/backups/rebuild-<date>/` and that it's mirrored off-host. **Do not skip the off-host copy** — a rebuild that also damages a pool is rare but not impossible.
 
-Export the pool cleanly:
+Export both pools cleanly before you reinstall (skip the pool you are about to destroy on purpose):
 
 ```bash
 sudo zpool export tank
+sudo zpool export rpool   # only if you're preserving rpool across the reinstall
 ```
 
-If export fails (busy mount, container still bind-mounting), find and stop the culprit (`sudo lsof /mnt/tank`, `docker stop $(docker ps -q)`).
+If an export fails (busy mount, a running Incus instance still holding a dataset), stop the culprit first: `sudo incus stop --all`, then retry. `sudo lsof /tank` helps find stray mounts.
 
 ---
 
-## Phase 1 — Install Ubuntu Server 26.04
+### Phase 1 — Reinstall Ubuntu Server 26.04 (root-on-ZFS + ZFSBootMenu)
 
-1. Boot from USB (UEFI, Secure Boot disabled — see [BIOS Setup](../getting-started/bios-setup.md))
-2. Pick "Try or Install Ubuntu Server"
-3. Follow the [Installation Walkthrough](../ubuntu/installation/installation-walkthrough.md). Key points:
-    - **Custom storage layout** — don't let guided mode touch the secondary NVMe
-    - Primary NVMe partitions: 512 MB EFI / 1 GB `/boot` (ext4) / 1 TB `/` (ext4)
-    - Leave ~1 TB free on the primary, **leave the 4 TB drive entirely untouched**
-    - Same hostname and same username as before (simplifies restore)
-4. Enable SSH at the installer's "Featured Server Snaps" / SSH prompt
-5. Reboot, log in over SSH
+There is **no guided-installer path** for root-on-ZFS — Subiquity can't do it. Follow the manual process end to end; it's the same one that built the box originally:
 
-## Phase 2 — Base configuration
+1. Boot from USB (UEFI, Secure Boot disabled — see [BIOS Setup](../getting-started/bios-setup.md)).
+2. Work through the [Installation Walkthrough](../ubuntu/installation/installation-walkthrough.md) — it covers partitioning the 4 TB primary (EFI + `rpool`), creating `rpool/ROOT/ubuntu` and the sibling datasets, debootstrapping Ubuntu into the dataset, and installing the ZFSBootMenu EFI binary + `efibootmgr` entry. **Do not** duplicate those steps here; that page is the source of truth and stays current.
+3. Recreate the `rpool` child datasets (`home`, `incus`, `db`, `ai`) with their tuned properties per [ZFS Datasets](../zfs/datasets.md) if the walkthrough left them for this stage.
+4. Use the **same hostname and username** as before (simplifies restore).
+5. Reboot into the fresh root-on-ZFS system over SSH.
+
+If `rpool` survived and you only replaced the OS-side of the drive, importing the existing `rpool` and re-registering the ZFSBootMenu entry (see [Reinstall / Repair ZFSBootMenu](../ubuntu/troubleshooting/boot-issues.md#reinstall-repair-zfsbootmenu)) is faster than a clean debootstrap — but that edges back toward Scenario A.
+
+### Phase 2 — Base configuration and re-import `tank`
 
 ```bash
 # Update
 sudo apt update && sudo apt upgrade -y
 
-# Timezone, hostname (re-set if installer differed)
+# Timezone / hostname (re-set if the install differed)
 sudo timedatectl set-timezone Europe/Oslo
-# sudo hostnamectl set-hostname ms-s1-max
 
-# Essentials
+# Essentials + ZFS userland (zfsutils-linux is already present on a root-on-ZFS install)
 sudo apt install -y vim htop tmux git curl wget rsync ca-certificates \
-    build-essential pkg-config
+    build-essential pkg-config sanoid
 
-# Restore SSH keys + authorized_keys
-# (copy from /mnt/tank/backups/.../ssh-config.bak after Phase 3)
-```
-
-## Phase 3 — Import the ZFS pool
-
-```bash
-# Install ZFS
-sudo apt install -y zfsutils-linux
-
-# Import — try the by-id path first
+# Re-import the DATA pool (rpool is already the running root). by-id paths are stablest.
 sudo zpool import -d /dev/disk/by-id tank
-
-# Verify
 sudo zpool status tank
 zfs list
 
-# At this point /mnt/tank/backups/rebuild-<date>/ should be visible again
-ls /mnt/tank/backups/
+# Your capture directory is visible again
+ls /tank/backups/
 ```
 
-Cap ARC so it doesn't fight VMs for RAM (default is ~50% = 64 GB on this box; way too greedy when you also have VMs and Ollama):
+Re-assert the ARC cap (shared across both pools) so Incus VMs and Ollama get predictable memory:
 
 ```bash
-echo 'options zfs zfs_arc_max=17179869184' | sudo tee /etc/modprobe.d/zfs.conf
-sudo update-initramfs -u
+sudo cp /tank/backups/rebuild-*/modprobe.d.bak/zfs.conf /etc/modprobe.d/zfs.conf 2>/dev/null \
+  || echo 'options zfs zfs_arc_max=17179869184' | sudo tee /etc/modprobe.d/zfs.conf
+sudo update-initramfs -c -k all
 # Takes effect on next reboot.
 ```
 
-## Phase 3b — Reconfigure with the Ansible playbooks (preferred)
-
-The same Ansible playbooks that build the box in the first place are the intended reconfiguration mechanism for a rebuild — they're idempotent and reproduce base config, SSH hardening, the firewall, ZFS properties, Docker, and the service smoke-test in one pass. This is the documented "from lab to real MS-S1 MAX" flow in `src/msai_setup/lab/README.md`; running them here **replaces most of the hand-rolled steps in Phases 4, 7, 8, and 10** below (fall back to the manual steps only if you don't have the repo/inventory to hand).
-
-From a machine that has the repo checked out (your laptop), pointing at the production inventory described in `src/msai_setup/lab/README.md` (same one used for the initial build):
+### Phase 3 — Restore host config from the capture
 
 ```bash
-cd src/msai_setup/lab/ansible
-
-# Same production inventory as the initial build (see src/msai_setup/lab/README.md).
-INV=~/msai-prod-inventory.yml
-
-ansible-playbook -i "$INV" playbooks/bootstrap.yml            -l production   # base packages, user, sudoers, timezone
-ansible-playbook -i "$INV" playbooks/ssh-hardening.yml        -l production   # key-only auth, PermitRootLogin no, hardened ciphers
-ansible-playbook -i "$INV" playbooks/ufw.yml                 -l production   # default-deny firewall + SSH
-ansible-playbook -i "$INV" playbooks/zfs.yml -e topology=stripe -l production # ARC cap + dataset layout/properties
-ansible-playbook -i "$INV" playbooks/docker.yml              -l production   # Docker CE + daemon.json
-ansible-playbook -i "$INV" playbooks/services.yml            -l production   # bring up the Compose stack
-```
-
-!!! note "zfs.yml on an already-imported pool"
-    You imported `tank` in Phase 3, so `zfs.yml` detects the existing pool and **skips pool creation** — it only reasserts the ARC cap and ensures the dataset layout/properties. It will not repartition disks or destroy data. If you'd rather keep pool/dataset management entirely manual on the real box, skip `zfs.yml` and rely on the imported pool as-is.
-
-After the playbooks finish, you can jump straight to Phase 5 (ROCm) and Phase 6 (KVM/libvirt), which the playbooks don't cover, then use Phase 8's ordering to verify the Compose stack came up cleanly. The manual Phases 4/7/10 remain below for the no-Ansible fallback.
-
-## Phase 4 — Restore host config from snapshot
-
-```bash
-SNAP=/mnt/tank/backups/rebuild-$(date +%F)  # adjust if dated differently
+SNAP=/tank/backups/rebuild-$(date +%F)   # adjust if dated differently
 
 # Netplan (review before applying — interface names may have changed)
 sudo cp $SNAP/netplan.bak/*.yaml /etc/netplan/
-sudo netplan generate
-sudo netplan apply
+sudo netplan generate && sudo netplan apply
 
 # sudoers.d
 sudo cp -r $SNAP/sudoers.d.bak/* /etc/sudoers.d/ 2>/dev/null || true
@@ -195,27 +218,29 @@ sudo cp -r $SNAP/sudoers.d.bak/* /etc/sudoers.d/ 2>/dev/null || true
 sudo cp $SNAP/ssh-config.bak/ssh_host_* /etc/ssh/
 sudo systemctl restart ssh
 
-# Restore user SSH keys and authorized_keys
+# sanoid schedule
+sudo cp $SNAP/sanoid.conf.bak /etc/sanoid/sanoid.conf 2>/dev/null || true
+
+# Restore user SSH keys + authorized_keys
 mkdir -p ~/.ssh && chmod 700 ~/.ssh
-cp $SNAP/ssh-config.bak/authorized_keys ~/.ssh/  # if present
+cp $SNAP/ssh-config.bak/authorized_keys ~/.ssh/ 2>/dev/null || true
 # Plus your own private keys from off-host backup
 ```
 
-## Phase 5 — Install ROCm and verify the iGPU
+### Phase 4 — Install ROCm and verify the iGPU
 
-The MS-S1 MAX's iGPU stays with the host; no passthrough. Follow [ROCm Quick Start](../ai/gpu/quick-start.md) — short version:
+The iGPU stays with the host for ROCm (no passthrough). Follow [ROCm Quick Start](../ai/gpu/quick-start.md):
 
 ```bash
 sudo apt install -y rocm
 sudo usermod -aG video,render $USER
 newgrp render
 
-# Verify
 rocminfo | grep gfx1151
 rocm-smi
 ```
 
-If you use `amd-ttm` to give ROCm a larger GTT pool, set it now (see [Memory Configuration](../ai/gpu/memory-configuration.md)):
+If you allocate a larger GTT pool with `amd-ttm` (see [Memory Configuration](../ai/gpu/memory-configuration.md)):
 
 ```bash
 pipx install amd-debug-tools
@@ -223,171 +248,151 @@ amd-ttm --set 108
 sudo reboot
 ```
 
-## Phase 6 — Install KVM/libvirt
+### Phase 5 — Install Incus and re-attach `rpool/incus`
+
+Incus is the one virtualization/container layer — it installs directly on the host (it needs the real kernel's namespaces/cgroups and KVM). Follow [Incus installation](../incus/installation.md); the rebuild-relevant part is pointing `incus admin init` at the **preserved `rpool/incus` dataset** rather than creating a new pool.
 
 ```bash
-sudo apt install -y \
-    qemu-kvm libvirt-daemon-system libvirt-clients \
-    bridge-utils virtinst ovmf swtpm swtpm-tools \
-    libvirt-daemon-driver-storage-zfs
+sudo apt install -y incus
+sudo usermod -aG incus-admin $USER
+newgrp incus-admin
 
-sudo usermod -aG libvirt $USER
-sudo usermod -aG kvm $USER
-sudo systemctl enable --now libvirtd
+# Reproducible init from the captured preseed — this re-attaches Incus to
+# source: rpool/incus (the existing dataset) and recreates the default profile,
+# storage pool, and incusbr0 bridge. See docs/incus/installation.md.
+cat /tank/backups/rebuild-*/incus-preseed.yaml | sudo incus admin init --preseed
 
-# Recreate the storage pool (matches Phase 0 dump)
-sudo virsh pool-define $SNAP/libvirt/pool-vm.xml 2>/dev/null \
-  || sudo virsh pool-define-as vm-pool dir - - - - /mnt/tank/vm
-sudo virsh pool-start vm-pool
-sudo virsh pool-autostart vm-pool
-
-# Restore VM definitions
-for xml in $SNAP/libvirt/*.xml; do
-    [ "$(basename "$xml")" = "pool-vm.xml" ] && continue
-    [ "$(basename "$xml")" = "net-default.xml" ] && continue
-    sudo virsh define "$xml"
-done
-sudo virsh list --all
+# Verify Incus adopted the existing storage backend
+incus storage list
+incus storage info default    # driver: zfs, source: rpool/incus
 ```
 
-!!! note "No GPU passthrough on this build"
-    Earlier drafts of this checklist had a "GPU passthrough" phase that blacklisted `amdgpu` and bound the iGPU to `vfio-pci`. That mode is incompatible with the canonical host-owns-GPU architecture (host can't run ROCm without amdgpu). If you specifically want passthrough, see [GPU Passthrough](../virtualization/gpu-passthrough.md) and understand the trade-off before adding that step here.
+!!! note "The instance datasets survived on `rpool/incus`"
+    If `rpool` was preserved (or reimported), re-attaching Incus to `source: rpool/incus` re-adopts every instance dataset that was already there — the containers and VMs come back with the pool. You only *recreate* instances when `rpool/incus` itself was lost. See [Storage](../incus/storage.md#the-rebuild-path) and [Snapshots &amp; backup](../incus/snapshots-backup.md#the-rebuild-path-instances) for the full instance-recovery detail — don't re-derive it here.
 
-## Phase 7 — Install Docker
+### Phase 6 — Restore the Incus instances
 
-```bash
-sudo apt install -y ca-certificates curl
-sudo install -m 0755 -d /etc/apt/keyrings
-sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg \
-    -o /etc/apt/keyrings/docker.asc
-sudo chmod a+r /etc/apt/keyrings/docker.asc
+Choose the path that matches what you have. Full detail (and the stop-before-you-receive warning) is in [Incus Snapshots &amp; backup — Restore workflows](../incus/snapshots-backup.md#restore-workflows); the summary:
 
-# Try the matching Ubuntu codename first; if Docker hasn't published a
-# 'resolute' channel yet, fall back to 'noble' (24.04) — Docker's CE
-# repo is consistently backwards-compatible for one LTS cycle.
-CODENAME=$(. /etc/os-release && echo "$VERSION_CODENAME")
-if ! curl -sfI "https://download.docker.com/linux/ubuntu/dists/${CODENAME}/Release" >/dev/null; then
-    echo "Docker repo for '$CODENAME' not published yet; falling back to noble"
-    CODENAME=noble
-fi
+- **`rpool/incus` survived** → nothing to restore. `incus list` already shows the instances; `boot.autostart` brings service instances up.
+- **`rpool/incus` was lost, you have syncoid replicas** → pull each instance's datasets back from the backup host, then let Incus re-adopt them:
+  ```bash
+  syncoid -r backup-host:backup/incus rpool/incus
+  # Instances re-appear once their datasets are back; recreate any missing
+  # config from the preseed/profiles captured in Phase 0.
+  ```
+- **You only have portable exports** → import the tarballs:
+  ```bash
+  for f in /tank/backups/rebuild-*/instance-*.tar.gz; do incus import "$f"; done
+  incus list
+  ```
+- **Recreate from scratch** (no instance backup, only profiles/compose) → launch fresh instances from the captured profiles, then rebuild the Docker stacks inside them (next phase).
 
-echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu ${CODENAME} stable" \
-    | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+### Phase 7 — Rebuild the Docker-in-Incus stacks (if recreating)
 
-sudo apt update
-sudo apt install -y docker-ce docker-ce-cli containerd.io \
-    docker-buildx-plugin docker-compose-plugin
+Compose stacks are **not** deployed on the host anymore — they live nested inside an Incus system container (`security.nesting=true`). If you're recreating rather than restoring an instance wholesale, follow [Docker inside Incus](../incus/docker-in-incus.md) to build the container, install Docker Engine in it, wire up the two-layer bind-mount chain (host dataset → container → compose service), and bring the stacks up. Bring services up in dependency order inside the container:
 
-sudo usermod -aG docker $USER
-newgrp docker
-
-docker run hello-world
-```
-
-## Phase 8 — Restore services in dependency order
-
-Order matters — bring up infrastructure before consumers:
-
-1. **Reverse proxy** (Traefik or Caddy) — owns ports 80/443
+1. **Reverse proxy** (Traefik/Caddy) — owns 80/443
 2. **Auth** (Authentik) — needed by everything behind SSO
-3. **DNS** (Pi-hole) — if other services on the LAN depend on it
+3. **DNS** (Pi-hole) — if other LAN services depend on it
 4. **Data services** — Nextcloud, databases
 5. **Media** — Jellyfin/Plex, *arr stack
 6. **Dashboards** — Homepage, Uptime Kuma
-7. **AI** — Ollama / Open WebUI (once ROCm is verified)
+7. **AI** — Ollama / Open WebUI (once ROCm is verified and `/dev/kfd` + `/dev/dri` are passed into the container)
 
 ```bash
-SNAP=/mnt/tank/backups/rebuild-$(date +%F)
-
-# Restore compose configs
-mkdir -p ~/docker
-cp -a $SNAP/docker-configs/* ~/docker/  # or: git clone <private-configs-repo>
-
-# Bring services up one at a time, in the order above
-cd ~/docker/traefik   && docker compose up -d && sleep 5
-cd ~/docker/authentik && docker compose up -d && sleep 10
-cd ~/docker/pihole    && docker compose up -d && sleep 5
-cd ~/docker/nextcloud && docker compose up -d && sleep 10
-# … and so on
+# Example: inside the docker-host container
+incus exec docker-host -- bash
+cd /opt/compose/traefik   && docker compose up -d && sleep 5
+cd /opt/compose/authentik && docker compose up -d && sleep 10
+# ... and so on, in the order above
 ```
 
-## Phase 9 — Restore VMs
+VMs (Windows 11, Linux desktop) are Incus VM instances — they came back with their datasets in Phase 6, or are recreated with `incus launch --vm` per [VMs](../incus/vms.md) / [Windows VM](../incus/windows-vm.md). There is **no libvirt XML to redefine** on this build.
 
-```bash
-# VM definitions were re-defined in Phase 6. Disks are still on /mnt/tank/vm.
-sudo virsh list --all
-sudo virsh start win11
-# Open a console / RDP in to verify
-```
-
-## Phase 10 — Firewall
+### Phase 8 — Firewall and Tailscale
 
 ```bash
 sudo ufw default deny incoming
 sudo ufw default allow outgoing
 sudo ufw allow OpenSSH
-# Open additional ports only for services bound to the LAN that aren't
-# behind Traefik. Prefer routing everything through 80/443 + Traefik.
+# Incus's bridge needs the same UFW-forwarding treatment ufw-docker gave bare
+# Docker — see docs/incus/networking.md. Prefer routing services through a
+# reverse proxy on 80/443 over opening per-service ports.
 sudo ufw enable
 sudo ufw status verbose
-```
 
-If you use Tailscale for management, ensure it's installed and authenticated:
-
-```bash
+# Tailscale management plane
 curl -fsSL https://tailscale.com/install.sh | sh
 sudo tailscale up --ssh
 ```
+
+---
 
 ## Verification Checklist
 
 Tick these off before declaring the rebuild done.
 
 ### Storage
+- [ ] `zpool status rpool` is `ONLINE` with no errors
 - [ ] `zpool status tank` is `ONLINE` with no errors
-- [ ] All datasets visible under `/mnt/tank/`
-- [ ] `zfs_arc_max` is set (`cat /sys/module/zfs/parameters/zfs_arc_max` shows ~16 GB or your chosen value)
+- [ ] Root is a boot environment: `zfs list rpool/ROOT/ubuntu` mounts `/`
+- [ ] All `rpool` datasets present (`home`, `incus`, `db`, `ai`) and all `tank` datasets present (`media`, `nextcloud-data`, `nextcloud-app`, `backups`)
+- [ ] `zfs_arc_max` set (`cat /sys/module/zfs/parameters/zfs_arc_max` shows ~16 GB or your chosen value)
+- [ ] ZFSBootMenu boots: interrupt the countdown once and confirm the boot-environment list looks right (`efibootmgr -v` shows the ZBM entry first)
+
+### Incus
+- [ ] `incus storage info default` shows `driver: zfs`, `source: rpool/incus`
+- [ ] `incus list` shows every instance from Phase 0 (`RUNNING` for the autostart ones)
+- [ ] `incus info <instance>` clean for the service containers and any VM
+- [ ] GPU passthrough works where needed: `/dev/kfd` + `/dev/dri` visible inside the AI container (`incus exec ai-stack -- rocminfo | grep gfx1151`)
 
 ### Networking
 - [ ] Static IP / DHCP reservation as expected
 - [ ] DNS resolves outbound (`getent hosts github.com`)
 - [ ] Tailscale shows the host online with the same name as before
 - [ ] SSH host key fingerprint unchanged (clients don't get a host-key warning)
+- [ ] Incus bridge (`incusbr0`) forwarding filtered by UFW per [networking](../incus/networking.md)
 
 ### GPU / AI
-- [ ] `rocminfo` shows `gfx1151`
-- [ ] `rocm-smi` shows GPU, no errors
-- [ ] Ollama or llama.cpp runs a small model end-to-end at expected token rate
+- [ ] `rocminfo` shows `gfx1151` on the host
+- [ ] `rocm-smi` shows the GPU, no errors
+- [ ] Ollama / llama.cpp runs a small model end-to-end at the expected token rate (inside its Incus container)
 
-### Virtualization
-- [ ] `virsh list --all` shows every VM from Phase 0
-- [ ] Windows 11 VM boots, RDP reachable
-
-### Services (per-service smoke test)
+### Services (per-service smoke test, inside the Docker-in-Incus container)
 - [ ] Traefik dashboard reachable, ACME certs renewed
 - [ ] Authentik login works; identities preserved
 - [ ] Pi-hole serving DNS; query log populating
 - [ ] Nextcloud login works; files visible; trusted_domains correct
-- [ ] Jellyfin/Plex sees libraries
+- [ ] Jellyfin/Plex sees libraries (on `tank/media`)
 - [ ] *arr stack: indexers reachable, downloads working
-- [ ] Homepage shows all widgets green
-- [ ] Uptime Kuma monitors all green
+- [ ] Homepage widgets green; Uptime Kuma monitors green
+
+### Virtualization (VMs)
+- [ ] Windows 11 Incus VM boots, RDP reachable
+- [ ] TPM / Secure Boot devices intact on the VM (`incus config show win11`)
 
 ### Backups
-- [ ] sanoid / syncoid resumed
-- [ ] Off-site backup target reachable
-- [ ] At least one snapshot taken post-rebuild
+- [ ] sanoid timer running: `systemctl status sanoid.timer`
+- [ ] syncoid replicating `rpool/incus`, `rpool/db`, and the `tank` datasets ([backup.md](backup.md))
+- [ ] Off-site target reachable
+- [ ] At least one fresh snapshot taken post-rebuild on both pools
 
 ---
 
 ## Offline rescue — when the host won't boot
 
-If Phase 0 wasn't possible because the host is already broken:
+If Phase 0 wasn't possible because the host is already broken, but the pools are intact, this is often **Scenario A** in disguise — try a [ZFSBootMenu boot-environment rollback](#scenario-a-os-broken-pools-fine-boot-environment-rollback) first, or the [ZFSBootMenu recovery shell](../ubuntu/troubleshooting/boot-issues.md#drop-to-the-emergency-shell). If you genuinely need a full rebuild and want to capture state off the surviving pools first:
 
-1. Boot from the Ubuntu Server 26.04 USB in "Try Ubuntu" mode
-2. `sudo apt install zfsutils-linux`
-3. `sudo zpool import -d /dev/disk/by-id -fR /mnt tank`
-4. Now you can recover whatever you can from `/mnt/tank/` (compose files, .env files, anything you previously stashed under `/mnt/tank/backups/`)
-5. Proceed with Phase 1 onwards; in Phase 0 substitute "whatever you could recover from the live USB"
+1. Boot the Ubuntu Server 26.04 USB in "Try Ubuntu" mode.
+2. `sudo apt install -y zfsutils-linux`.
+3. Import both pools read-only-ish into `/mnt` (by-id paths survive enumeration reshuffles):
+   ```bash
+   sudo zpool import -f -d /dev/disk/by-id -R /mnt rpool
+   sudo zfs mount rpool/ROOT/ubuntu
+   sudo zpool import -f -d /dev/disk/by-id -R /mnt tank
+   ```
+4. Recover whatever you can from `/mnt/tank/backups/`, `/mnt/rpool`, and the Incus datasets under `/mnt/rpool/incus`, plus host config from the mounted root (`/mnt/etc/netplan`, `/mnt/etc/ssh`, sanoid config).
+5. Proceed with Phase 1 onwards; substitute "whatever you could recover" for the Phase 0 capture.
 
-Anything that lived only on the dead `/` (libvirt XML, sudoers.d, /etc/netplan) is gone in this scenario — which is why Phase 0 normally writes everything to the pool and an off-site target.
+The full offline chroot procedure (bind-mounting `/dev`, `/proc`, `/sys`, mounting the EFI partition, re-running `efibootmgr`) is in [Boot Issues — Live USB Recovery](../ubuntu/troubleshooting/boot-issues.md#live-usb-recovery). Anything that lived only on a destroyed `rpool` (host `/etc` config, Incus's database) is why Phase 0 normally writes the capture to `tank` and an off-site target.
