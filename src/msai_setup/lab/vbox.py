@@ -14,6 +14,7 @@ from __future__ import annotations
 import logging
 import re
 import subprocess
+import time
 from pathlib import Path
 
 log = logging.getLogger(__name__)
@@ -293,6 +294,22 @@ def acpi_power_button(name: str) -> None:
         log.info("vm %s is not running", name)
         return
     _run(["controlvm", name, "acpipowerbutton"])
+
+
+def wait_until_stopped(name: str, *, timeout: int = 180, interval: int = 3) -> None:
+    """Poll until the VM is no longer running, or raise on timeout.
+
+    Used after asking a guest to power off (e.g. `poweroff` over SSH) before
+    reconfiguring storage host-side, since VBoxManage storageattach requires the
+    VM to be fully stopped.
+    """
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if not vm_running(name):
+            log.info("vm %s has stopped", name)
+            return
+        time.sleep(interval)
+    raise VBoxError(f"vm {name} did not stop within {timeout}s")
 
 
 # --- Snapshots ---------------------------------------------------------------

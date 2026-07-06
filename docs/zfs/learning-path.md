@@ -150,8 +150,9 @@ If any of those answers feel vague, go back to that stop.
 The lab is throwaway. Reset patterns, in order of cheapness:
 
 ```bash
-# Inside the VM — just destroy the pool you broke
+# Inside the VM — just destroy the pool(s) you broke
 sudo zpool destroy tank
+sudo zpool destroy rpool     # if you built the two-pool mock in Lab 9
 
 # From your Mac — revert the VM to a snapshot
 VBoxManage snapshot zfs-lab restorecurrent

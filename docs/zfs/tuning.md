@@ -26,7 +26,7 @@ EOF
 sudo update-initramfs -u
 ```
 
-Tunables in `/etc/modprobe.d/zfs.conf` take effect at the next boot. Updating initramfs is needed only if ZFS is in your initramfs (it's not on this build because root is ext4), but it's harmless.
+Tunables in `/etc/modprobe.d/zfs.conf` take effect at the next boot. On this build ZFS **is** in the initramfs (root is `rpool/ROOT/ubuntu`, so the initramfs must import `rpool` to boot at all), which makes `update-initramfs -u` **required** for a module parameter change to stick across reboots — not optional. Rebuild it after editing `/etc/modprobe.d/zfs.conf`.
 
 Documentation:
 
@@ -87,7 +87,7 @@ sudo zfs set primarycache=metadata tank/media
 sudo zfs set primarycache=metadata tank/backups
 ```
 
-This frees ARC for datasets where reads benefit from caching (database, VM disks, model files).
+This frees ARC for datasets where reads benefit from caching (`rpool/db`, Incus instance datasets, model files).
 
 ## Prefetch
 
@@ -151,7 +151,7 @@ Mitigations in order of preference:
 
 1. Tune `recordsize` per dataset (see below).
 2. Cap ARC tighter so more RAM is available for the write buffer.
-3. Move hot data onto faster storage. Caveat for this build: `tank` is a single pool striped across the primary (x4) and secondary (x1) NVMe, so ZFS spreads writes across both vdevs and you **can't** pin a dataset like `tank/vm` or `tank/db` to the fast drive. Guaranteed placement would require a separate pool built only from the primary drive (see [Pool Creation -> What this pool is not](pool-creation.md#what-this-pool-is-not) and [Datasets -> A note on device placement](datasets.md#a-note-on-device-placement)).
+3. Put hot data on the fast pool. This build already does: `rpool` (root + `rpool/incus` + `rpool/db` + `rpool/ai`) is on the fast 4 TB x4 NVMe, while only bulk/cold data (`tank/media`, `tank/nextcloud-*`, `tank/backups`) is on the slow 2 TB x1 NVMe. Because they're **two independent pools** (not one striped across both), placement is guaranteed — a write-throttle stall on `tank` doesn't slow `rpool` and vice versa. See [Pool Creation → Two pools, not one stripe](pool-creation.md#two-pools-not-one-stripe) and [Datasets → A note on device placement](datasets.md#a-note-on-device-placement).
 
 ## `recordsize` per workload
 
@@ -162,23 +162,21 @@ Recordsize is the **maximum** block size; small files use smaller blocks. But fo
 - **Read amplification** if recordsize is too big (reading 1 KB requires loading a 1 MB block).
 - **Write amplification** if recordsize is too small for the file (lots of indirect block updates).
 
-| Workload | Recordsize | Reason |
+| Workload | Recordsize / blocksize | Reason |
 |---|---|---|
-| Database (Postgres, MySQL) | 16 K (or match the DB page size) | Avoid read-modify-write of large records on small updates. |
-| VM disk images (qcow2 on dataset) | 64 K | Balance between guest small-IO and bulk operations. |
-| Zvol for VM disk | volblocksize=8 K-16 K (Windows NTFS), 64 K (Linux) | See [VM Storage](vm-storage.md). |
-| Media files (movies, TV, music) | 1 M | Sequential reads of large files; minimise metadata. |
-| ML model files (GGUF, safetensors) | 1 M | Sequential mmap reads; large records help. |
-| General home directory / mixed | 128 K (default) | Compromise. |
-| Backup target (large archives) | 1 M | Mostly sequential writes/reads. |
-| Mail (Maildir-style many small files) | 16 K | Small writes dominate. |
+| Database (`rpool/db`) | 16 K (or match the DB page size) | Avoid read-modify-write of large records on small updates. |
+| VM disk (Incus zvol under `rpool/incus`) | `zfs.blocksize` 16 K (Windows/mixed), 64 K (Linux) — set via Incus, not `zfs set` | See [VM Storage](vm-storage.md) and [Incus storage](../incus/storage.md#sizing-and-properties). |
+| Media files (`tank/media`) | 1 M | Sequential reads of large files; minimise metadata. |
+| ML model files (`rpool/ai`) | 1 M | Sequential mmap reads; large records help. |
+| General home directory / mixed (`rpool/home`) | 128 K (default) | Compromise. |
+| Backup target (`tank/backups`) | 1 M | Mostly sequential writes/reads. |
 
-Set per dataset:
+Set per dataset (host datasets only — Incus tunes its own `rpool/incus` volumes):
 
 ```bash
 sudo zfs set recordsize=1M tank/media
-sudo zfs set recordsize=16K tank/db
-sudo zfs set recordsize=64K tank/vm
+sudo zfs set recordsize=16K rpool/db
+sudo zfs set recordsize=1M rpool/ai
 ```
 
 Changing recordsize only affects **future** writes. Existing data keeps its original block size until rewritten.
@@ -258,15 +256,16 @@ Worth doing if you observe occasional 100ms+ latency on idle NVMe drives. Otherw
 `autotrim=on` (set at pool creation) keeps SSDs/NVMe happy in the background. You can also force a one-shot TRIM:
 
 ```bash
-sudo zpool trim tank
+sudo zpool trim rpool
 sudo zpool trim -w tank   # wait for completion
 ```
 
-A manual TRIM is useful after a big delete/destroy operation. Schedule weekly if your workload involves a lot of churn:
+A manual TRIM is useful after a big delete/destroy operation. Schedule weekly if your workload involves a lot of churn (both pools):
 
 ```bash
 # /etc/cron.weekly/zpool-trim
 #!/bin/sh
+/sbin/zpool trim -w rpool
 /sbin/zpool trim -w tank
 ```
 

@@ -169,6 +169,7 @@ def destroy(
     saved = state_mod.load(cfg.state_path)
     provision_info = saved.get("phases", {}).get("provision", {})
     disk_count = provision_info.get("lab_disk_count", cfg.lab_disk_count)
+    migration_count = provision_info.get("migration_disk_count", cfg.migration_disk_count)
 
     vbox_mod.unregister_and_delete(cfg.vm_name)
 
@@ -184,6 +185,11 @@ def destroy(
             typer.echo(f"removed {p}")
     for i in range(1, disk_count + 1):
         path = cfg.lab_disk_path(i)
+        if path.exists():
+            path.unlink()
+            typer.echo(f"removed {path}")
+    for i in range(1, migration_count + 1):
+        path = cfg.migration_disk_path(i)
         if path.exists():
             path.unlink()
             typer.echo(f"removed {path}")

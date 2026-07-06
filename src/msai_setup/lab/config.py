@@ -107,6 +107,24 @@ class LabConfig:
     lab_disk_count: int = _env_int("LAB_DISK_COUNT", 6)
     lab_disk_size_mb: int = _env_int("LAB_DISK_SIZE_MB", 8000)
 
+    # Root-on-ZFS migration disks (see ansible/playbooks/zfs-root-migrate.yml).
+    #
+    # These are DEDICATED, ADDITIONAL disks appended after the `lab_disk_count`
+    # practice disks — they do NOT consume any of the 6 disks the README's ZFS
+    # walkthrough (section 2) uses, so both exercises coexist in one VM with no
+    # ordering constraint between them. They stand in for the MS-S1 MAX's two
+    # physical NVMe drives during the ext4 -> root-on-ZFS migration:
+    #   index 1 = "fast" drive -> rpool (larger, EFI + pool member)
+    #   index 2 = "slow" drive -> tank  (smaller, single pool member)
+    # The size split is deliberate and load-bearing: the playbook identifies the
+    # two migration disks as the two LARGEST VirtualBox disks, then treats the
+    # larger of the pair as the fast/rpool drive and the smaller as slow/tank —
+    # mirroring the real 4 TB (fast) vs 2 TB (slow) asymmetry. Keep fast > slow >
+    # lab_disk_size_mb so that ordering stays unambiguous.
+    migration_disk_count: int = _env_int("MIGRATION_DISK_COUNT", 2)
+    migration_fast_disk_size_mb: int = _env_int("MIGRATION_FAST_DISK_SIZE_MB", 24000)
+    migration_slow_disk_size_mb: int = _env_int("MIGRATION_SLOW_DISK_SIZE_MB", 16000)
+
     # Ubuntu ISO + VirtualBox platform.
     #
     # Defaults auto-pick based on host architecture: arm Macs get the arm64
@@ -183,6 +201,17 @@ class LabConfig:
     def lab_disk_path(self, index: int) -> Path:
         """Local path to this instance's Nth extra lab VDI disk (1-indexed)."""
         return self.target_dir / f"{self.vm_name}-lab-{index:02d}.vdi"
+
+    def migration_disk_path(self, index: int) -> Path:
+        """Local path to this instance's Nth root-on-ZFS migration disk (1-indexed).
+
+        Index 1 is the fast/rpool stand-in, index 2 the slow/tank stand-in.
+        """
+        return self.target_dir / f"{self.vm_name}-migration-{index:02d}.vdi"
+
+    def migration_disk_size_mb(self, index: int) -> int:
+        """Size (MiB) for the Nth migration disk (1 = fast/rpool, 2 = slow/tank)."""
+        return self.migration_fast_disk_size_mb if index == 1 else self.migration_slow_disk_size_mb
 
     @property
     def ssh_host(self) -> str:

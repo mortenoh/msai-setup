@@ -2,7 +2,12 @@
 
 When things go wrong. Symptom-first, ordered by frequency.
 
-## "I rebooted and the pool isn't there"
+## Pool import failures { #pool-import-failures }
+
+### "I rebooted and `tank` isn't there" { #i-rebooted-and-the-pool-isnt-there }
+
+!!! note "`rpool` vs `tank` at boot"
+    `rpool` is imported by the initramfs / [ZFSBootMenu](https://zfsbootmenu.org/) path — if *it* fails to import, the system doesn't boot at all, which is a [ZFSBootMenu recovery](../ubuntu/troubleshooting/boot-issues.md#zfsbootmenu-recovery) problem, not a userspace one. The symptoms below (a pool missing after an otherwise-normal boot) almost always concern **`tank`**, imported later by `zfs-import-cache.service`.
 
 Most common cause: the `zfs-import-cache` or `zfs-mount` service didn't run, or the cache file is stale.
 
@@ -97,7 +102,7 @@ Identify the bad device and follow [Operations -> Disk replacement](operations.m
 
 For a no-redundancy pool (single-disk vdev), there's no DEGRADED state — there's only ONLINE or UNAVAIL. UNAVAIL = the pool is offline; data is unreachable until the disk comes back or is replaced (in which case you restore from backup).
 
-## "Pool is FAULTED / UNAVAIL"
+## "Pool is FAULTED / UNAVAIL" { #pool-is-faulted--unavail }
 
 The pool can't be opened. Several flavours:
 
@@ -246,8 +251,8 @@ You can:
 A process holds a file open on the dataset:
 
 ```bash
-sudo lsof +D /mnt/tank/foo
-sudo fuser -mv /mnt/tank/foo
+sudo lsof +D /tank/foo
+sudo fuser -mv /tank/foo
 ```
 
 Stop the offending process, or force the unmount:
@@ -276,7 +281,7 @@ ZFS reserves the last few percent of pool capacity for metadata. `zfs list` is h
 ```bash
 zfs list tank
 # NAME   USED   AVAIL   REFER   MOUNTPOINT
-# tank   4.8T   200G    ...     /mnt/tank
+# tank   1.8T   200G    ...     /tank
 ```
 
 Compare with snapshot usage:
@@ -296,10 +301,10 @@ If you have a snapshot from before the deletion:
 zfs list -t snapshot -o name,creation tank/<dataset>
 
 # Browse it
-ls /mnt/tank/<dataset>/.zfs/snapshot/<snap-name>/
+ls /tank/<dataset>/.zfs/snapshot/<snap-name>/
 
 # Copy a specific file back
-cp /mnt/tank/<dataset>/.zfs/snapshot/<snap>/path/to/file /mnt/tank/<dataset>/path/to/file
+cp /tank/<dataset>/.zfs/snapshot/<snap>/path/to/file /tank/<dataset>/path/to/file
 ```
 
 If you need to roll the entire dataset back:
@@ -371,6 +376,9 @@ zfs get keylocation,keyformat tank/secrets
 
 Symptom: `zfs.ko` failed to build, modprobe fails, pool can't import.
 
+!!! danger "On this build that means the box won't boot"
+    Root is on `rpool`, so a ZFS module that won't load leaves the system unbootable — not just missing a data pool. Recover by booting a previous [ZFSBootMenu boot environment](../ubuntu/troubleshooting/boot-issues.md#zfsbootmenu-recovery) (which pairs the older, working kernel with its matching module), then fix DKMS from there. This is exactly the scenario boot environments exist for.
+
 ```bash
 # Diagnose
 sudo dkms status
@@ -410,7 +418,7 @@ sudo systemctl restart zfs.target
 
 ## "I broke `/etc/zfs/zpool.cache`"
 
-The cache file holds the list of pools to auto-import. If it's corrupted, the pool won't auto-mount but you can still import manually:
+The cache file holds the list of pools to auto-import. If it's corrupted, `tank` won't auto-mount but you can still import it manually (`rpool` is imported by the initramfs, not the cache, so root still comes up):
 
 ```bash
 sudo zpool export tank
