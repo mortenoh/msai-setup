@@ -106,6 +106,46 @@ For the full ROCm/AI stack, continue to [Quick Start](../../ai/gpu/quick-start.m
 
 Prefer the **front 40 Gbps USB4 ports** for any device that must stay connected. The rear 80 Gbps USB4 v2 ports have a known ACPI power-management flaw upstream that BIOS 1.06 does not fully resolve.
 
+## Install Tailscale
+
+Tailscale is this build's remote-management plane: the host is reachable on the LAN and over Tailscale, and isn't meant to sit directly on the public internet. Install it now, before touching UFW or SSH hardening below — it gives you a second, independent access path in case a firewall or sshd change locks you out over the LAN.
+
+### Add the Repository and Install
+
+```bash
+# Determine the right Tailscale suite for this Ubuntu release
+# (falls back to 24.04's "noble" if 26.04's "resolute" isn't published yet)
+CODENAME=$(. /etc/os-release && echo "$VERSION_CODENAME")
+if ! curl -sfI "https://pkgs.tailscale.com/stable/ubuntu/${CODENAME}.noarmor.gpg" >/dev/null; then
+    CODENAME=noble
+fi
+
+curl -fsSL "https://pkgs.tailscale.com/stable/ubuntu/${CODENAME}.noarmor.gpg" | \
+  sudo tee /usr/share/keyrings/tailscale-archive-keyring.gpg >/dev/null
+curl -fsSL "https://pkgs.tailscale.com/stable/ubuntu/${CODENAME}.tailscale-keyring.list" | \
+  sudo tee /etc/apt/sources.list.d/tailscale.list
+
+sudo apt update && sudo apt install -y tailscale
+```
+
+### Authenticate and Verify
+
+```bash
+sudo tailscale up
+```
+
+This prints a URL — open it in a browser on any device to approve the node into your tailnet. Then verify:
+
+```bash
+tailscale status
+tailscale ip -4
+```
+
+!!! note "Tailscale SSH (`--ssh`) is optional"
+    Adding `--ssh` to `tailscale up` turns on Tailscale's own SSH server, governed entirely by Tailscale ACLs — it bypasses the sshd hardening (fail2ban, ciphers, `PermitRootLogin no`, etc.) configured below. If you want the mesh network only and plan to keep using hardened sshd, leave `--ssh` off. See [Tailscale + SSH](../../tailscale/integration/ssh.md) for the trade-off.
+
+For other distributions, other install methods, and day-2 operations (ACLs, exit nodes, Funnel), see the full [Tailscale](../../tailscale/index.md) section.
+
 ## Verify SSH Security
 
 ### Check SSH Configuration
@@ -478,6 +518,9 @@ ssh -o PasswordAuthentication=no user@server echo "Key auth OK"
 # Firewall enabled
 sudo ufw status | grep -q "Status: active"
 
+# Tailscale connected
+tailscale status | grep -q "^100\."
+
 # Time sync working
 timedatectl | grep -q "synchronized: yes"
 
@@ -497,6 +540,7 @@ systemctl --failed --quiet
 |------|--------|
 | System updated | Required |
 | Timezone configured | Required |
+| Tailscale installed | Required |
 | SSH hardened | Required |
 | Firewall enabled | Required |
 | Auto-updates enabled | Recommended |
@@ -511,5 +555,6 @@ The basic installation is complete. Continue with:
 1. [System Configuration](../system/index.md) - User management, sudo, PAM
 2. [Security Hardening](../security/index.md) - Comprehensive security measures
 3. [Networking Configuration](../networking.md) - Static IP, advanced networking
+4. [Tailscale](../../tailscale/index.md) - ACLs, exit nodes, subnet routers, and Funnel/Serve (already installed above)
 
 For a complete hardening checklist, see [Reference Checklist](../reference/checklist.md).
