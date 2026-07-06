@@ -33,8 +33,11 @@ Ubuntu 26.04 ships ROCm 7.1.0 in Universe. This is roughly one minor behind upst
 # AMD's resolute path may not be live yet at release; verify on repo.radeon.com first.
 wget https://repo.radeon.com/amdgpu-install/latest/ubuntu/noble/amdgpu-install_7.1.1.70101-1_all.deb
 sudo apt install ./amdgpu-install_7.1.1.70101-1_all.deb
-sudo amdgpu-install --usecase=rocm,hip,opencl,graphics,dkms
+sudo amdgpu-install --usecase=rocm,hip,opencl,graphics --no-dkms
 ```
+
+!!! warning "Skip `dkms` unless you need it"
+    `amdgpu-dkms` has known compile failures on specific Ubuntu 26.04 kernel 7.0 point releases — `--no-dkms` (shown above) avoids rebuilding the kernel module entirely and works fine since 26.04's kernel already has gfx1151 support built in. See [ROCm Installation -> Method 2](rocm-installation.md#method-2-amdgpu-install-newer-rocm-via-amds-repo) for the exact failure signatures and what to do if you need DKMS anyway.
 
 Add your user to the required groups (either option):
 

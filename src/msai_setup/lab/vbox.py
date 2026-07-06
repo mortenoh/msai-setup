@@ -14,7 +14,6 @@ from __future__ import annotations
 import logging
 import re
 import subprocess
-from collections.abc import Iterable
 from pathlib import Path
 
 log = logging.getLogger(__name__)
@@ -68,10 +67,12 @@ def list_running_vms() -> list[str]:
 
 
 def vm_exists(name: str) -> bool:
+    """Return True if a VM named `name` is registered."""
     return name in list_vms()
 
 
 def vm_running(name: str) -> bool:
+    """Return True if a VM named `name` is currently running."""
     return name in list_running_vms()
 
 
@@ -269,6 +270,7 @@ def attach_iso(name: str, *, controller: str, port: int, device: int, iso: Path)
 
 
 def start_headless(name: str) -> None:
+    """Start the VM headless. No-op if it's already running."""
     if vm_running(name):
         log.info("vm %s is already running", name)
         return
@@ -277,6 +279,7 @@ def start_headless(name: str) -> None:
 
 
 def power_off(name: str) -> None:
+    """Hard power-off the VM. No-op if it's not running."""
     if not vm_running(name):
         log.info("vm %s is not running", name)
         return
@@ -285,6 +288,7 @@ def power_off(name: str) -> None:
 
 
 def acpi_power_button(name: str) -> None:
+    """Send an ACPI power-button event so the guest shuts down gracefully."""
     if not vm_running(name):
         log.info("vm %s is not running", name)
         return
@@ -295,6 +299,7 @@ def acpi_power_button(name: str) -> None:
 
 
 def snapshot_take(name: str, snapshot_name: str, *, pause: bool = True) -> None:
+    """Take a snapshot of `name`, optionally pausing the VM during capture."""
     args = ["snapshot", name, "take", snapshot_name]
     if pause:
         args.append("--pause")
@@ -302,12 +307,20 @@ def snapshot_take(name: str, snapshot_name: str, *, pause: bool = True) -> None:
     log.info("snapshot taken: %s/%s", name, snapshot_name)
 
 
+def snapshot_restore(name: str, snapshot_name: str) -> None:
+    """Restore `name` to the named snapshot."""
+    _run(["snapshot", name, "restore", snapshot_name])
+    log.info("restored snapshot %s/%s", name, snapshot_name)
+
+
 def snapshot_restore_current(name: str) -> None:
+    """Restore `name` to its most recent snapshot."""
     _run(["snapshot", name, "restorecurrent"])
     log.info("restored most recent snapshot of %s", name)
 
 
 def snapshot_list(name: str) -> list[str]:
+    """Return the snapshot names of `name`, or an empty list if it has none."""
     try:
         out = _run(["snapshot", name, "list", "--machinereadable"])
     except VBoxError:

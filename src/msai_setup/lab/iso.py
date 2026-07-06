@@ -24,8 +24,10 @@ def _sha256_file(path: Path) -> str:
 
 
 def _fetch_text(url: str) -> str:
+    """Fetch `url` and return its body decoded as UTF-8 text."""
     with urllib.request.urlopen(url, timeout=30) as resp:
-        return resp.read().decode("utf-8")
+        body: bytes = resp.read()
+    return body.decode("utf-8")
 
 
 def _fetch_expected_sha256(sha_url: str, filename: str) -> str:
@@ -60,6 +62,24 @@ def _download(url: str, dest: Path) -> None:
                 last_report = bytes_read
     tmp.rename(dest)
     log.info("download complete: %s", dest)
+
+
+# Match `linux<ws>/casper/<name>vmlinuz<args>---` (covers plain vmlinuz and the
+# HWE `hwe-vmlinuz` variant) so we can splice `autoinstall` in before the `---`.
+_AUTOINSTALL_PATTERN = re.compile(
+    r"(linux\s+/casper/[\w.-]*vmlinuz)(\s+)(.*?---)",
+    re.MULTILINE,
+)
+
+
+def _inject_autoinstall(grub_cfg: str) -> tuple[str, int]:
+    """Return (modified grub.cfg, count) with `autoinstall` added to kernel lines.
+
+    Appends the `autoinstall` kernel parameter after each `/casper/*vmlinuz`
+    filename and before the `---` separator. The count is the number of GRUB
+    menu entries patched; callers should treat a count of 0 as an error.
+    """
+    return _AUTOINSTALL_PATTERN.subn(r"\1\2autoinstall \3", grub_cfg)
 
 
 def remaster_iso_for_autoinstall(src: Path, dst: Path) -> None:
@@ -99,12 +119,7 @@ def remaster_iso_for_autoinstall(src: Path, dst: Path) -> None:
         extracted.chmod(0o644)
         original = extracted.read_text()
         # Inject `autoinstall` after each kernel filename, before the `---`.
-        # Match the pattern: `linux<whitespace>/casper/<name>vmlinuz<args>---`
-        pattern = re.compile(
-            r"(linux\s+/casper/[\w.-]*vmlinuz)(\s+)(.*?---)",
-            re.MULTILINE,
-        )
-        modified, n = pattern.subn(r"\1\2autoinstall \3", original)
+        modified, n = _inject_autoinstall(original)
         if n == 0:
             raise RuntimeError(
                 "couldn't find /casper/vmlinuz pattern in grub.cfg; "

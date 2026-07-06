@@ -122,7 +122,7 @@ def check_ubuntu_version() -> CheckResult:
 
 @register_check(Category.SYSTEM, "Kernel version")
 def check_kernel_version() -> CheckResult:
-    """Check kernel version is 6.8+."""
+    """Check kernel version is 7.0+ (26.04 default); 6.18+ is the gfx1151 floor."""
     result = run_command("uname -r")
     if not result.success:
         return CheckResult(
@@ -137,7 +137,7 @@ def check_kernel_version() -> CheckResult:
     match = re.match(r"(\d+)\.(\d+)", kernel)
     if match:
         major, minor = int(match.group(1)), int(match.group(2))
-        if major > 6 or (major == 6 and minor >= 8):
+        if major >= 7 or (major == 6 and minor >= 18):
             return CheckResult(
                 name="Kernel version",
                 status=CheckStatus.OK,
@@ -148,7 +148,7 @@ def check_kernel_version() -> CheckResult:
     return CheckResult(
         name="Kernel version",
         status=CheckStatus.WARN,
-        message=f"Kernel {kernel} (recommend 6.8+)",
+        message=f"Kernel {kernel} (recommend 7.0+ (26.04 default); 6.18+ is the documented gfx1151 floor)",
         category=Category.SYSTEM,
     )
 
@@ -197,7 +197,7 @@ def check_memory() -> CheckResult:
 
 @register_check(Category.SYSTEM, "CPU")
 def check_cpu() -> CheckResult:
-    """Check CPU is AMD Ryzen 9."""
+    """Check CPU is AMD Ryzen AI Max (Strix Halo)."""
     result = run_command("grep 'model name' /proc/cpuinfo")
     if not result.success:
         return CheckResult(
@@ -211,11 +211,11 @@ def check_cpu() -> CheckResult:
     lines = result.output.strip().split("\n")
     if lines:
         cpu_name = lines[0].split(":")[-1].strip()
-        if "AMD Ryzen 9" in cpu_name:
+        if "Ryzen AI Max" in cpu_name:
             return CheckResult(
                 name="CPU",
                 status=CheckStatus.OK,
-                message=f"CPU: {cpu_name}",
+                message=f"CPU: {cpu_name} (Strix Halo)",
                 category=Category.SYSTEM,
             )
 
@@ -257,7 +257,7 @@ def check_ssh_hardened() -> CheckResult:
             )
 
     # Check sshd_config.d directory
-    result_d = run_command("grep -ri '^PasswordAuthentication' /etc/ssh/sshd_config.d/ 2>/dev/null")
+    result_d = run_command("grep -ri '^PasswordAuthentication' /etc/ssh/sshd_config.d/")
     if result_d.success and "no" in result_d.output.lower():
         return CheckResult(
             name="SSH hardened",
@@ -450,7 +450,7 @@ def check_zfs_snapshots() -> CheckResult:
         )
 
     # Check for any recent snapshots
-    result = run_command("zfs list -t snapshot -o name -H | head -5")
+    result = run_command("zfs list -t snapshot -o name -H")
     if result.success and result.output:
         return CheckResult(
             name="Auto-snapshots",
@@ -590,7 +590,7 @@ def check_iommu() -> CheckResult:
 @register_check(Category.KVM, "vfio-pci loaded")
 def check_vfio() -> CheckResult:
     """Check vfio-pci module is loaded."""
-    result = run_command("lsmod | grep vfio_pci")
+    result = run_command("lsmod")
     if result.success and "vfio_pci" in result.output:
         return CheckResult(
             name="vfio-pci loaded",
@@ -616,7 +616,7 @@ def check_vfio() -> CheckResult:
 @register_check(Category.GPU, "AMD driver")
 def check_amd_driver() -> CheckResult:
     """Check amdgpu module is loaded."""
-    result = run_command("lsmod | grep amdgpu")
+    result = run_command("lsmod")
     if result.success and "amdgpu" in result.output:
         return CheckResult(
             name="AMD driver",
@@ -685,7 +685,7 @@ def check_vulkan() -> CheckResult:
             fix="sudo apt install vulkan-tools",
         )
 
-    result = run_command("vulkaninfo --summary 2>/dev/null | head -20")
+    result = run_command("vulkaninfo --summary")
     if result.success and "deviceName" in result.output:
         return CheckResult(
             name="Vulkan",

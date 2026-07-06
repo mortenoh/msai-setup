@@ -1,24 +1,18 @@
 #!/usr/bin/env python3
 """Phase 02 — apply Ansible playbooks against the lab VM.
 
-Usage:
-
-    python3 scripts/lab/02_apply.py                       # run the default chain
-    python3 scripts/lab/02_apply.py bootstrap             # one playbook
-    python3 scripts/lab/02_apply.py bootstrap ssh-hardening
-    python3 scripts/lab/02_apply.py zfs -e topology=mirror
-
-This script:
+`run_apply()`:
   1. Generates an Ansible inventory file pointing at 127.0.0.1:<ssh_port>
-     with the user/credentials from the lab config.
-  2. Pushes your public SSH key (if not already authorized) so subsequent
-     plays use key auth, not the install-time password.
-  3. Invokes ansible-playbook for each playbook in order.
+     with the user/identity from the lab config. Auth is key-based via the
+     dedicated lab keypair, which cloud-init already authorised during
+     provisioning — no key push happens here.
+  2. Invokes ansible-playbook for each requested playbook, in order.
+  3. Records the `apply` phase as done in the state file.
 
-Default chain: bootstrap -> ssh-hardening -> ufw
-
-The chain is conservative on purpose; run zfs.yml, docker.yml, etc.
-explicitly when you want to exercise those.
+Default chain (bare `msai lab apply`): bootstrap -> ssh-hardening -> ufw.
+This subset is conservative on purpose. `msai lab all` runs the FULL pipeline
+(bootstrap, ssh-hardening, ufw, zfs, docker, services); run those individually
+via `msai lab apply <name>` if you want to exercise them one at a time.
 """
 
 from __future__ import annotations
@@ -41,6 +35,7 @@ KNOWN_PLAYBOOKS = ("bootstrap", "ssh-hardening", "ufw", "zfs", "docker", "servic
 
 
 def require_ansible() -> None:
+    """Raise SystemExit with install hints if `ansible-playbook` is not on PATH."""
     if shutil.which("ansible-playbook") is None:
         raise SystemExit(
             "ansible-playbook not found on PATH.\n"
@@ -48,12 +43,12 @@ def require_ansible() -> None:
         )
 
 
-def _vm_endpoint(cfg) -> tuple[str, int]:
+def _vm_endpoint(cfg: LabConfig) -> tuple[str, int]:
     """Return (ansible_host, ansible_port). VirtualBox NAT port-forward."""
     return cfg.ssh_host, cfg.ssh_forward_port
 
 
-def write_inventory(cfg) -> None:
+def write_inventory(cfg: LabConfig) -> None:
     """Write a static inventory file that points at the lab VM.
 
     The lab user has passwordless sudo (cloud-init writes the sudoers drop-in
@@ -87,6 +82,7 @@ all:
 
 
 def run_playbook(name: str, extra_args: list[str]) -> None:
+    """Invoke ansible-playbook for the named playbook against the lab inventory."""
     playbook = ANSIBLE_DIR / "playbooks" / f"{name}.yml"
     if not playbook.exists():
         raise SystemExit(f"playbook not found: {playbook}")
@@ -114,7 +110,9 @@ def run_apply(playbooks: list[str], ansible_args: list[str] | None = None) -> No
     cfg = load_config()
     if not state.is_phase_done(cfg.state_path, "provision"):
         log.warning(
-            "Phase 'provision' has not been marked complete (%s). Run `msai lab provision` first.",
+            "Phase 'provision' has not been marked complete (%s). "
+            "Create the VM first with `msai create <name>`, or run the full "
+            "provision+apply pipeline with `msai lab all`.",
             cfg.state_path,
         )
 
