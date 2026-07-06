@@ -6,12 +6,24 @@ Authoritative spec sheet: [minisforum.com/products/ms-s1-max](https://www.minisf
 
 ## Firmware Version
 
-Run **BIOS 1.06** (released 2026-01-04) or later before installing Ubuntu 26.04. Earlier firmware has known memory training, NVMe, and USB4 v2 stability issues that 26.04's Linux 7.0 kernel exposes more aggressively.
+Run **BIOS 1.08** (released 2026-03-13) or later before installing Ubuntu 26.04 — the latest available as of this writing. Per Minisforum's own release notes, here's what actually changed on the way here and why it matters for this build:
 
-The flash is doable from Linux + EFI shell — see [capetron/minisforum-ms-s1-max-bios](https://github.com/capetron/minisforum-ms-s1-max-bios). Disable Secure Boot during the flash and expect 5-10 minutes of memory retraining on the first boot afterwards (BIOS settings reset to defaults).
+- **1.05** (2025-12-23) disabled LAN/TBT5 ASPM and fixed "TBT5 device can't use if plug after enter Ubuntu" — a Thunderbolt/USB4 hot-plug bug specific to booting Linux. This is the fix behind the old "rear USB4 ports are flaky" warning below; it landed *before* the 1.06 minimum this guide has always required, so if you're on 1.06+ you already have it.
+- **1.06** (2026-01-04) changed the host's firmware TPM from Microsoft Pluton to AMD's own PSP TPM, and added GPIO detection for the USB4 retimer chip (a refinement on top of 1.05's fix, not a separate bug).
+- **1.07** (2026-01-23) was an AGESA/PI microcode bump with no specific fix called out.
+- **1.08** (2026-03-13) adds SPD support for additional LPDDR5X memory variants and adjusts display-capability reporting on one DisplayPort output (DP0 — one of the USB4 Alt-Mode video paths, see [Hardware](hardware.md)).
 
-!!! warning "Rear USB4 ports"
-    A known ACPI power-management flaw on the rear USB4 v2 (80 Gbps) ports is **not fully resolved by 1.06** as of early 2026. Prefer the front 40 Gbps USB4 ports for any device where stability matters.
+### Flashing
+
+Minisforum ships two flash tools in the same firmware download:
+
+- **Windows (official)** — `WinFlash.bat` / `AFUWINx64.EXE`, run from within Windows as Administrator; Minisforum includes an "Update BIOS guide" alongside it. If the machine still has its factory Windows install, this is the simplest option before wiping the drive for Ubuntu.
+- **Linux + EFI shell** — `AfuEfix64.efi` (the same underlying AMI flash utility, run from an EFI shell instead of Windows) — see [capetron/minisforum-ms-s1-max-bios](https://github.com/capetron/minisforum-ms-s1-max-bios) for an automation script wrapping it. Useful if you've already wiped Windows off the box.
+
+Either way: disable Secure Boot during the flash, and expect 5-10 minutes of memory retraining on the first boot afterwards (BIOS settings reset to defaults).
+
+!!! note "Rear USB4 ports — fixed, not a live concern at 1.06+"
+    Earlier versions of this guide warned about a "known ACPI power-management flaw" on the rear USB4 V2 ports. Per Minisforum's official changelog, that was the ASPM/hot-plug issue fixed in 1.05 (above) — it predates the 1.06 minimum this guide has always required. Front and rear USB4 ports should both work fine at 1.06+; use whichever fits your cabling.
 
 ## Accessing BIOS
 

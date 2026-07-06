@@ -144,12 +144,17 @@ After creating the boot media, verify it works:
 
 ## MS-S1 MAX Firmware Update (Recommended Before Install)
 
-Flash BIOS **1.06** (released 2026-01-04) before installing 26.04. It addresses memory training, NVMe, USB4 v2 stability and adds AMD PSP/UEFI security patches that the 26.04 kernel expects.
+Flash BIOS **1.08** (released 2026-03-13) before installing 26.04 — see [BIOS Setup -> Firmware Version](../../getting-started/bios-setup.md#firmware-version) for exactly what changed across 1.05-1.08 per Minisforum's own release notes.
 
-The flash is doable from Linux + EFI shell (no Windows required). See [capetron/minisforum-ms-s1-max-bios](https://github.com/capetron/minisforum-ms-s1-max-bios) for the script. Disable Secure Boot during the flash; the first post-flash boot takes 5-10 minutes for memory retraining and resets BIOS settings to defaults.
+Two flash methods ship in the same firmware download:
 
-!!! warning "USB4 rear-port instability"
-    A known ACPI power-management flaw on the rear USB4 v2 ports is still being investigated upstream as of early 2026 and is **not fully resolved by BIOS 1.06**. If USB4 stability matters during install, use the front 40 Gbps ports.
+- **Windows (official)**: `WinFlash.bat` / `AFUWINx64.EXE`, run as Administrator. If the box still has its factory Windows install, this is the simplest path before wiping the drive for Ubuntu.
+- **Linux + EFI shell (no Windows required)**: `AfuEfix64.efi` — see [capetron/minisforum-ms-s1-max-bios](https://github.com/capetron/minisforum-ms-s1-max-bios) for the automation script.
+
+Disable Secure Boot during the flash either way; the first post-flash boot takes 5-10 minutes for memory retraining and resets BIOS settings to defaults.
+
+!!! note "Rear USB4 ports"
+    The ASPM/hot-plug issue that used to make the rear USB4 V2 ports unreliable under Linux was fixed in BIOS 1.05, before the minimum this guide requires — see [BIOS Setup](../../getting-started/bios-setup.md#firmware-version) for details. Front and rear USB4 ports should both work fine.
 
 ## BIOS/UEFI Configuration
 

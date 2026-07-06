@@ -104,7 +104,7 @@ For the full ROCm/AI stack, continue to [Quick Start](../../ai/gpu/quick-start.m
 
 ### USB4 stability
 
-Prefer the **front 40 Gbps USB4 ports** for any device that must stay connected. The rear 80 Gbps USB4 v2 ports have a known ACPI power-management flaw upstream that BIOS 1.06 does not fully resolve.
+Front and rear USB4 ports should both work fine on BIOS 1.06+ — the ASPM/hot-plug flaw that used to affect the rear USB4 V2 ports under Linux was fixed in BIOS 1.05 (see [BIOS Setup -> Firmware Version](../../getting-started/bios-setup.md#firmware-version)). Use whichever ports fit your cabling.
 
 ## Install Tailscale
 
