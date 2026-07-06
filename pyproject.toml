@@ -53,6 +53,9 @@ convention = "google"
 
 [tool.ruff.lint.per-file-ignores]
 "**/__init__.py" = ["D104"]
+# Tests don't need pydocstyle docstrings on every case, and accessing
+# module-private helpers (E.g. `_crypt_password`) is intentional there.
+"tests/**" = ["D"]
 
 [tool.ruff.format]
 quote-style = "double"
@@ -72,3 +75,7 @@ strict_equality = true
 include = ["src"]
 pythonVersion = "3.14"
 typeCheckingMode = "strict"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"

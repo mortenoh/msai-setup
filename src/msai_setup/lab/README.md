@@ -342,6 +342,8 @@ morten@test:~$ curl http://127.0.0.1/whoami
 
 You've now seen the lab's full path: provision a VM → ZFS → SSH hardening → UFW → Docker → a real Compose stack with the bind-mount-into-ZFS pattern.
 
+> **`msai lab apply` vs `msai lab all`**: bare `msai lab apply` (no playbook args) runs only the conservative subset — `bootstrap`, `ssh-hardening`, `ufw`. That's deliberate: those touch nothing destructive. The heavier `zfs`, `docker`, and `services` playbooks are run explicitly, one at a time, as shown above. The one exception is `msai lab all`: because "all" means all, it intentionally runs the **full** pipeline (`bootstrap`, `ssh-hardening`, `ufw`, `zfs`, `docker`, `services`) end-to-end after provisioning. Narrow it with `--playbooks` if you want a subset.
+
 ### Try LXC (just to know what it looks like)
 
 LXD is in Ubuntu's snap. In the VM:

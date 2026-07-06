@@ -91,6 +91,9 @@ Unattended-Upgrade::Package-Blacklist {
 
     Track Docker security advisories rather than assuming automatic updates cover the runtime.
 
+!!! warning "Manual kernel upgrades can break amdgpu-dkms if you used the DKMS ROCm path"
+    Kernel packages are blacklisted here, so a kernel bump only happens when you run `apt upgrade` yourself — but when you do, be aware that specific Ubuntu 26.04 kernel 7.0 point releases have shipped amdgpu-dkms build failures (see [ROCm Installation -> Kernel Module Issues](../../ai/gpu/rocm-installation.md#kernel-module-issues)). This is one more reason the in-distro `apt install rocm` path (no DKMS at all) is the recommended default for this build — if you did opt into `amdgpu-install --usecase=...,dkms`, check `dkms status` after any kernel upgrade before assuming ROCm still works.
+
 ### Email Notifications
 
 ```

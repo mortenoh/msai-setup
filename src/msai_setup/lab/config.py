@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import os
 import platform
+import secrets
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -17,6 +18,16 @@ from msai_setup.lab import instance as _instance
 
 def _default_vm_name() -> str:
     return os.environ.get("VM_NAME") or _instance.get_current() or "ms-s1-max-lab"
+
+
+def _default_vm_password() -> str:
+    """Return $VM_PASSWORD, or a strong random console password if unset.
+
+    SSH password auth is disabled via cloud-init, so this only affects local
+    console login on a throwaway VM. Provisioning surfaces the generated value
+    (logs it and writes it beside the SSH key) so console access isn't lost.
+    """
+    return os.environ.get("VM_PASSWORD") or secrets.token_urlsafe(12)
 
 
 def _default_target_dir() -> Path:
@@ -77,7 +88,7 @@ class LabConfig:
     vm_name: str = field(default_factory=_default_vm_name)
     vm_hostname: str = _env("VM_HOSTNAME", "")  # filled in load_config()
     vm_user: str = _env("VM_USER", "morten")
-    vm_password: str = _env("VM_PASSWORD", "changeme")
+    vm_password: str = field(default_factory=_default_vm_password)
     vm_fullname: str = _env("VM_FULLNAME", "Morten Hansen")
 
     # VM hardware
@@ -130,26 +141,32 @@ class LabConfig:
 
     @property
     def iso_url(self) -> str:
+        """Full download URL of the Ubuntu install ISO."""
         return f"{self.ubuntu_iso_base_url}/{self.ubuntu_iso_filename}"
 
     @property
     def iso_sha256_url(self) -> str:
+        """URL of the SHA256SUMS file for the Ubuntu install ISO."""
         return f"{self.ubuntu_iso_base_url}/SHA256SUMS"
 
     @property
     def iso_path(self) -> Path:
+        """Local path to the cached Ubuntu install ISO."""
         return self.target_dir / self.ubuntu_iso_filename
 
     @property
     def state_path(self) -> Path:
+        """Local path to this instance's JSON state file."""
         return self.target_dir / f"{self.vm_name}-state.json"
 
     @property
     def primary_disk_path(self) -> Path:
+        """Local path to this instance's primary VDI disk."""
         return self.target_dir / f"{self.vm_name}-primary.vdi"
 
     @property
     def cidata_iso_path(self) -> Path:
+        """Local path to this instance's cloud-init CIDATA ISO."""
         return self.target_dir / f"{self.vm_name}-cidata.iso"
 
     @property
@@ -158,11 +175,18 @@ class LabConfig:
         stem = Path(self.ubuntu_iso_filename).stem
         return self.target_dir / f"{stem}-autoinstall.iso"
 
+    @property
+    def console_password_path(self) -> Path:
+        """File where the generated console password is recorded for the user."""
+        return self.target_dir / f"{self.vm_name}-console-password.txt"
+
     def lab_disk_path(self, index: int) -> Path:
+        """Local path to this instance's Nth extra lab VDI disk (1-indexed)."""
         return self.target_dir / f"{self.vm_name}-lab-{index:02d}.vdi"
 
     @property
     def ssh_host(self) -> str:
+        """Host the VM's forwarded SSH port is reachable on (always loopback)."""
         return "127.0.0.1"
 
 
@@ -172,11 +196,32 @@ def load_config(vm_name: str | None = None) -> LabConfig:
     `vm_name` (if given) overrides the env / current-instance default and is
     used to scope all the per-instance paths (disks, ISOs, state file).
     """
-    overrides: dict[str, str] = {}
-    if vm_name is not None:
-        overrides["vm_name"] = vm_name
-    config = LabConfig(**overrides) if overrides else LabConfig()
+    resolved_name = vm_name if vm_name is not None else _default_vm_name()
+    config = LabConfig(vm_name=resolved_name)
     if not config.vm_hostname:
-        config = LabConfig(**{**overrides, "vm_hostname": f"{config.vm_name}.local"})
+        config = LabConfig(vm_name=resolved_name, vm_hostname=f"{config.vm_name}.local")
+
+    # Validate env-sourced identifiers that flow into filenames / VBox VM names
+    # / sudoers paths, so a malformed value fails fast instead of producing
+    # broken paths or bad VBoxManage arguments downstream.
+    _validate_identifier("VM_NAME / instance name", config.vm_name)
+    _validate_identifier("VM_USER", config.vm_user)
+    _validate_target_dir(config.target_dir)
+
     config.target_dir.mkdir(parents=True, exist_ok=True)
     return config
+
+
+def _validate_identifier(label: str, value: str) -> None:
+    """Reject values unsafe as filename prefixes / VBox names / usernames."""
+    try:
+        _instance.validate_name(value)
+    except ValueError as e:
+        raise ValueError(f"invalid {label}: {e}") from e
+
+
+def _validate_target_dir(path: Path) -> None:
+    """Reject a TARGET_DIR that contains control characters or is empty."""
+    raw = str(path)
+    if not raw or any(ord(ch) < 0x20 for ch in raw):
+        raise ValueError(f"invalid TARGET_DIR: {raw!r} (empty or contains control characters)")

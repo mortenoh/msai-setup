@@ -79,7 +79,7 @@ sudo apt update
 sudo apt install rocm
 ```
 
-This pulls ROCm 7.1.0 from Ubuntu's Universe repo. It includes the runtime, HIP, OpenCL, and Lemonade Server. Use this unless you specifically need a newer ROCm than 7.1.0.
+This pulls ROCm 7.1.0 from Ubuntu's Universe repo. It includes the runtime, HIP, OpenCL, and Lemonade Server, and relies on the kernel's built-in amdgpu driver rather than a DKMS-rebuilt one — which sidesteps the kernel-point-release DKMS build failures described in [Method 2](#method-2-amdgpu-install-newer-rocm-via-amds-repo) below. Use this unless you specifically need a newer ROCm than 7.1.0.
 
 ### Method 2: amdgpu-install (Newer ROCm via AMD's repo)
 
@@ -102,12 +102,14 @@ sudo apt install ./amdgpu-install_7.1.1.70101-1_all.deb
 **Install ROCm:**
 
 ```bash
-# Install ROCm with all common components
-sudo amdgpu-install --usecase=rocm,hip,opencl,graphics,dkms
+# Install ROCm without rebuilding the kernel module (recommended — see warning below)
+sudo amdgpu-install --usecase=rocm,hip,opencl,graphics --no-dkms
 ```
 
-!!! note "DKMS is optional on 26.04"
-    The 7.0 kernel includes upstream amdgpu support for gfx1151, so DKMS is no longer strictly required to make ROCm work. Including `dkms` is still useful when you need a fresher amdgpu than the in-tree driver — for example to pick up a Strix-Halo-specific fix that hasn't landed in the running kernel yet.
+!!! warning "amdgpu-dkms has known build failures on specific Ubuntu 26.04 kernel 7.0 point releases"
+    The 7.0 kernel already includes upstream amdgpu support for gfx1151, so DKMS is not required to make ROCm work — and real-world reports show `amdgpu-dkms` **failing to compile** against several 26.04 kernel 7.0 point releases, with different errors on different point releases: on 7.0.0-14, function-signature mismatches (`pci_resize_resource`, `drm_client_dev_suspend`/`drm_client_dev_resume`) and missing `dma_map_ops.map_resource`; on 7.0.0-22, a GCC 15.2.0 internal compiler error / segfault in `sched_entity.c` (this one worked on 7.0.0-15 but broke again on -22). AMD has a fix in progress for at least one of these (tracked upstream), but as of this writing there's no guarantee a given kernel point release builds cleanly.
+
+    **Recommended**: skip DKMS entirely with `--no-dkms` as shown above, matching Method 1's approach. If you specifically need a newer amdgpu than the in-tree driver (e.g. an unreleased Strix-Halo fix) and want to try DKMS anyway, use `--usecase=rocm,hip,opencl,graphics,dkms` — if the build then fails, don't just retry; either downgrade to a kernel point release known to work for you (check `dpkg -l | grep linux-image` for what you had before the last `apt upgrade`) or fall back to `--no-dkms` and file/search the [ROCm/amdgpu issue tracker](https://github.com/ROCm/amdgpu/issues) for your exact kernel version.
 
 **Available use cases:**
 
@@ -353,11 +355,21 @@ sudo amdgpu-install --usecase=rocm
 ```bash
 # Check DKMS status
 dkms status
+```
 
-# Rebuild modules if needed
+If `dkms status` shows `amdgpu` as missing or broken, check `journalctl` / the DKMS build log before just retrying — this project has hit real amdgpu-dkms compile failures on specific Ubuntu 26.04 kernel 7.0 point releases (see the warning in [Method 2](#method-2-amdgpu-install-newer-rocm-via-amds-repo) above for the exact error signatures). A plain rebuild will fail again with the same error if that's what you're hitting:
+
+```bash
+# Check the actual build log for a real compile error vs. a transient issue
+cat /var/lib/dkms/amdgpu/*/build/make.log 2>/dev/null | tail -50
+
+# If it's a genuine compile error against this kernel: skip DKMS instead of retrying
+sudo amdgpu-install --uninstall
+sudo amdgpu-install --usecase=rocm,hip,opencl,graphics --no-dkms
+
+# If you want to keep trying DKMS: a plain rebuild only helps for transient issues,
+# not kernel-API incompatibilities
 sudo dkms autoinstall
-
-# Or reinstall amdgpu-dkms
 sudo apt install --reinstall amdgpu-dkms
 ```
 

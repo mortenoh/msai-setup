@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import logging
-import subprocess
-from pathlib import Path
 from typing import Annotated
 
 import typer
@@ -64,7 +62,7 @@ def apply(
 ) -> None:
     """Run one or more Ansible playbooks against the lab VM."""
     _configure_logging(verbose)
-    chosen = list(playbooks) if playbooks else list(apply_mod.DEFAULT_PLAYBOOKS)
+    chosen: list[str] = list(playbooks) if playbooks else list(apply_mod.DEFAULT_PLAYBOOKS)
     extras: list[str] = []
     if check:
         extras.append("--check")
@@ -97,7 +95,13 @@ def all(
     ] = ",".join(pipeline_mod.DEFAULT_PLAYBOOKS),
     verbose: _VerboseOption = False,
 ) -> None:
-    """Run the whole pipeline end-to-end: provision then apply."""
+    """Run the whole pipeline end-to-end: provision then apply.
+
+    Unlike bare `msai lab apply` (which runs only the conservative subset:
+    bootstrap, ssh-hardening, ufw), `msai lab all` intentionally runs the FULL
+    playbook set including zfs, docker, and services — "all" means all. Narrow
+    it with --playbooks, or run individual playbooks via `msai lab apply <name>`.
+    """
     _configure_logging(verbose)
     pb_list = [p.strip() for p in playbooks.split(",") if p.strip()]
     if stop_after not in (None, "provision", "apply"):
@@ -158,18 +162,27 @@ def destroy(
             abort=True,
         )
 
+    # Read the disk count actually used at creation time from the saved state,
+    # so a VM created with a non-default LAB_DISK_COUNT still gets all its disks
+    # removed even if the current env/default differs. Fall back to the config
+    # default for state files that predate this recording.
+    saved = state_mod.load(cfg.state_path)
+    provision_info = saved.get("phases", {}).get("provision", {})
+    disk_count = provision_info.get("lab_disk_count", cfg.lab_disk_count)
+
     vbox_mod.unregister_and_delete(cfg.vm_name)
 
     # Remove disks and ISOs that the VM was using
     for p in [
         cfg.primary_disk_path,
         cfg.cidata_iso_path,
+        cfg.console_password_path,
         cfg.state_path,
     ]:
         if p.exists():
             p.unlink()
             typer.echo(f"removed {p}")
-    for i in range(1, cfg.lab_disk_count + 1):
+    for i in range(1, disk_count + 1):
         path = cfg.lab_disk_path(i)
         if path.exists():
             path.unlink()
@@ -205,17 +218,14 @@ def restore(
     cfg = load_config()
     if vbox_mod.vm_running(cfg.vm_name):
         vbox_mod.power_off(cfg.vm_name)
-    if name:
-        # `snapshot restore <name>` form; fall back to current if it errors
-        try:
-            subprocess.run(
-                ["VBoxManage", "snapshot", cfg.vm_name, "restore", name],
-                check=True,
-            )
-        except subprocess.CalledProcessError as e:
-            raise typer.Exit(code=e.returncode)
-    else:
-        vbox_mod.snapshot_restore_current(cfg.vm_name)
+    try:
+        if name:
+            vbox_mod.snapshot_restore(cfg.vm_name, name)
+        else:
+            vbox_mod.snapshot_restore_current(cfg.vm_name)
+    except vbox_mod.VBoxError as e:
+        typer.echo(str(e), err=True)
+        raise typer.Exit(code=1) from e
     typer.echo(f"restored to snapshot {name or '(most recent)'}")
 
 

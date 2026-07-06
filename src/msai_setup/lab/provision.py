@@ -55,6 +55,13 @@ def main() -> None:
     iso.ensure_iso(cfg.iso_path, url=cfg.iso_url, sha_url=cfg.iso_sha256_url)
     iso.remaster_iso_for_autoinstall(cfg.iso_path, cfg.autoinstall_iso_path)
 
+    # Record the console password (random per-instance unless $VM_PASSWORD was
+    # set) so the user can still log in on the VM console if they ever need to.
+    # SSH uses key auth, so this is only for local console access.
+    cfg.console_password_path.write_text(cfg.vm_password + "\n")
+    log.info("console login: user '%s', password '%s'", cfg.vm_user, cfg.vm_password)
+    log.info("  (also saved to %s)", cfg.console_password_path)
+
     # 3. Build the CIDATA ISO
     user_data = cloudinit.render_user_data(
         hostname=cfg.vm_hostname.split(".")[0],

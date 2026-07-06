@@ -174,15 +174,31 @@ def stop(
         )
 
 
-@app.command(name="ssh")
-@app.command(name="login", hidden=True)
+@app.command(
+    name="ssh",
+    context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
+)
+@app.command(
+    name="login",
+    hidden=True,
+    context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
+)
 def ssh_login(
+    ctx: typer.Context,
     name: Annotated[
         str | None,
-        typer.Argument(help="Instance name (default: current)."),
+        typer.Argument(
+            help="Instance name (default: current). Required if passing a remote COMMAND."
+        ),
     ] = None,
 ) -> None:
-    """SSH into a lab instance using the lab keypair."""
+    """SSH into a lab instance using the lab keypair.
+
+    Pass a remote command after `--` to run it non-interactively instead of
+    opening a shell, e.g. `msai ssh myvm -- uname -a`. NAME must be given
+    explicitly when passing a command (it can't be inferred from "current"
+    in that case, since the parser can't tell a command apart from a name).
+    """
     import os
 
     target = name or lab_instance.require_current()
@@ -199,6 +215,8 @@ def ssh_login(
         "-o", "UserKnownHostsFile=/dev/null",
         f"{cfg.vm_user}@{cfg.ssh_host}",
     ]
+    if ctx.args:
+        cmd.extend(ctx.args)
     os.execvp(cmd[0], cmd)
 
 
