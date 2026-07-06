@@ -9,7 +9,7 @@ Comprehensive checklist for hardening Ubuntu Server 26.04 LTS. Use this as a ver
 - [ ] ISO checksum verified
 - [ ] ISO GPG signature verified
 - [ ] Boot media created and tested
-- [ ] Disk partitioning plan determined (plain ext4: EFI + /boot + / on the primary NVMe — see [Disk Partitioning](../installation/disk-partitioning.md))
+- [ ] Disk partitioning plan determined (root-on-ZFS: EFI + `rpool` on the 4 TB primary NVMe, `tank` on the 2 TB secondary — see [Disk Partitioning](../installation/disk-partitioning.md))
 - [ ] Network configuration planned
 
 ## BIOS/UEFI Settings
@@ -24,15 +24,15 @@ Comprehensive checklist for hardening Ubuntu Server 26.04 LTS. Use this as a ver
 
 ## Installation
 
-This build uses **plain ext4 root, no LUKS, no LVM**. The partition layout is:
+This build uses **root-on-ZFS via [ZFSBootMenu](https://zfsbootmenu.org/), no LUKS, no LVM, no GRUB** — Subiquity's guided installer has no ZFS-root path, so this is the manual [installation walkthrough](../installation/installation-walkthrough.md). Two independent pools, one per drive:
 
-- [ ] Custom storage layout selected (not guided/entire-disk)
-- [ ] Partitions created on the primary NVMe:
-  - [ ] /boot/efi (512 MB, FAT32)
-  - [ ] /boot (1 GB, ext4)
-  - [ ] / (1 TB, ext4)
-  - [ ] ~1 TB left as free space for the ZFS pool
-- [ ] Secondary 4 TB NVMe left entirely unallocated (claimed by ZFS post-install)
+- [ ] Manual root-on-ZFS install followed (not the guided installer)
+- [ ] Primary 4 TB NVMe (slot 1, fast x4): EFI partition + `rpool` pool member
+  - [ ] /boot/efi (512 MB, FAT32 — holds the ZFSBootMenu EFI binary; no separate `/boot`)
+  - [ ] `rpool` with `ROOT/ubuntu` (`mountpoint=/`, `canmount=noauto`), `home`, `incus`, `db`, `ai`
+- [ ] Secondary 2 TB NVMe (slot 2, slow x1): entire disk as the separate `tank` pool (`media`, `nextcloud-data`, `nextcloud-app`, `backups`)
+- [ ] ZFSBootMenu EFI binary installed and `efibootmgr` entry registered (first in boot order)
+- [ ] `VMLINUZ-BACKUP.EFI` copy of the ZFSBootMenu binary present on the ESP
 - [ ] SSH server installed
 - [ ] SSH keys imported
 
@@ -125,13 +125,12 @@ sysctl settings in `/etc/sysctl.d/99-security.conf`:
 
 ## Mount Options
 
-This build uses a unified ext4 root (no separate /home, /var, /tmp partitions), so the fstab hardening surface is smaller. Apply security options where they exist:
+Root and all data are ZFS datasets that mount natively — the **only** `/etc/fstab` entry on this build is the EFI partition, so the classic fstab hardening surface is small. Apply security options where they exist, and use per-dataset ZFS properties elsewhere:
 
-- [ ] /boot mounted with nodev,nosuid,noexec
-- [ ] /boot/efi mounted with umask=0077,fmask=0077,dmask=0077
+- [ ] /boot/efi (the sole fstab entry) mounted with umask=0077,fmask=0077,dmask=0077
 - [ ] /dev/shm mounted with nodev,nosuid,noexec
 - [ ] /tmp mounted as tmpfs with nodev,nosuid,noexec (optional — see [Disk Partitioning](../installation/disk-partitioning.md))
-- [ ] ZFS datasets under /mnt/tank/ carry their own per-dataset mount options
+- [ ] ZFS datasets on `rpool` and `tank` carry appropriate per-dataset properties (`atime=off`, `setuid`/`exec`/`devices` where a dataset warrants tightening)
 
 ## Automatic Updates
 
@@ -191,14 +190,14 @@ This build uses a unified ext4 root (no separate /home, /var, /tmp partitions), 
 
 ## Disk Encryption
 
-!!! note "Only applicable if you chose the LUKS+LVM alternative"
-    This build's default layout is **unencrypted plain ext4 root** (the host lives on a private network behind UFW/Tailscale; LUKS adds a remote-unlock problem on a headless box). Skip this section unless you followed the "Encrypted Alternative — LUKS + LVM" path in [Disk Partitioning](../installation/disk-partitioning.md).
+!!! note "Only applicable if you chose an encrypted alternative"
+    This build's default layout is **unencrypted root-on-ZFS** (the host lives on a private network behind UFW/Tailscale; encryption adds a remote-unlock problem on a headless box). Skip this section unless you followed an encrypted path in [Disk Partitioning](../installation/disk-partitioning.md#encrypted-alternative-zfs-native-encryption-or-luks-lvm). ZFS native encryption is the modern equivalent here — it composes with ZFSBootMenu, which prompts for the passphrase at the boot menu when a boot environment's dataset is encrypted.
 
-- [ ] LUKS encryption active
+- [ ] Encryption active (ZFS native encryption on the pool/dataset, or LUKS if you chose that path)
 - [ ] Strong passphrase used
-- [ ] Recovery key created and stored securely
-- [ ] LUKS header backed up
-- [ ] Unlock mechanism planned (dropbear-initramfs / Clevis+Tang / walk-up)
+- [ ] Recovery key / raw key stored securely
+- [ ] ZFS `keylocation` / `keyformat` recorded (or LUKS header backed up)
+- [ ] Unlock mechanism planned (ZFSBootMenu passphrase prompt / dropbear-initramfs / walk-up)
 
 ## Backup
 
@@ -211,16 +210,25 @@ This build uses a unified ext4 root (no separate /home, /var, /tmp partitions), 
 - [ ] Backup restoration tested
 - [ ] Off-site backup configured
 
-## ZFS Data Pool
+## ZFS Pools (`rpool` + `tank`)
 
-- [ ] Pool `tank` imported and `ONLINE`: `zpool status tank`
-- [ ] No read/write/checksum errors reported
-- [ ] Scrub scheduled (and last scrub completed clean): `zpool status | grep scrub`
-- [ ] Datasets created per layout: `zfs list`
-- [ ] ARC capped (e.g. 16 GiB) so VMs and Ollama have predictable memory
+- [ ] Root pool `rpool` `ONLINE`, no errors: `zpool status -v rpool`
+- [ ] Data pool `tank` `ONLINE`, no errors: `zpool status -v tank`
+- [ ] Root is a boot environment: `zfs list rpool/ROOT/ubuntu` mounts `/` (`canmount=noauto`)
+- [ ] `rpool` datasets present per layout (`ROOT/ubuntu`, `home`, `incus`, `db`, `ai`) and `tank` datasets present (`media`, `nextcloud-data`, `nextcloud-app`, `backups`): `zfs list`
+- [ ] Scrub scheduled on **both** pools, last scrub clean: `zpool status | grep scrub`
+- [ ] ARC capped (e.g. 16 GiB, shared across both pools) so Incus VMs and Ollama have predictable memory: `cat /sys/module/zfs/parameters/zfs_arc_max`
 - [ ] sanoid snapshot schedule present and running: `systemctl status sanoid.timer`
-- [ ] Snapshots actually being taken: `zfs list -t snapshot | head`
-- [ ] syncoid / restic off-host replication configured and tested
+- [ ] Snapshots being taken on both pools incl. `rpool/ROOT` and `rpool/incus`: `zfs list -t snapshot | head`
+- [ ] syncoid / restic off-host replication configured and tested (see [Backup](../../operations/backup.md))
+
+## ZFSBootMenu / Boot Environments
+
+- [ ] ZFSBootMenu is first in the EFI boot order: `sudo efibootmgr -v`
+- [ ] Interrupting the boot countdown shows the boot-environment list (rollback path works)
+- [ ] At least one prior boot environment / `rpool/ROOT` snapshot exists to roll back to: `zfs list -t snapshot -r rpool/ROOT`
+- [ ] Kernel command line set via ZFS property (no GRUB): `zfs get org.zfsbootmenu:commandline rpool/ROOT/ubuntu`
+- [ ] ZFSBootMenu EFI binary backed up off the ESP (see [Boot Issues](../troubleshooting/boot-issues.md#back-up-the-efi-binary-and-boot-entries))
 
 ## GPU / AI Stack
 
@@ -229,12 +237,17 @@ This build uses a unified ext4 root (no separate /home, /var, /tmp partitions), 
 - [ ] amd-ttm GTT allocation configured (kernel `ttm.pages_limit` / `ttm.page_pool_size`)
 - [ ] Ollama / llama.cpp inference functional against the iGPU
 
-## Containers & Virtualization
+## Containers & Virtualization (Incus)
 
-- [ ] Docker service data uses bind mounts into ZFS datasets (not named volumes)
-- [ ] `ufw-docker` applied so UFW actually filters Docker-published ports
-- [ ] KVM/QEMU functional (`virsh list --all`); VM disks on the primary NVMe
-- [ ] Service ports bound to 127.0.0.1 behind a reverse proxy
+Incus is the single virtualization/container layer — Docker nests inside an Incus container, VMs are Incus VM instances. See the [Incus deep-dive](../../incus/index.md).
+
+- [ ] Incus healthy and its ZFS backend points at `rpool/incus`: `incus storage show default` (`driver: zfs`, `source: rpool/incus`)
+- [ ] Instances present and running as expected: `incus list`
+- [ ] Instance storage is native ZFS datasets under `rpool/incus` (not opaque named volumes): `zfs list -r rpool/incus`
+- [ ] Docker workloads run **inside** an Incus system container (`security.nesting=true`), with important data on host datasets bind-mounted in — not Docker named volumes ([docker-in-incus](../../incus/docker-in-incus.md))
+- [ ] Incus bridge (`incusbr0`) forwarding filtered by UFW — same treatment `ufw-docker` gave bare Docker ([networking](../../incus/networking.md))
+- [ ] VMs are Incus VM instances (`incus list --type=virtual-machine`); no bare libvirt/`virsh` on the host
+- [ ] Service ports bound to 127.0.0.1 / proxied through a reverse proxy, not published straight to the LAN
 
 ## Network
 

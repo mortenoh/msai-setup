@@ -1,0 +1,359 @@
+---
+# Install and initialise Incus, matching docs/incus/installation.md,
+# docs/incus/networking.md, and docs/incus/profiles.md.
+#
+# The storage backend is pointed at an existing ZFS dataset. On the real
+# MS-S1 MAX that is rpool/incus (created during disk-partitioning); on the
+# lab VM there is no rpool, so override the dataset to match zfs.yml's pool:
+#
+#   ansible-playbook incus.yml -e incus_zfs_dataset=tank/incus
+#
+# Install source defaults to the Ubuntu archive package (the documented
+# default on 24.04+). Switch to Zabbly's upstream repo with:
+#
+#   ansible-playbook incus.yml -e incus_install_source=zabbly
+#
+# The gpu profile (ROCm passthrough) is off by default because it needs a
+# real iGPU and a render group; enable it on hardware with:
+#
+#   ansible-playbook incus.yml -e incus_create_gpu_profile=true
+
+- hosts: lab
+  become: true
+  gather_facts: true
+
+  vars:
+    incus_install_source: archive          # archive | zabbly
+    incus_zfs_dataset: rpool/incus         # existing ZFS pool/dataset for the storage backend
+    incus_zfs_pool: "{{ incus_zfs_dataset.split('/')[0] }}"
+    incus_bridge: incusbr0
+    incus_admin_user: "{{ ansible_user }}"
+    incus_images_auto_update_interval: "6"
+    incus_configure_ufw: true              # add ufw route rules (skipped if ufw absent)
+    incus_setup_profiles: true             # create docker-nesting (and gpu, if enabled)
+    incus_create_gpu_profile: false        # needs an iGPU + render group
+
+  tasks:
+    - name: incus — validate install source
+      ansible.builtin.assert:
+        that: incus_install_source in ['archive', 'zabbly']
+        fail_msg: "incus_install_source must be 'archive' or 'zabbly', got '{{ incus_install_source }}'"
+
+    # --- Install ---------------------------------------------------------
+
+    - name: incus — install from the Ubuntu archive
+      when: incus_install_source == 'archive'
+      ansible.builtin.apt:
+        name:
+          - incus            # daemon + CLI (containers)
+          - qemu-system-x86  # VM support (archive incus does not pull it in)
+          - qemu-utils
+        state: present
+        update_cache: true
+
+    - name: incus — install from Zabbly's upstream repo
+      when: incus_install_source == 'zabbly'
+      block:
+        - name: incus — prerequisites (zabbly)
+          ansible.builtin.apt:
+            name:
+              - ca-certificates
+              - curl
+            state: present
+            update_cache: true
+
+        - name: incus — keyring dir
+          ansible.builtin.file:
+            path: /etc/apt/keyrings
+            state: directory
+            mode: "0755"
+
+        - name: incus — Zabbly signing key
+          ansible.builtin.get_url:
+            url: https://pkgs.zabbly.com/key.asc
+            dest: /etc/apt/keyrings/zabbly.asc
+            mode: "0644"
+
+        - name: incus — Zabbly apt source (stable channel)
+          ansible.builtin.copy:
+            dest: /etc/apt/sources.list.d/zabbly-incus-stable.sources
+            owner: root
+            group: root
+            mode: "0644"
+            content: |
+              Enabled: yes
+              Types: deb
+              URIs: https://pkgs.zabbly.com/incus/stable
+              Suites: {{ ansible_distribution_release }}
+              Components: main
+              Architectures: {{ ansible_architecture | replace('x86_64', 'amd64') | replace('aarch64', 'arm64') }}
+              Signed-By: /etc/apt/keyrings/zabbly.asc
+
+        - name: incus — install (zabbly)
+          ansible.builtin.apt:
+            name:
+              - incus
+              - qemu-system-x86
+              - qemu-utils
+            state: present
+            update_cache: true
+
+    # --- Daemon ----------------------------------------------------------
+
+    - name: incus — list systemd unit files
+      ansible.builtin.command: systemctl list-unit-files
+      register: incus_unit_files
+      changed_when: false
+
+    - name: incus — enable and start the socket
+      when: "'incus.socket' in incus_unit_files.stdout"
+      ansible.builtin.systemd:
+        name: incus.socket
+        enabled: true
+        state: started
+
+    - name: incus — enable and start the service
+      when: "'incus.service' in incus_unit_files.stdout"
+      ansible.builtin.systemd:
+        name: incus.service
+        enabled: true
+        state: started
+
+    - name: incus — wait for the daemon to answer
+      ansible.builtin.command: incus info
+      register: incus_info
+      changed_when: false
+      retries: 10
+      delay: 2
+      until: incus_info.rc == 0
+
+    # --- Non-root access -------------------------------------------------
+
+    - name: incus — ensure incus-admin group exists
+      ansible.builtin.group:
+        name: incus-admin
+        state: present
+
+    - name: incus — add admin user to incus-admin group
+      ansible.builtin.user:
+        name: "{{ incus_admin_user }}"
+        groups: incus-admin
+        append: true
+
+    # --- First-run initialisation (preseed) ------------------------------
+
+    - name: incus — check whether the default storage pool already exists
+      ansible.builtin.command: incus storage show default
+      register: incus_pool_check
+      failed_when: false
+      changed_when: false
+
+    - name: incus — verify the target ZFS pool exists (only when initialising)
+      when: incus_pool_check.rc != 0
+      block:
+        - name: incus — look up the ZFS pool
+          ansible.builtin.command: "zpool list -H -o name {{ incus_zfs_pool }}"
+          register: incus_zpool_check
+          failed_when: false
+          changed_when: false
+
+        - name: incus — assert the ZFS pool is present
+          ansible.builtin.assert:
+            that: incus_zpool_check.rc == 0
+            fail_msg: >-
+              ZFS pool '{{ incus_zfs_pool }}' not found. Create it first (run zfs.yml)
+              or point incus_zfs_dataset at an existing pool, e.g.
+              -e incus_zfs_dataset=tank/incus.
+
+    - name: incus — write the preseed file (rebuild artifact)
+      ansible.builtin.copy:
+        dest: /etc/incus/incus-preseed.yaml
+        owner: root
+        group: root
+        mode: "0600"
+        content: |
+          config:
+            images.auto_update_interval: "{{ incus_images_auto_update_interval }}"
+          storage_pools:
+            - name: default
+              driver: zfs
+              config:
+                source: {{ incus_zfs_dataset }}
+          networks:
+            - name: {{ incus_bridge }}
+              type: bridge
+              config:
+                ipv4.address: auto
+                ipv4.nat: "true"
+                ipv6.address: none
+          profiles:
+            - name: default
+              devices:
+                root:
+                  path: /
+                  pool: default
+                  type: disk
+                eth0:
+                  name: eth0
+                  network: {{ incus_bridge }}
+                  type: nic
+
+    - name: incus — apply the preseed (first-run init)
+      when: incus_pool_check.rc != 0
+      ansible.builtin.shell: "incus admin init --preseed < /etc/incus/incus-preseed.yaml"
+      changed_when: true
+
+    # --- Firewall / networking (docs/incus/networking.md strategy A) -----
+
+    - name: incus — confirm the bridge exists
+      ansible.builtin.command: "incus network show {{ incus_bridge }}"
+      register: incus_bridge_check
+      failed_when: false
+      changed_when: false
+
+    - name: incus — hand bridge filtering to UFW (disable Incus firewall)
+      when: incus_bridge_check.rc == 0
+      ansible.builtin.shell: |
+        set -eu
+        changed=0
+        for fam in ipv4 ipv6; do
+          cur=$(incus network get {{ incus_bridge }} ${fam}.firewall)
+          if [ "$cur" != "false" ]; then
+            incus network set {{ incus_bridge }} ${fam}.firewall false
+            changed=1
+          fi
+        done
+        echo "changed=${changed}"
+      register: incus_fw_set
+      changed_when: "'changed=1' in incus_fw_set.stdout"
+
+    - name: incus — check for ufw
+      ansible.builtin.command: which ufw
+      register: incus_ufw_which
+      failed_when: false
+      changed_when: false
+
+    - name: incus — allow traffic to the host on the bridge
+      when: incus_configure_ufw and incus_ufw_which.rc == 0
+      community.general.ufw:
+        rule: allow
+        direction: in
+        interface: "{{ incus_bridge }}"
+
+    - name: incus — allow forwarded traffic in on the bridge
+      when: incus_configure_ufw and incus_ufw_which.rc == 0
+      community.general.ufw:
+        rule: allow
+        route: true
+        direction: in
+        interface_in: "{{ incus_bridge }}"
+
+    - name: incus — allow forwarded traffic out on the bridge
+      when: incus_configure_ufw and incus_ufw_which.rc == 0
+      community.general.ufw:
+        rule: allow
+        route: true
+        direction: out
+        interface_out: "{{ incus_bridge }}"
+
+    - name: incus — enable IPv4 forwarding for NAT
+      ansible.posix.sysctl:
+        name: net.ipv4.conf.all.forwarding
+        value: "1"
+        sysctl_set: true
+        state: present
+        reload: true
+        sysctl_file: /etc/sysctl.d/99-incus-forwarding.conf
+
+    # --- Reusable profiles (docs/incus/profiles.md) ----------------------
+
+    - name: incus — docker-nesting profile
+      when: incus_setup_profiles
+      block:
+        - name: incus — check docker-nesting profile
+          ansible.builtin.command: incus profile show docker-nesting
+          register: incus_docker_profile
+          failed_when: false
+          changed_when: false
+
+        - name: incus — create docker-nesting profile
+          when: incus_docker_profile.rc != 0
+          ansible.builtin.command: incus profile create docker-nesting
+          changed_when: true
+
+        - name: incus — enable nesting on docker-nesting profile
+          ansible.builtin.shell: |
+            set -eu
+            cur=$(incus profile get docker-nesting security.nesting)
+            if [ "$cur" != "true" ]; then
+              incus profile set docker-nesting security.nesting true
+              echo changed
+            fi
+          register: incus_nesting_set
+          changed_when: "'changed' in incus_nesting_set.stdout"
+
+    - name: incus — gpu profile (ROCm passthrough)
+      when: incus_setup_profiles and incus_create_gpu_profile
+      block:
+        - name: incus — look up the render group
+          ansible.builtin.command: getent group render
+          register: incus_render_group
+          failed_when: false
+          changed_when: false
+
+        - name: incus — assert the render group exists
+          ansible.builtin.assert:
+            that: incus_render_group.rc == 0
+            fail_msg: >-
+              render group not found; cannot build the gpu profile. On a host
+              without an iGPU set -e incus_create_gpu_profile=false.
+
+        - name: incus — derive the render gid
+          ansible.builtin.set_fact:
+            incus_render_gid: "{{ incus_render_group.stdout.split(':')[2] }}"
+
+        - name: incus — check gpu profile
+          ansible.builtin.command: incus profile show gpu
+          register: incus_gpu_profile
+          failed_when: false
+          changed_when: false
+
+        - name: incus — create gpu profile
+          when: incus_gpu_profile.rc != 0
+          ansible.builtin.command: incus profile create gpu
+          changed_when: true
+
+        - name: incus — list gpu profile devices
+          ansible.builtin.command: incus profile device list gpu
+          register: incus_gpu_devs
+          changed_when: false
+
+        - name: incus — add /dev/dri render device (gpu0)
+          when: "'gpu0' not in incus_gpu_devs.stdout_lines"
+          ansible.builtin.command: >-
+            incus profile device add gpu gpu0 gpu
+            gputype=physical id=0 gid={{ incus_render_gid }}
+          changed_when: true
+
+        - name: incus — add /dev/kfd compute device (dev_kfd)
+          when: "'dev_kfd' not in incus_gpu_devs.stdout_lines"
+          ansible.builtin.command: >-
+            incus profile device add gpu dev_kfd unix-char
+            source=/dev/kfd path=/dev/kfd gid={{ incus_render_gid }}
+          changed_when: true
+
+    # --- Verify ----------------------------------------------------------
+
+    - name: incus — show version and storage
+      ansible.builtin.command: "{{ item }}"
+      loop:
+        - incus version
+        - incus storage list
+        - incus network list
+        - incus profile list
+      register: incus_verify
+      changed_when: false
+
+    - name: incus — verification output
+      ansible.builtin.debug:
+        msg: "{{ incus_verify.results | map(attribute='stdout_lines') | list }}"
