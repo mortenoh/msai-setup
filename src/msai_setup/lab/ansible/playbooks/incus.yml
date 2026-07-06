@@ -27,6 +27,12 @@
     incus_zfs_dataset: rpool/incus         # existing ZFS pool/dataset for the storage backend
     incus_zfs_pool: "{{ incus_zfs_dataset.split('/')[0] }}"
     incus_bridge: incusbr0
+    # Explicit rather than "auto": live-testing found incus admin init --preseed
+    # can fail non-interactively with "Failed to automatically find an unused
+    # IPv4 subnet, manual configuration required" even when no obvious conflict
+    # exists. An explicit subnet removes that failure mode entirely. Override
+    # with -e incus_bridge_subnet=... if this collides with your LAN.
+    incus_bridge_subnet: 10.90.90.1/24
     incus_admin_user: "{{ ansible_user }}"
     incus_images_auto_update_interval: "6"
     incus_configure_ufw: true              # add ufw route rules (skipped if ufw absent)
@@ -165,6 +171,14 @@
               or point incus_zfs_dataset at an existing pool, e.g.
               -e incus_zfs_dataset=tank/incus.
 
+    - name: incus — ensure /etc/incus exists
+      ansible.builtin.file:
+        path: /etc/incus
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
     - name: incus — write the preseed file (rebuild artifact)
       ansible.builtin.copy:
         dest: /etc/incus/incus-preseed.yaml
@@ -183,7 +197,7 @@
             - name: {{ incus_bridge }}
               type: bridge
               config:
-                ipv4.address: auto
+                ipv4.address: {{ incus_bridge_subnet }}
                 ipv4.nat: "true"
                 ipv6.address: none
           profiles:
@@ -201,6 +215,46 @@
     - name: incus — apply the preseed (first-run init)
       when: incus_pool_check.rc != 0
       ansible.builtin.shell: "incus admin init --preseed < /etc/incus/incus-preseed.yaml"
+      changed_when: true
+
+    # --- Self-heal the network/profile independently of the preseed --------
+    #
+    # incus admin init --preseed is not atomic across its sections: live
+    # testing showed a run that fails partway (e.g. the network section, for
+    # any reason — a bad subnet, a transient error) can still leave the
+    # storage pool it processed first fully created. Because the task above
+    # only runs "when the default pool is missing", a partial prior failure
+    # would otherwise be permanent — the pool now exists, so the preseed step
+    # is skipped forever, and the network/profile device it never reached
+    # stay missing on every subsequent run. These checks are independent of
+    # whether the preseed step ran or skipped, so they repair that state.
+
+    - name: incus — check whether the bridge network exists
+      ansible.builtin.command: "incus network show {{ incus_bridge }}"
+      register: incus_bridge_present
+      failed_when: false
+      changed_when: false
+
+    - name: incus — create the bridge network if the preseed did not
+      when: incus_bridge_present.rc != 0
+      ansible.builtin.command: >-
+        incus network create {{ incus_bridge }} --type=bridge
+        ipv4.address={{ incus_bridge_subnet }} ipv4.nat=true ipv6.address=none
+      changed_when: true
+
+    - name: incus — list default profile devices
+      ansible.builtin.command: incus profile device list default
+      register: incus_default_profile_devices
+      changed_when: false
+
+    - name: incus — add the root disk device if the preseed did not
+      when: "'root' not in incus_default_profile_devices.stdout_lines"
+      ansible.builtin.command: incus profile device add default root disk pool=default path=/
+      changed_when: true
+
+    - name: incus — add the eth0 nic device if the preseed did not
+      when: "'eth0' not in incus_default_profile_devices.stdout_lines"
+      ansible.builtin.command: "incus profile device add default eth0 nic network={{ incus_bridge }} name=eth0"
       changed_when: true
 
     # --- Firewall / networking (docs/incus/networking.md strategy A) -----
@@ -245,7 +299,6 @@
       community.general.ufw:
         rule: allow
         route: true
-        direction: in
         interface_in: "{{ incus_bridge }}"
 
     - name: incus — allow forwarded traffic out on the bridge
@@ -253,7 +306,6 @@
       community.general.ufw:
         rule: allow
         route: true
-        direction: out
         interface_out: "{{ incus_bridge }}"
 
     - name: incus — enable IPv4 forwarding for NAT
