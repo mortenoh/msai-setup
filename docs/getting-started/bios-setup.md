@@ -25,6 +25,14 @@ Power on the system and press the appropriate key during POST:
 !!! tip "Timing"
     Press the key repeatedly as soon as you see the Minisforum logo. USB keyboards may have a slight delay.
 
+## Recovering from a Bad BIOS State
+
+The MS-S1 MAX has a physical **BIOS reset hole** on the rear I/O panel (next to the power button) — a hardware CMOS-clear, independent of the OS or any BIOS menu. There's no BMC/IPMI on this board, so this is the fallback if a setting change (or a bad firmware flash) leaves the system unable to POST or unable to display video:
+
+1. Power off and unplug the PSU.
+2. Insert a thin pin into the reset hole and hold briefly (a few seconds), per the same convention as a typical motherboard CMOS-clear button.
+3. Reconnect power and boot. BIOS settings return to factory defaults — you'll need to redo anything in [Settings Summary](#settings-summary) (Secure Boot off, IOMMU on, UMA frame buffer, etc.) before continuing.
+
 ## Memory Settings
 
 Memory configuration is critical for APU performance since the integrated GPU shares system RAM.

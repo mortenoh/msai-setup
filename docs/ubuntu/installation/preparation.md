@@ -5,7 +5,7 @@ Proper preparation ensures a smooth installation and establishes a secure baseli
 ## Practice First (Recommended)
 
 !!! note "Console access is only needed for BIOS and the install itself"
-    This board has **no BMC/IPMI**. Entering BIOS and running the initial install require a keyboard and the single HDMI display temporarily connected to the machine. Once Ubuntu is installed and SSH is up, everything afterward is SSH-only — you can disconnect the display and keyboard.
+    This board has **no BMC/IPMI**. Entering BIOS and running the initial install require a keyboard and a display (HDMI, or DisplayPort Alt Mode over any of the four USB4/USB4 V2 ports) temporarily connected to the machine. Once Ubuntu is installed and SSH is up, everything afterward is SSH-only — you can disconnect the display and keyboard.
 
 Before touching the real hardware, consider rehearsing the ZFS / SSH-hardening / UFW / Docker steps on a throwaway VirtualBox VM using the `msai` CLI tool — see `src/msai_setup/lab/README.md` in this repo. It runs the same Ansible playbooks you'd later run against the real MS-S1 MAX, so you can make (and recover from) mistakes safely before the real install.
 

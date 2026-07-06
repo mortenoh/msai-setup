@@ -67,7 +67,7 @@ docker exec -i postgres-container pg_restore -U user -d database < /mnt/tank/bac
 If `ssh user@host` stops working after a config change:
 
 1. **Try from a different source IP / Tailscale.** Lockouts (e.g. fail2ban, pam_faillock) are usually per-source IP.
-2. **Reach the box on its single HDMI output + keyboard.** Use a recovery shell to undo the change:
+2. **Reach the box on its HDMI output + keyboard.** Use a recovery shell to undo the change:
 
    ```bash
    # Reset PAM faillock for root (and others)

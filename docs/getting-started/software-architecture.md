@@ -83,7 +83,7 @@ graph TB
 By default the host is headless and the iGPU stays with the host:
 
 - The host runs without a graphical console and is managed over SSH
-- The single HDMI output is mostly unused — it is only needed for BIOS access and the initial install
+- The HDMI output (and the DisplayPort Alt Mode carried on the USB4/USB4 V2 ports) is mostly unused — it is only needed for BIOS access and the initial install
 - The iGPU is owned by the host for ROCm / AI inference
 - VMs get a virtual display via virtio-gpu (Spice/VNC), and the Windows 11 VM is reached over RDP
 

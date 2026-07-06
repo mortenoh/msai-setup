@@ -133,7 +133,7 @@ Sizing assumes you push container/VM data into ZFS rather than `/var`. If you ke
 
 The reasonable options on this hardware:
 
-- **Walk-up unlock**: Connect a keyboard and the single HDMI output for first boot. Painful for reboots.
+- **Walk-up unlock**: Connect a keyboard and the HDMI output for first boot. Painful for reboots.
 - **`dropbear-initramfs`**: Open SSH in the initramfs so you can unlock remotely. Add `dropbear-initramfs` and copy your unlock SSH key into `/etc/dropbear/initramfs/authorized_keys`. Works well, requires the box to have a stable IP/static route at unlock time.
 - **Clevis + Tang**: Network-bound disk encryption against a Tang server elsewhere on your network. Unlock is automatic when the Tang server is reachable. Good for a homelab with a separate always-on Tang host.
 

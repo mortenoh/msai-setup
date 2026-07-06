@@ -41,16 +41,22 @@ For detailed architecture information, see [Hardware Architecture](hardware-arch
 | GPU | AMD Radeon 8060S (RDNA 3.5, 40 CUs) |
 | GPU ID | `gfx1151` |
 | RAM | 128GB LPDDR5X-8000 MT/s, quad-channel, soldered (~256 GB/s peak) |
-| Internal NVMe (slot 1) | 2 TB, PCIe 4.0 x4 |
-| Secondary NVMe (slot 2) | 4 TB, PCIe 4.0 **x1** (slower; ~2 GB/s ceiling) |
+| ECC Memory | No |
+| Internal NVMe (slot 1) | 2 TB installed, PCIe 4.0 x4 (M.2 2280 slot supports up to 8 TB) |
+| Secondary NVMe (slot 2) | 4 TB installed, PCIe 4.0 **x1** (M.2 2280 slot supports up to 8 TB) |
 | Networking | 2 x 10GbE (Realtek RTL8127) |
-| Display | HDMI 2.1 FRL, single output (up to 8K@60 / 4K@120) |
+| Wireless | MediaTek MT7925 (Wi-Fi + Bluetooth combo) |
+| Display | HDMI 2.1 FRL (up to 8K@60 / 4K@120) plus DisplayPort Alt Mode over all 4 USB4/USB4 V2 ports (same resolution ceiling) — up to 5 physical outputs, though this build runs headless over SSH |
 | USB | Front: 1 x USB 3.2 Gen2, 2 x USB4 (40 Gbps), 2 x USB 2.0. Rear: 2 x USB4 V2 (80 Gbps), 1 x USB 3.2 Gen2 |
 | Expansion | PCIe 4.0 x4 slot (full-length x16 connector) |
-| Power | 320W external PSU; ~160W peak / 130W sustained at the wall |
+| Power | 320W external PSU (100-240V AC); ~160W peak / 130W sustained at the wall |
+| BIOS Reset | Physical reset hole on the rear I/O (CMOS clear) — see [BIOS Setup](bios-setup.md#recovering-from-a-bad-bios-state) |
 
 !!! note "Asymmetric NVMe slots"
     The second M.2 slot is only PCIe 4.0 **x1**, capping it at ~2 GB/s vs the ~8 GB/s available on slot 1. This is fine for ZFS-backed media and cold data, but VM disks and hot databases should live on the primary 2 TB drive.
+
+!!! note "No ECC"
+    This platform does not support ECC memory. That's not a reason to avoid ZFS here — see [ZFS Concepts -> "ZFS needs ECC RAM"](../zfs/concepts.md) for why that's mostly folklore — but it's worth knowing plainly rather than assuming it either way.
 
 ### APU for AI Workloads
 

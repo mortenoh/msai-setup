@@ -43,7 +43,7 @@ This page covers diagnosing and resolving boot problems on Ubuntu Server 26.04 L
 
 | Symptom | Stage | See Section |
 |---------|-------|-------------|
-| No POST, no display | Hardware/BIOS | Hardware issue |
+| No POST, no display | Hardware/BIOS | [BIOS reset](../../getting-started/bios-setup.md#recovering-from-a-bad-bios-state) |
 | GRUB menu not shown | GRUB | GRUB Recovery |
 | "GRUB rescue>" prompt | GRUB config | GRUB Recovery |
 | Stuck at LUKS prompt | LUKS unlock | LUKS Issues |
