@@ -85,6 +85,7 @@ nav:
         - Secure Boot: ubuntu/installation/secure-boot.md
         - Disk Partitioning: ubuntu/installation/disk-partitioning.md
         - Installation Walkthrough: ubuntu/installation/installation-walkthrough.md
+        - ZFS Root (Alternative): ubuntu/installation/zfs-root-alternative.md
         - Post-Install Checklist: ubuntu/installation/post-install-checklist.md
       - System Configuration:
         - ubuntu/system/index.md

@@ -15,7 +15,7 @@ For the MS-S1 MAX build (see [Disk Partitioning](../ubuntu/installation/disk-par
 - **Secondary 2 TB NVMe (slot 2, PCIe 4.0 x1)**: whole disk → `tank`, a fully independent pool. Not striped with `rpool`.
 
 !!! note "Drives swapped, root is now ZFS — this is the reverse of an earlier draft"
-    An earlier draft of this project put the *2 TB* drive in slot 1 with an ext4 root, and the *4 TB* drive whole-disk. That is outdated on every count. The **4 TB** drive now sits in the fast x4 slot (`rpool`, root + hot data), the **2 TB** in the slow x1 slot (`tank`, bulk data), and root lives on ZFS via ZFSBootMenu. The [ext4-root layout](../ubuntu/installation/disk-partitioning.md#ext4-root-documented-alternative) is preserved only as a documented alternative.
+    An earlier draft of this project put the *2 TB* drive in slot 1 with an ext4 root, and the *4 TB* drive whole-disk. That is outdated on every count. The **4 TB** drive now sits in the fast x4 slot (`rpool`, root + hot data), the **2 TB** in the slow x1 slot (`tank`, bulk data), and root lives on ZFS via ZFSBootMenu. The [ext4-root layout](../ubuntu/installation/disk-partitioning.md#canonical-layout-ext4-root-two-independent-zfs-pools) is preserved only as a documented alternative.
 
 Even on a whole-disk install, modern OpenZFS will write a GPT with a single ZFS partition spanning the disk — it's *effectively* still a partition, just one created and managed automatically.
 

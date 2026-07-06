@@ -10,7 +10,7 @@ Turning identified, prepped devices into a working pool. This page covers the ac
 - Decision made on encryption (see [Encryption](encryption.md)) — easier to set at create time than to retrofit.
 
 !!! note "This build creates two pools, not one"
-    `rpool` (root + hot data) on the fast 4 TB primary and `tank` (bulk/cold data) on the slow 2 TB secondary. The **canonical, authoritative `zpool create` invocations live in [Disk Partitioning](../ubuntu/installation/disk-partitioning.md#create-rpool-primary-fast-drive)** — this page reproduces them for the ZFS-mechanics context and explains every flag. If the two ever drift, the installation docs win.
+    `rpool` (root + hot data) on the fast 4 TB primary and `tank` (bulk/cold data) on the slow 2 TB secondary. The **canonical, authoritative `zpool create` invocations live in [ZFS Root (Alternative)](../ubuntu/installation/zfs-root-alternative.md#create-rpool-primary-fast-drive)** — this page reproduces them for the ZFS-mechanics context and explains every flag. If the two ever drift, the installation docs win.
 
 ## The actual `zpool create` for this build
 

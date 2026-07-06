@@ -17,11 +17,11 @@ Most "the box won't come up right" incidents are Scenario A. Try that first; onl
 
 If `rpool` and `tank` are healthy and only the running OS is broken (a bad kernel, a failed `apt upgrade`, a corrupted `rpool/ROOT/ubuntu`), **do not reinstall.** Roll back to a previous boot environment. The kernel, the packages, and everything else the bad change touched revert together in one atomic step.
 
-The commands and hotkeys live in one place — the [ZFSBootMenu Recovery section of Boot Issues](../ubuntu/troubleshooting/boot-issues.md#zfsbootmenu-recovery). The short version:
+The commands and hotkeys live in one place — the [ZFSBootMenu Recovery section of the ZFS Root alternative](../ubuntu/installation/zfs-root-alternative.md#zfsbootmenu-recovery). The short version:
 
 1. **Interrupt the ZFSBootMenu countdown** — press a key (Esc/Space/arrow) as the box boots to stay in the menu.
 2. **Pick a healthy environment or snapshot** — highlight a previous boot environment, or an older snapshot of `rpool/ROOT/ubuntu`, with the arrow keys.
-3. **Boot it (`Enter`) or roll back (`Ctrl+S`)** — boot once to confirm it's good, then `Ctrl+A` to make it the persistent default, or use the `Ctrl+S` snapshot menu to clone/roll a snapshot back into the live environment. Full hotkey table and the recovery-shell path are in [Boot Issues](../ubuntu/troubleshooting/boot-issues.md#zfsbootmenu-hotkeys).
+3. **Boot it (`Enter`) or roll back (`Ctrl+S`)** — boot once to confirm it's good, then `Ctrl+A` to make it the persistent default, or use the `Ctrl+S` snapshot menu to clone/roll a snapshot back into the live environment. Full hotkey table and the recovery-shell path are in [ZFS Root (Alternative)](../ubuntu/installation/zfs-root-alternative.md#zfsbootmenu-hotkeys).
 
 ### Verify and move on
 
@@ -169,7 +169,7 @@ There is **no guided-installer path** for root-on-ZFS — Subiquity can't do it.
 4. Use the **same hostname and username** as before (simplifies restore).
 5. Reboot into the fresh root-on-ZFS system over SSH.
 
-If `rpool` survived and you only replaced the OS-side of the drive, importing the existing `rpool` and re-registering the ZFSBootMenu entry (see [Reinstall / Repair ZFSBootMenu](../ubuntu/troubleshooting/boot-issues.md#reinstall-repair-zfsbootmenu)) is faster than a clean debootstrap — but that edges back toward Scenario A.
+If `rpool` survived and you only replaced the OS-side of the drive, importing the existing `rpool` and re-registering the ZFSBootMenu entry (see [Reinstall / Repair ZFSBootMenu](../ubuntu/installation/zfs-root-alternative.md#reinstall-repair-zfsbootmenu)) is faster than a clean debootstrap — but that edges back toward Scenario A.
 
 ### Phase 2 — Base configuration and re-import `tank`
 
@@ -382,7 +382,7 @@ Tick these off before declaring the rebuild done.
 
 ## Offline rescue — when the host won't boot
 
-If Phase 0 wasn't possible because the host is already broken, but the pools are intact, this is often **Scenario A** in disguise — try a [ZFSBootMenu boot-environment rollback](#scenario-a-os-broken-pools-fine-boot-environment-rollback) first, or the [ZFSBootMenu recovery shell](../ubuntu/troubleshooting/boot-issues.md#drop-to-the-emergency-shell). If you genuinely need a full rebuild and want to capture state off the surviving pools first:
+If Phase 0 wasn't possible because the host is already broken, but the pools are intact, this is often **Scenario A** in disguise — try a [ZFSBootMenu boot-environment rollback](#scenario-a-os-broken-pools-fine-boot-environment-rollback) first, or the [ZFSBootMenu recovery shell](../ubuntu/installation/zfs-root-alternative.md#drop-to-the-emergency-shell). If you genuinely need a full rebuild and want to capture state off the surviving pools first:
 
 1. Boot the Ubuntu Server 26.04 USB in "Try Ubuntu" mode.
 2. `sudo apt install -y zfsutils-linux`.
@@ -395,4 +395,4 @@ If Phase 0 wasn't possible because the host is already broken, but the pools are
 4. Recover whatever you can from `/mnt/tank/backups/`, `/mnt/rpool`, and the Incus datasets under `/mnt/rpool/incus`, plus host config from the mounted root (`/mnt/etc/netplan`, `/mnt/etc/ssh`, sanoid config).
 5. Proceed with Phase 1 onwards; substitute "whatever you could recover" for the Phase 0 capture.
 
-The full offline chroot procedure (bind-mounting `/dev`, `/proc`, `/sys`, mounting the EFI partition, re-running `efibootmgr`) is in [Boot Issues — Live USB Recovery](../ubuntu/troubleshooting/boot-issues.md#live-usb-recovery). Anything that lived only on a destroyed `rpool` (host `/etc` config, Incus's database) is why Phase 0 normally writes the capture to `tank` and an off-site target.
+The full offline chroot procedure (bind-mounting `/dev`, `/proc`, `/sys`, mounting the EFI partition, re-running `efibootmgr`) is in [ZFS Root (Alternative) — Live USB Recovery](../ubuntu/installation/zfs-root-alternative.md#live-usb-recovery). Anything that lived only on a destroyed `rpool` (host `/etc` config, Incus's database) is why Phase 0 normally writes the capture to `tank` and an off-site target.

@@ -290,33 +290,39 @@ For comprehensive firewall configuration, see the [Networking & Firewall](../../
 
 ## Secure Mount Options
 
-### EFI fstab entry, ZFS dataset properties for the rest
+### Harden the ext4/EFI fstab entries; ZFS dataset properties for the pools
 
-This build is **root-on-ZFS** (see [Disk Partitioning](disk-partitioning.md)). The only fstab entry is the EFI partition — `rpool` and `tank` datasets mount natively via ZFS, so hardening flags like `nodev,nosuid,noexec` become per-dataset ZFS **properties** instead of fstab columns.
+This build has a **plain ext4 root** (see [Disk Partitioning](disk-partitioning.md)). The `/`, `/boot`, and `/boot/efi` filesystems have classic fstab entries — harden them there. The `hot` and `tank` datasets mount natively via ZFS, so hardening flags like `nodev,nosuid,noexec` become per-dataset ZFS **properties** instead of fstab columns.
 
-Confirm the EFI entry created during install is present and hardened in `/etc/fstab`:
+Confirm the fstab entries created during install are present and hardened:
 
 ```bash
 sudo nano /etc/fstab
 ```
 
-It should read (UUID from `blkid` on your EFI partition):
+It should read (UUIDs from `blkid`):
 
 ```
-UUID=<efi-uuid>   /boot/efi   vfat   umask=0077,fmask=0077,dmask=0077   0 1
+/dev/disk/by-uuid/<efi-uuid>    /boot/efi   vfat   umask=0077,fmask=0077,dmask=0077   0 1
+/dev/disk/by-uuid/<boot-uuid>   /boot       ext4   defaults,nodev,nosuid,noexec       0 2
+/dev/disk/by-uuid/<root-uuid>   /           ext4   defaults                           0 1
 ```
 
-For everything else, set ZFS properties on the datasets where it makes sense (e.g. scratch/tmp datasets that never need to execute binaries):
+Apply and verify:
+
+```bash
+sudo mount -o remount /boot
+mount | grep -E "(boot|nvme)"
+```
+
+For the ZFS pools, set properties on the datasets where it makes sense (e.g. scratch/tmp datasets that never need to execute binaries):
 
 ```bash
 # Example: lock down a service scratch dataset
-sudo zfs set devices=off setuid=off exec=off rpool/some-dataset
-
-# Root itself keeps the defaults — it needs exec/setuid/devices for a working system
-zfs get exec,setuid,devices rpool/ROOT/ubuntu
+sudo zfs set devices=off setuid=off exec=off hot/some-dataset
 ```
 
-See [Disk Partitioning -> Mount Options for Security](disk-partitioning.md#mount-options-for-security) for the authoritative reference on the per-dataset property approach.
+See [Disk Partitioning -> Mount Options for Security](disk-partitioning.md#mount-options-for-security) for the authoritative reference.
 
 ### Secure /dev/shm
 
@@ -507,36 +513,26 @@ sudo journalctl -b -p err
 sudo journalctl -u ssh --since today
 ```
 
-## Verify ZFS Pools and Boot Environment
+## Create/Verify ZFS Pools
 
-Confirm both pools imported and are healthy, and that a boot environment exists to roll back to if a future upgrade goes wrong.
+The guided installer only laid down the ext4 root. Create the two data pools from the running system — `hot` on the primary's leftover ~3.4 TB, `tank` on the whole 2 TB secondary — then confirm both are healthy. The full `zpool create` invocations are in [Disk Partitioning -> Creating the Layout](disk-partitioning.md#creating-the-layout):
 
 ```bash
+sudo apt install -y zfsutils-linux gdisk
+
+# ... run the `sgdisk` + `zpool create hot` and `zpool create tank`
+#     commands from disk-partitioning.md ...
+
 # Both pools ONLINE, no errors
-zpool status rpool
+zpool status hot
 zpool status tank
 
-# tank auto-imports on subsequent boots once imported once; if it is missing:
-#   sudo zpool import -d /dev/disk/by-id tank
-
-# The running root is the ZFS boot environment
-zfs list -o name,mountpoint,canmount rpool/ROOT/ubuntu
-mount | grep -q 'rpool/ROOT/ubuntu on / ' && echo "Root is a ZFS boot environment"
+# Datasets present per the layout
+zfs list -r hot
+zfs list -r tank
 ```
 
-### Take a baseline boot environment snapshot
-
-Before the system goes into production, snapshot the freshly hardened root so there is always a known-good environment to return to via ZFSBootMenu:
-
-```bash
-# Snapshot the current root boot environment
-sudo zfs snapshot rpool/ROOT/ubuntu@post-install-baseline
-
-# Confirm it exists (this is the rollback target if a bad upgrade breaks boot)
-zfs list -t snapshot -r rpool/ROOT
-```
-
-To roll back later, select the snapshot as a boot environment from the ZFSBootMenu screen at boot — see [Boot Issues](../troubleshooting/boot-issues.md) for the recovery flow.
+Both pools auto-import on subsequent boots via `zfs-import-cache.service`; if one is missing after a reboot, `sudo zpool import -d /dev/disk/by-id <pool>`.
 
 ## Quick Verification Checklist
 
@@ -547,11 +543,8 @@ Run through this checklist before considering the system ready:
 ssh -o PasswordAuthentication=no user@server echo "Key auth OK"
 
 # Both ZFS pools healthy
-zpool status rpool | grep -q "state: ONLINE"
+zpool status hot | grep -q "state: ONLINE"
 zpool status tank | grep -q "state: ONLINE"
-
-# A boot environment snapshot exists to roll back to
-zfs list -t snapshot rpool/ROOT/ubuntu@post-install-baseline
 
 # Firewall enabled
 sudo ufw status | grep -q "Status: active"
@@ -578,14 +571,13 @@ systemctl --failed --quiet
 |------|--------|
 | System updated | Required |
 | Timezone configured | Required |
-| Both ZFS pools ONLINE (`rpool`, `tank`) | Required |
-| Baseline boot-environment snapshot taken | Required |
+| Both ZFS pools ONLINE (`hot`, `tank`) | Required |
 | Tailscale installed | Required |
 | SSH hardened | Required |
 | Firewall enabled | Required |
 | Auto-updates enabled | Recommended |
 | Kernel hardening | Recommended |
-| Mount options secured (EFI fstab + dataset properties) | Recommended |
+| Mount options secured (ext4 fstab + dataset properties) | Recommended |
 | Unnecessary services disabled | Recommended |
 
 ## Next Steps

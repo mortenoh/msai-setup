@@ -7,7 +7,7 @@ When things go wrong. Symptom-first, ordered by frequency.
 ### "I rebooted and `tank` isn't there" { #i-rebooted-and-the-pool-isnt-there }
 
 !!! note "`rpool` vs `tank` at boot"
-    `rpool` is imported by the initramfs / [ZFSBootMenu](https://zfsbootmenu.org/) path — if *it* fails to import, the system doesn't boot at all, which is a [ZFSBootMenu recovery](../ubuntu/troubleshooting/boot-issues.md#zfsbootmenu-recovery) problem, not a userspace one. The symptoms below (a pool missing after an otherwise-normal boot) almost always concern **`tank`**, imported later by `zfs-import-cache.service`.
+    `rpool` is imported by the initramfs / [ZFSBootMenu](https://zfsbootmenu.org/) path — if *it* fails to import, the system doesn't boot at all, which is a [ZFSBootMenu recovery](../ubuntu/installation/zfs-root-alternative.md#zfsbootmenu-recovery) problem, not a userspace one. The symptoms below (a pool missing after an otherwise-normal boot) almost always concern **`tank`**, imported later by `zfs-import-cache.service`.
 
 Most common cause: the `zfs-import-cache` or `zfs-mount` service didn't run, or the cache file is stale.
 
@@ -377,7 +377,7 @@ zfs get keylocation,keyformat tank/secrets
 Symptom: `zfs.ko` failed to build, modprobe fails, pool can't import.
 
 !!! danger "On this build that means the box won't boot"
-    Root is on `rpool`, so a ZFS module that won't load leaves the system unbootable — not just missing a data pool. Recover by booting a previous [ZFSBootMenu boot environment](../ubuntu/troubleshooting/boot-issues.md#zfsbootmenu-recovery) (which pairs the older, working kernel with its matching module), then fix DKMS from there. This is exactly the scenario boot environments exist for.
+    Root is on `rpool`, so a ZFS module that won't load leaves the system unbootable — not just missing a data pool. Recover by booting a previous [ZFSBootMenu boot environment](../ubuntu/installation/zfs-root-alternative.md#zfsbootmenu-recovery) (which pairs the older, working kernel with its matching module), then fix DKMS from there. This is exactly the scenario boot environments exist for.
 
 ```bash
 # Diagnose

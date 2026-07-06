@@ -191,48 +191,40 @@ sudo mount /dev/nvme0n1p3 /mnt
 sudo umount /mnt
 ```
 
-## ZFS (two pools: `rpool` + `tank`)
+## ZFS (two pools: `hot` + `tank`)
 
-`rpool` (fast 4 TB) = root + hot data + Incus's storage backend (`rpool/incus`). `tank` (slow 2 TB) = media, backups, cold data.
+`hot` (fast 4 TB) = hot data + Incus's storage backend (`hot/incus`) + databases + models. `tank` (slow 2 TB) = media, backups, cold data. Root is plain ext4, **not** on ZFS.
 
 ```bash
 # Pool health — check BOTH pools
-zpool status -v rpool             # Root pool: state, errors, scrub status
-zpool status -v tank              # Data pool
+zpool status -v hot               # Hot data pool: state, errors, scrub status
+zpool status -v tank              # Cold data pool
 zpool list                        # Capacity/health summary (all pools)
-sudo zpool scrub rpool            # Start a scrub (ZFS has no fsck)
+sudo zpool scrub hot              # Start a scrub (ZFS has no fsck)
 sudo zpool scrub tank
 
 # Datasets and snapshots
 zfs list                          # Datasets across both pools
 zfs list -t snapshot              # All snapshots (sanoid-managed)
-zfs list -t snapshot -r rpool/ROOT   # Boot-environment rollback targets
-zfs get compression,recordsize rpool tank
+zfs get compression,recordsize hot tank
 
 # Snapshot / rollback
-sudo zfs snapshot rpool/ROOT/ubuntu@pre-upgrade-$(date +%F)   # OS boot environment
 sudo zfs snapshot tank/nextcloud-data@manual
 sudo zfs rollback tank/dataset@snap
 ```
 
-## ZFSBootMenu / Boot Environments
+## Boot & Recovery (ext4 root + GRUB)
 
-Root boots via ZFSBootMenu (no GRUB). A broken OS is usually a boot-environment rollback, not a reinstall. Full hotkey table and recovery commands: [Boot Issues — ZFSBootMenu Recovery](../troubleshooting/boot-issues.md#zfsbootmenu-recovery).
+Root is plain ext4 booted by GRUB. A bad kernel is a GRUB "Advanced options" pick; a broken OS is a reinstall (the host is disposable, data lives on ZFS). Full recovery flow: [Boot Issues](../troubleshooting/boot-issues.md).
 
 ```bash
-# At the ZFSBootMenu screen (interrupt the countdown with any key):
-#   Enter    Boot selected boot environment
-#   Ctrl+E   Edit kernel command line for this boot
-#   Ctrl+S   Snapshot menu (roll back a boot environment)
-#   Ctrl+A   Set selected environment as default
-#   Ctrl+R   Recovery shell
-#   Ctrl+P   zpool status
-
-# From a running system:
-zfs list -t snapshot -r rpool/ROOT                       # List rollback targets
-efibootmgr -v                                            # EFI entries + boot order (ZBM first)
-zfs get org.zfsbootmenu:commandline rpool/ROOT/ubuntu    # Kernel cmdline (set via ZFS property)
+efibootmgr -v                     # EFI boot entries + order
+sudo update-grub                  # Regenerate GRUB config
+sudo grub-install /dev/nvme0n1    # Reinstall GRUB to the primary disk
+fsck -y /dev/nvme0n1p3            # Check the ext4 root (from a live USB)
 ```
+
+If you took the [ZFS Root alternative](../installation/zfs-root-alternative.md), recovery is via ZFSBootMenu boot environments instead — see that page.
 
 ## Incus (containers + VMs)
 
@@ -246,9 +238,9 @@ incus info <instance>             # Detail: config, snapshots, resource use
 incus start|stop|restart <instance>
 incus exec <instance> -- <cmd>    # Run a command inside (e.g. docker ps)
 
-# Storage (ZFS backend on rpool/incus)
+# Storage (ZFS backend on hot/incus)
 incus storage list
-incus storage show default        # driver: zfs, source: rpool/incus
+incus storage show default        # driver: zfs, source: hot/incus
 
 # Snapshots (deliberate, Incus-aware) — see docs/incus/snapshots-backup.md
 incus snapshot create <instance> before-change

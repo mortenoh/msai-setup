@@ -121,7 +121,7 @@ sudo zfs snapshot rpool/ROOT/ubuntu@pre-upgrade-$(date +%F)
 sudo zfs snapshot -r tank@pre-change-$(date +%F)
 ```
 
-A `rpool/ROOT/ubuntu@…` snapshot is directly bootable/rollback-able from the [ZFSBootMenu screen](../ubuntu/troubleshooting/boot-issues.md#zfsbootmenu-recovery) — that's the mechanism behind Scenario A in the [rebuild checklist](rebuild-checklist.md#scenario-a-os-broken-pools-fine-boot-environment-rollback).
+A `rpool/ROOT/ubuntu@…` snapshot is directly bootable/rollback-able from the [ZFSBootMenu screen](../ubuntu/installation/zfs-root-alternative.md#zfsbootmenu-recovery) — that's the mechanism behind Scenario A in the [rebuild checklist](rebuild-checklist.md#scenario-a-os-broken-pools-fine-boot-environment-rollback).
 
 ## Remote Backups
 
@@ -264,7 +264,7 @@ echo "$(date): File restore test PASSED" >> /var/log/recovery-tests.log
 
 ### Quarterly: boot-environment rollback test
 
-Confirm the OS-rollback path actually works before you need it in anger: snapshot `rpool/ROOT/ubuntu`, make a trivial change, then reboot and roll back to the snapshot from the [ZFSBootMenu screen](../ubuntu/troubleshooting/boot-issues.md#boot-a-different-working-boot-environment). Verify the change is gone and log it.
+Confirm the OS-rollback path actually works before you need it in anger: snapshot `rpool/ROOT/ubuntu`, make a trivial change, then reboot and roll back to the snapshot from the [ZFSBootMenu screen](../ubuntu/installation/zfs-root-alternative.md#boot-a-different-working-boot-environment). Verify the change is gone and log it.
 
 ### Quarterly: service restore test
 
@@ -290,7 +290,7 @@ On spare or test hardware, follow the [Rebuild Checklist](rebuild-checklist.md) 
 
 **Symptoms**: box won't boot cleanly, or boots to a broken userspace after an `apt upgrade` or kernel change; **the pools are fine**.
 
-**Recovery**: this is a boot-environment rollback, **not** a restore. Interrupt the ZFSBootMenu countdown, boot a previous environment or roll a `rpool/ROOT/ubuntu` snapshot back — full steps in [Boot Issues — ZFSBootMenu Recovery](../ubuntu/troubleshooting/boot-issues.md#zfsbootmenu-recovery) and [Rebuild Checklist — Scenario A](rebuild-checklist.md#scenario-a-os-broken-pools-fine-boot-environment-rollback).
+**Recovery**: this is a boot-environment rollback, **not** a restore. Interrupt the ZFSBootMenu countdown, boot a previous environment or roll a `rpool/ROOT/ubuntu` snapshot back — full steps in [ZFS Root (Alternative) — ZFSBootMenu Recovery](../ubuntu/installation/zfs-root-alternative.md#zfsbootmenu-recovery) and [Rebuild Checklist — Scenario A](rebuild-checklist.md#scenario-a-os-broken-pools-fine-boot-environment-rollback).
 
 **Estimated recovery time**: minutes.
 
