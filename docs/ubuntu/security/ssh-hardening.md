@@ -2,6 +2,9 @@
 
 This page covers Ubuntu-specific SSH hardening. For comprehensive SSH documentation including client configuration, tunneling, and file transfer, see the [SSH Guide](../../ssh/index.md).
 
+!!! note "Tailscale is this build's primary remote-access path"
+    On this build the host is reachable on the LAN and over **Tailscale**, and is **not** directly exposed to the public internet (see `START.md`). That changes the SSH threat model: the dominant risk is not internet-wide port scanning but access from within the LAN/tailnet. The key-only, root-disabled, strong-algorithm hardening below still applies fully. What shifts is the value of anti-scanning measures like changing the SSH port — see [Port Change](#port-change-optional). For the tightest posture, restrict `sshd` to the `tailscale0` interface (e.g. `ListenAddress` on the tailnet IP, or `ufw allow in on tailscale0 to any port 22`) so SSH is only reachable over the tailnet.
+
 ## SSH Configuration on Ubuntu 26.04
 
 ### Configuration File Locations
@@ -256,6 +259,9 @@ sudo systemctl restart ssh
 ## Port Change (Optional)
 
 Changing the SSH port reduces automated scanning noise but is not a strong security measure.
+
+!!! note "Mostly moot if you rely on Tailscale"
+    This tip targets a public-internet, port-scanned threat model. On this build SSH normally arrives over the LAN or **Tailscale** with no public port exposed, so there is no internet-facing scanner to hide from and a non-standard port buys little. Only bother changing the port if you deliberately expose SSH beyond the tailnet. The higher-value move here is to bind `sshd` to `tailscale0` (or a LAN subnet) rather than obscuring the port — see the note at the top of this page.
 
 ```bash
 # In /etc/ssh/sshd_config.d/99-hardening.conf

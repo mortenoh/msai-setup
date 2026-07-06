@@ -51,7 +51,7 @@ The user exists, SSH is up, but key auth failed. Either:
 - Permissions on `~/.ssh/` are wrong (must be 700 / 600).
 - `PubkeyAuthentication no` in sshd_config (the hardening playbook turns this on, but if something else turned it off...).
 
-The bootstrap flow: `02_apply.py` first pushes the key via password (sshpass + ssh-copy-id). After that, every other run is key-auth.
+The bootstrap flow: `msai lab apply` (via `src/msai_setup/lab/ssh.py:push_authorized_key()`) first pushes the key using the install-time password (sshpass + ssh-copy-id). After that, every other run is key-auth.
 
 ## "Missing sudo password"
 
@@ -77,7 +77,7 @@ The collection isn't installed:
 ```bash
 ansible-galaxy collection install community.general
 # Or via requirements.yml
-ansible-galaxy collection install -r scripts/lab/ansible/requirements.yml
+ansible-galaxy collection install -r src/msai_setup/lab/ansible/requirements.yml
 ```
 
 Confirm:
@@ -290,3 +290,4 @@ It's rare, but happens (especially with new collections / modules just out of be
 - [Connection](connection.md) — SSH/become layer specifically.
 - [Testing](testing.md) — catch problems before they hit production.
 - [Integration](integration.md) — how this all fits the lab.
+- The hands-on walkthrough: [`src/msai_setup/lab/README.md`](https://github.com/mortenoh/msai-setup/blob/main/src/msai_setup/lab/README.md) — reproduce and debug against a throwaway `msai` VM.

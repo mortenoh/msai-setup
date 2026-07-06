@@ -135,6 +135,15 @@ Benefits:
 - Full control
 - Known location
 
+!!! warning "Do not make this server your always-on exit node"
+    This host is the most important box in the build (ZFS source of truth, AI/LLM
+    inference, KVM VMs). Advertising it as an always-on exit node routes all of
+    your other devices' internet traffic through it, adding bandwidth and CPU load
+    that competes directly with inference, VMs, and ZFS. It also widens the blast
+    radius: a compromise of an exit node touches every byte of routed traffic. If
+    you need a personal exit node, run it on a dedicated, less-critical device (a
+    spare box or cheap VPS) rather than on this server.
+
 ### Mullvad Exit Nodes
 
 Tailscale partners with Mullvad VPN:

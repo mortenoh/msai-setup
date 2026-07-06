@@ -375,12 +375,11 @@ sudo zpool create -O mountpoint=/mnt/lab main "$DISK1"
 sudo zpool create -O mountpoint=/mnt/backup backup "$DISK2"
 
 sudo zfs create main/data
-echo "important" | sudo tee /mnt/lab/main/data/file.txt
-# wait — that mountpoint is wrong; ZFS mounts under the pool's mountpoint:
-ls /mnt/lab/data           # actually /mnt/lab is the pool root; data/ is the child
+echo "important" | sudo tee /mnt/lab/data/file.txt
+ls /mnt/lab/data           # the `main` pool is mounted at /mnt/lab, so main/data is /mnt/lab/data
 ```
 
-(Adjust paths to your `mountpoint=` choice; the example uses pool-level mountpoints.)
+(Adjust paths to your `mountpoint=` choice; the example uses pool-level mountpoints — `main` at `/mnt/lab`, `backup` at `/mnt/backup`.)
 
 Snapshot + full send:
 
@@ -394,7 +393,7 @@ zfs list -r backup
 Make changes, take a second snapshot, send incrementally:
 
 ```bash
-echo "more important" | sudo tee /mnt/lab/main/data/file.txt
+echo "more important" | sudo tee /mnt/lab/data/file.txt
 sudo zfs snapshot main/data@snap2
 
 sudo zfs send -i main/data@snap1 main/data@snap2 | sudo zfs receive backup/data
@@ -498,12 +497,21 @@ Final lab: build a model of the actual production pool inside the VM, so you can
 
 ### Set up the disks
 
-In VirtualBox, add two new virtual disks named to match the real hardware:
+Add two new virtual disks named to match the real hardware. Ports 0-6 on the SATA controller already hold the primary OS disk + the six 8 GB lab disks, so attach the new ones on ports 7 and 8. Run these on the **host** (your Mac), not inside the VM — substitute your VM name for `zfs-lab`:
 
-- `lab-primary-2tb.vdi` — 100 GB (we're not going to make 2 TB virtual disks)
-- `lab-secondary-4tb.vdi` — 200 GB
+```bash
+# Primary — 100 GB (we're not going to make 2 TB virtual disks)
+VBoxManage createmedium disk --filename "target/lab-primary-2tb.vdi" --size 100000 --format VDI
+VBoxManage storageattach zfs-lab --storagectl SATA --port 7 --device 0 \
+    --type hdd --medium "target/lab-primary-2tb.vdi" --hotpluggable on --nonrotational on --discard on
 
-You only need the relative sizing right — primary ~ half of secondary. The absolute sizes don't matter for the procedure.
+# Secondary — 200 GB
+VBoxManage createmedium disk --filename "target/lab-secondary-4tb.vdi" --size 200000 --format VDI
+VBoxManage storageattach zfs-lab --storagectl SATA --port 8 --device 0 \
+    --type hdd --medium "target/lab-secondary-4tb.vdi" --hotpluggable on --nonrotational on --discard on
+```
+
+`--size` is in MB, so 100000 ≈ 100 GB and 200000 ≈ 200 GB. You only need the relative sizing right — primary ~ half of secondary. The absolute sizes don't matter for the procedure. Because the disks are `--hotpluggable`, they appear inside the running VM as two new `ata-VBOX_HARDDISK_*` entries under `/dev/disk/by-id/` (confirm with `lsblk` / `ls -la /dev/disk/by-id/ | grep -v part`).
 
 ### Partition the primary (mimic the real install)
 
@@ -541,6 +549,7 @@ sudo zpool create \
     -O atime=off \
     -O xattr=sa \
     -O acltype=posixacl \
+    -O dnodesize=auto \
     -O mountpoint=/mnt/tank \
     tank \
     "${PRIMARY}-part4" \

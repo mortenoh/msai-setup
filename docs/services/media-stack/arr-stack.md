@@ -29,7 +29,7 @@ services:
     volumes:
       - ./config/prowlarr:/config
     ports:
-      - "9696:9696"
+      - "127.0.0.1:9696:9696"   # localhost only; reach via reverse proxy
     networks:
       - arr
 
@@ -45,7 +45,7 @@ services:
       - ./config/sonarr:/config
       - /data:/data
     ports:
-      - "8989:8989"
+      - "127.0.0.1:8989:8989"   # localhost only; reach via reverse proxy
     networks:
       - arr
       - proxy
@@ -62,7 +62,7 @@ services:
       - ./config/radarr:/config
       - /data:/data
     ports:
-      - "7878:7878"
+      - "127.0.0.1:7878:7878"   # localhost only; reach via reverse proxy
     networks:
       - arr
       - proxy
@@ -80,8 +80,8 @@ services:
       - ./config/transmission:/config
       - /data/downloads:/downloads
     ports:
-      - "9091:9091"
-      - "51413:51413"
+      - "127.0.0.1:9091:9091"   # web UI: localhost only, reach via reverse proxy
+      - "51413:51413"           # BitTorrent peer port: LAN/WAN as needed
       - "51413:51413/udp"
     networks:
       - arr
@@ -217,8 +217,8 @@ services:
       - ./config/qbittorrent:/config
       - /data/downloads:/downloads
     ports:
-      - "8080:8080"
-      - "6881:6881"
+      - "127.0.0.1:8080:8080"   # web UI: localhost only, reach via reverse proxy
+      - "6881:6881"             # BitTorrent peer port: LAN/WAN as needed
       - "6881:6881/udp"
 ```
 

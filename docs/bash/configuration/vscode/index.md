@@ -2,6 +2,14 @@
 
 Visual Studio Code is a free, open-source code editor from Microsoft with extensive language support, debugging, and a rich extension ecosystem.
 
+!!! important "Runs on your workstation, not the server"
+    VS Code is a GUI application that runs on **your own local Mac or PC**. It
+    does **not** run on the headless MS-S1 MAX server, which has no display
+    server and no desktop environment. To edit files on the server, run VS Code
+    locally and connect over SSH with the **Remote - SSH** extension: your
+    workstation hosts the UI while the language servers and terminals execute
+    on the server. See [Installation](installation.md) for setup.
+
 ## Why VS Code?
 
 - **Extensive Extensions**: Thousands of extensions for any language or workflow

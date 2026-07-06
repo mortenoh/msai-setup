@@ -457,6 +457,32 @@ sudo ausearch -k privilege_escalation --format json
 -a never,exit -F path=/usr/bin/ls
 ```
 
+### High-Volume Sources on This Build (Docker, containerd, libvirt, ZFS)
+
+This host runs Docker, containerd, KVM/QEMU (libvirtd), and ZFS all at once. The broad syscall rules in "Essential Security Rules" above — particularly the `execve`, `connect`, `socket`, and `rename`/`unlink` watches — will fire on **every container process spawn, overlayfs mount, and pool I/O**, which can flood `audit.log`, spike CPU, and drive the `lost` counter up. Add exclusions for these subsystems so the security-relevant rules stay readable:
+
+```bash
+# /etc/audit/rules.d/10-exclusions.rules  (loads BEFORE 99-security.rules)
+
+# Container/VM runtimes generate constant execve/mount/socket churn.
+# Exclude events attributed to their service processes by subject.
+-a never,exit -F arch=b64 -F exe=/usr/bin/dockerd
+-a never,exit -F arch=b64 -F exe=/usr/bin/containerd
+-a never,exit -F arch=b64 -F exe=/usr/bin/containerd-shim-runc-v2
+-a never,exit -F arch=b64 -F exe=/usr/sbin/libvirtd
+-a never,exit -F arch=b64 -F exe=/usr/bin/qemu-system-x86_64
+
+# Container filesystem churn under Docker's data root and overlays.
+-a never,exit -F arch=b64 -F dir=/var/lib/docker/
+-a never,exit -F arch=b64 -F dir=/var/lib/containerd/
+
+# ZFS: constant mount/rename/attr activity under the pool mountpoints.
+-a never,exit -F arch=b64 -F dir=/mnt/tank/
+```
+
+!!! note "Order matters and containers still get audited"
+    `never` rules must be evaluated before the matching `always` rules, so put exclusions in a file that sorts *before* `99-security.rules` (e.g. `10-exclusions.rules`) — `augenrules` concatenates in filename order. These exclusions quiet the runtime's own bookkeeping; they do **not** blind you to a shell inside a container, which still shows up via the `execve`/`root_command` rules with the container's process attribution. Tune the `exe=` paths to match your installed binaries (`which dockerd containerd`).
+
 ### Monitor auditd Performance
 
 ```bash

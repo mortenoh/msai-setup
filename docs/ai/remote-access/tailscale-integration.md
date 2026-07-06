@@ -158,6 +158,22 @@ tailscale set --advertise-tags=tag:llm-server
 
 For public internet access (use carefully):
 
+!!! danger "Funnel puts this host on the public internet - default answer is NO"
+    Funnel publishes the service to anyone on the internet, which directly
+    contradicts this build's stated default: the host is reachable on the LAN and
+    over Tailscale, but **not** directly on the public internet (see `START.md`).
+
+    Exposing the **Ollama API** this way is especially dangerous - it has no
+    authentication by default, so an open, publicly reachable LLM endpoint is an
+    open invitation for compute abuse (strangers running inference on your GPU and
+    driving up load on the box). Do not `tailscale funnel` port 11434.
+
+    Keep Ollama access **tailnet-only**: use `tailscale serve` (below) or just the
+    tailnet IP / MagicDNS name, so only authenticated tailnet devices behind your
+    ACLs can reach it. If you ever truly need public exposure, put an
+    authenticating, rate-limited reverse proxy in front and Funnel *that* - never
+    the raw Ollama port.
+
 ### Enable Funnel
 
 ```bash

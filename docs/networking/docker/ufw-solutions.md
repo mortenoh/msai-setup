@@ -220,28 +220,41 @@ iptables -I DOCKER-USER -i eth0 -s 192.168.1.0/24 -p tcp --dport 8080 -j ACCEPT
 ```bash
 #!/bin/bash
 # /usr/local/bin/docker-firewall.sh
+set -euo pipefail
 
-# Flush existing DOCKER-USER rules (except RETURN)
+# Flush existing DOCKER-USER rules and rebuild in order.
+# Append (-A) each rule so the order in this file is the match order.
+# Do NOT add an unconditional `-A DOCKER-USER -j RETURN`: it would match
+# every packet and make the final DROP below unreachable.
 iptables -F DOCKER-USER
-iptables -A DOCKER-USER -j RETURN
 
-# Allow established connections
-iptables -I DOCKER-USER -m conntrack --ctstate ESTABLISHED,RELATED -j RETURN
+# Allow established/related connections back in
+iptables -A DOCKER-USER -m conntrack --ctstate ESTABLISHED,RELATED -j RETURN
 
-# Allow from local networks
-iptables -I DOCKER-USER -s 10.0.0.0/8 -j RETURN
-iptables -I DOCKER-USER -s 172.16.0.0/12 -j RETURN
-iptables -I DOCKER-USER -s 192.168.0.0/16 -j RETURN
+# Return (accept) traffic sourced from internal networks
+iptables -A DOCKER-USER -s 10.0.0.0/8 -j RETURN
+iptables -A DOCKER-USER -s 172.16.0.0/12 -j RETURN
+iptables -A DOCKER-USER -s 192.168.0.0/16 -j RETURN
 
-# Allow specific services from external
-iptables -I DOCKER-USER -i eth0 -p tcp --dport 80 -j RETURN
-iptables -I DOCKER-USER -i eth0 -p tcp --dport 443 -j RETURN
+# Return (accept) the specific external services you intend to publish
+iptables -A DOCKER-USER -i eth0 -p tcp --dport 80 -j RETURN
+iptables -A DOCKER-USER -i eth0 -p tcp --dport 443 -j RETURN
 
-# Drop everything else from external
+# Final rule: drop everything else arriving on the external interface.
+# Because every RETURN above is scoped to specific, intended traffic, this
+# DROP is reachable and actually enforces the default-deny.
 iptables -A DOCKER-USER -i eth0 -j DROP
 
 echo "Docker firewall rules applied"
 ```
+
+!!! warning "Rule ordering matters"
+    The original form of this script appended an unconditional
+    `iptables -A DOCKER-USER -j RETURN` right after the flush. Every packet
+    hit that blanket `RETURN` and returned to the `FORWARD` chain before ever
+    reaching the trailing `DROP`, so the "default deny" never fired. Keep the
+    `RETURN` rules scoped to specific sources/ports and let the unqualified
+    `DROP` be the last rule.
 
 ### Persistence
 
@@ -502,16 +515,36 @@ volumes:
 ### UFW Configuration
 
 ```bash
-# Only HTTP/HTTPS allowed
 sudo ufw default deny incoming
 sudo ufw allow ssh
-sudo ufw allow 80/tcp
-sudo ufw allow 443/tcp
 sudo ufw enable
 ```
 
+!!! danger "`ufw allow 80/tcp` does not protect a Docker-published port"
+    In the compose above Traefik publishes `80:80` and `443:443`, which makes
+    Docker insert `DOCKER`/`DNAT` rules that are evaluated **before** UFW's
+    `INPUT`/user chains. That means `sudo ufw allow 80/tcp` and
+    `sudo ufw deny 80/tcp` are both **decorative** for those ports: the packet
+    is forwarded to the container regardless of what the UFW rule says. This is
+    the same misconception debunked earlier on this page — plain
+    `ufw allow`/`deny` never governs Docker-published ports.
+
+    Pick one of the two approaches that actually work:
+
+    - **`ufw-docker` (Solution 2):** leave the ports published, then control
+      them with DOCKER-USER rules, e.g. `sudo ufw-docker allow traefik 80` and
+      `sudo ufw-docker allow traefik 443`. The DOCKER-USER chain runs before
+      the DNAT accept, so this genuinely filters the published ports.
+    - **Host-network reverse proxy (Solutions 1 + 6):** run Traefik with
+      `network_mode: host` (no `ports:` mapping), so 80/443 are ordinary host
+      sockets that UFW's `INPUT` chain governs normally, and bind every backend
+      container to `127.0.0.1`. Now `sudo ufw allow 80/tcp` really does gate
+      external access.
+
 This architecture:
-- Only Traefik is exposed
-- All other services are internal
-- UFW protects the host
-- Database has no network exposure
+- Only Traefik is exposed; all other services are internal or bound to `127.0.0.1`
+- Database has no network exposure (internal network, no published ports)
+- Actual protection for the published ports comes from `ufw-docker`'s
+  DOCKER-USER rules, or from putting the proxy on the host network so UFW's
+  `INPUT` chain applies. A bare `ufw allow`/`deny` on a Docker-published port
+  is cosmetic.

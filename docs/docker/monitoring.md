@@ -13,6 +13,15 @@ This stack provides:
 - **Loki** - Log aggregation
 - **Alertmanager** - Alert routing
 
+!!! note "Bind monitoring ports to localhost"
+    Every service in this stack (Prometheus, Grafana, Loki, cAdvisor,
+    Alertmanager, ...) is an internal-only dashboard or scrape target. Per this
+    build's port model, publish them on `127.0.0.1` and reach the UIs through
+    the reverse proxy (or a Tailscale/SSH tunnel), never on all interfaces. The
+    examples below use the `127.0.0.1:` prefix for this reason — keep it. Only
+    Grafana typically needs to be fronted publicly, and even then via the
+    proxy, not a bare published port.
+
 ## Quick Start
 
 ### Basic Monitoring Stack
@@ -24,7 +33,7 @@ services:
     image: prom/prometheus:latest
     container_name: prometheus
     ports:
-      - "9090:9090"
+      - "127.0.0.1:9090:9090"
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
       - prometheus_data:/prometheus
@@ -38,7 +47,7 @@ services:
     image: grafana/grafana:latest
     container_name: grafana
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     volumes:
       - grafana_data:/var/lib/grafana
     environment:
@@ -86,7 +95,7 @@ services:
     image: prom/node-exporter:latest
     container_name: node-exporter
     ports:
-      - "9100:9100"
+      - "127.0.0.1:9100:9100"
     volumes:
       - /proc:/host/proc:ro
       - /sys:/host/sys:ro
@@ -114,13 +123,25 @@ services:
 
 Container-level metrics.
 
+!!! warning "`privileged: true` is near-root on the host"
+    cAdvisor runs with `privileged: true` (plus the `/dev/kmsg` device and
+    read-only mounts of `/`, `/sys`, and the Docker root) so it can read
+    cgroup, kernel, and per-container stats for every container. `privileged`
+    disables most container isolation: it grants all Linux capabilities and
+    access to host devices, which is effectively root on the host if the
+    container is compromised. That is why its port is bound to `127.0.0.1`
+    above and it should never be exposed off-box. If you want to narrow the
+    grant, drop `privileged` and add only the specific capabilities/devices
+    cAdvisor needs, but on this single-admin box the privileged form is the
+    documented trade-off.
+
 ```yaml
 services:
   cadvisor:
     image: gcr.io/cadvisor/cadvisor:latest
     container_name: cadvisor
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
     volumes:
       - /:/rootfs:ro
       - /var/run:/var/run:ro
@@ -216,7 +237,7 @@ services:
     image: grafana/loki:latest
     container_name: loki
     ports:
-      - "3100:3100"
+      - "127.0.0.1:3100:3100"
     volumes:
       - loki_data:/loki
       - ./loki-config.yml:/etc/loki/local-config.yaml
@@ -339,7 +360,7 @@ services:
     image: prom/alertmanager:latest
     container_name: alertmanager
     ports:
-      - "9093:9093"
+      - "127.0.0.1:9093:9093"
     volumes:
       - ./alertmanager.yml:/etc/alertmanager/alertmanager.yml
       - alertmanager_data:/alertmanager
@@ -454,7 +475,7 @@ services:
     image: prom/prometheus:latest
     container_name: prometheus
     ports:
-      - "9090:9090"
+      - "127.0.0.1:9090:9090"
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
       - ./alert-rules.yml:/etc/prometheus/alert-rules.yml
@@ -471,7 +492,7 @@ services:
     image: grafana/grafana:latest
     container_name: grafana
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     volumes:
       - grafana_data:/var/lib/grafana
       - ./grafana/provisioning:/etc/grafana/provisioning
@@ -517,7 +538,7 @@ services:
     image: grafana/loki:latest
     container_name: loki
     ports:
-      - "3100:3100"
+      - "127.0.0.1:3100:3100"
     volumes:
       - loki_data:/loki
       - ./loki-config.yml:/etc/loki/local-config.yaml
@@ -542,7 +563,7 @@ services:
     image: prom/alertmanager:latest
     container_name: alertmanager
     ports:
-      - "9093:9093"
+      - "127.0.0.1:9093:9093"
     volumes:
       - ./alertmanager.yml:/etc/alertmanager/alertmanager.yml
       - alertmanager_data:/alertmanager

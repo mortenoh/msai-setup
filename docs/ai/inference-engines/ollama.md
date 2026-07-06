@@ -41,6 +41,9 @@ systemctl status ollama
 # Create service user
 sudo useradd -r -s /bin/false -m -d /usr/share/ollama ollama
 
+# Add the service user to video and render so it can reach /dev/kfd and /dev/dri (ROCm)
+sudo usermod -aG video,render ollama
+
 # Service file
 sudo tee /etc/systemd/system/ollama.service <<EOF
 [Unit]
@@ -51,6 +54,8 @@ After=network-online.target
 ExecStart=/usr/local/bin/ollama serve
 User=ollama
 Group=ollama
+# Grant GPU device access (ROCm needs the video/render groups)
+SupplementaryGroups=video render
 Restart=always
 RestartSec=3
 Environment="OLLAMA_HOST=0.0.0.0"
@@ -63,6 +68,38 @@ EOF
 sudo systemctl daemon-reload
 sudo systemctl enable --now ollama
 ```
+
+## GPU Acceleration (AMD ROCm)
+
+On the MS-S1 MAX, Ollama runs on the Ryzen AI Max+ 395 iGPU (gfx1151) through ROCm/HIP. Install ROCm 7.x first — see [ROCm Installation](../gpu/rocm-installation.md) for the full walkthrough — then the native Ollama install detects the ROCm runtime automatically.
+
+!!! note "No HSA override needed"
+    ROCm 7.x supports gfx1151 natively, so you do **not** need `HSA_OVERRIDE_GFX_VERSION`. See [ROCm Installation](../gpu/rocm-installation.md) and [GPU Quick Start](../gpu/quick-start.md).
+
+Prerequisites (covered in the ROCm docs):
+
+- ROCm 7.x installed (`rocminfo` shows `gfx1151`).
+- The account running Ollama is in the `video` and `render` groups (the service unit above sets `SupplementaryGroups=video render`).
+- GPU-accessible memory sized via `amd-ttm` — see [Memory Configuration](../gpu/memory-configuration.md).
+
+### Verify GPU usage
+
+```bash
+# Ollama's own view — PROCESSOR should read GPU, not CPU
+ollama ps
+
+# ROCm: watch VRAM (carved from unified memory) and utilisation during inference
+watch -n 1 rocm-smi
+rocm-smi --showmeminfo vram
+
+# radeontop: live per-engine GPU load (install: sudo apt install radeontop)
+radeontop
+
+# Confirm the ROCm/HIP backend actually engaged in the logs
+journalctl -u ollama -f | grep -iE 'rocm|hip|gpu'
+```
+
+If `ollama ps` shows `CPU`, ROCm is not being used — revisit [ROCm Installation](../gpu/rocm-installation.md) and confirm group membership and device access to `/dev/kfd` and `/dev/dri`.
 
 ## Basic Usage
 
@@ -194,7 +231,7 @@ sudo systemctl restart ollama
 
 ## Modelfiles
 
-Customize models with Dockerile-like syntax:
+Customize models with Dockerfile-like syntax:
 
 ### Basic Modelfile
 
@@ -331,21 +368,24 @@ const response = await client.chat.completions.create({
 # Check GPU allocation
 ollama ps
 
-# For 70B Q4 on 128GB Mac:
+# For 70B Q4 on the MS-S1 MAX (128GB unified memory):
 # - ~43GB for model weights
 # - ~2GB for 8K context KV cache
 # - Leaves ~80GB for system + other models
+#   (GPU-accessible memory is sized via amd-ttm; see Memory Configuration)
 ```
 
-### Speed Comparison
+### Speed
 
-On M4 Max (128GB), Llama 3.3 70B Q4:
+Measured baseline on the MS-S1 MAX (AMD Ryzen AI Max+ 395, ROCm/HIP), from [Hardware Architecture](../../getting-started/hardware-architecture.md):
 
-| Metric | Value |
-|--------|-------|
-| Tokens/sec | ~35 |
-| Time to first token | ~200ms |
-| Context processing | ~500 tok/sec |
+| Model (Q4) | Tokens/sec |
+|------------|------------|
+| 8B | ~50-70 |
+| 32B | ~15-20 |
+| 70B | ~6-9 |
+
+These figures are memory-bandwidth bound (~210-220 GB/s real-world on the LPDDR5X-8000 quad-channel pool), not compute bound.
 
 ## Troubleshooting
 

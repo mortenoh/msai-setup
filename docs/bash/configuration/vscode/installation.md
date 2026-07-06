@@ -2,6 +2,15 @@
 
 Installing and setting up VS Code.
 
+!!! important "Install on your workstation, not the server"
+    Run every install command on this page on **your own local Mac or PC** --
+    the machine with a display where you actually use the editor. Do **not**
+    install VS Code on the headless MS-S1 MAX server: it has no display server
+    or desktop environment, so the GUI cannot run there. To work with files on
+    the server, install VS Code locally, add the **Remote - SSH** extension,
+    and connect to the server over SSH -- the UI stays on your workstation
+    while code executes on the server.
+
 ## System Requirements
 
 - **Storage**: 500 MB minimum

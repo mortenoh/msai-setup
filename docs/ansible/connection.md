@@ -167,7 +167,7 @@ Use the `authorized_key` module:
     state: present
 ```
 
-Idempotent — won't duplicate. For initial bootstrap (when the only way in is a password), see `scripts/lab/_ssh.py:push_authorized_key()` which wraps `ssh-copy-id`.
+Idempotent — won't duplicate. For initial bootstrap (when the only way in is a password), see `src/msai_setup/lab/ssh.py:push_authorized_key()` which wraps `ssh-copy-id`.
 
 ### Rotating keys
 
@@ -277,5 +277,6 @@ timeout = 30
 ## Where to go next
 
 - [Inventory](inventory.md) — where these connection variables go.
-- [Vault](vault.md) — for `ansible_become_password`.
+- [Vault](vault.md) — generic `ansible_become_password` handling (not needed here; sudo is passwordless).
 - [Troubleshooting](troubleshooting.md) — connection-error diagnosis.
+- The hands-on walkthrough: [`src/msai_setup/lab/README.md`](https://github.com/mortenoh/msai-setup/blob/main/src/msai_setup/lab/README.md) — the real `msai` CLI + playbooks against a throwaway VM.

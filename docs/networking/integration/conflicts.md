@@ -257,13 +257,14 @@ Each can have independent rules.
 ┌─────────────────────────────────────────────────────────────┐
 │                         Host                                 │
 │                                                              │
-│  UFW manages:                                                │
+│  UFW manages (single firewall interface):                    │
 │  - Host services (SSH, management)                          │
-│  - Simple allow/deny for public services                    │
+│  - Simple allow/deny for host-network services              │
 │                                                              │
-│  DOCKER-USER manages:                                        │
+│  ufw-docker manages (via DOCKER-USER, but you drive it       │
+│  with the ufw-docker CLI, not hand-written rules):           │
 │  - All container external access                            │
-│  - Rate limiting, IP restrictions                           │
+│  - Per-container, per-port allow rules                      │
 │                                                              │
 │  before.rules manages:                                       │
 │  - VM NAT and forwarding                                    │
@@ -323,12 +324,30 @@ COMMIT
 COMMIT
 ```
 
-4. **DOCKER-USER for container access control:**
+4. **`ufw-docker` for container access control:**
 
-```bash
-# Systemd service to apply after Docker
-/usr/local/bin/docker-firewall.sh
-```
+    Do not hand-roll a bash+systemd script that flushes and rewrites the
+    DOCKER-USER chain — that is fragile (ordering bugs, races with Docker
+    restarts recreating chains) and drifts from "UFW is the primary firewall."
+    Use `ufw-docker`, which installs the correct DOCKER-USER default-deny into
+    UFW's `after.rules` and lets you manage container exposure through the UFW
+    workflow:
+
+    ```bash
+    # One-time install (writes the DOCKER-USER rules into UFW's after.rules)
+    sudo ufw-docker install
+    sudo systemctl restart ufw
+
+    # Then allow only the containers/ports you intend to expose
+    sudo ufw-docker allow web 80
+    sudo ufw-docker allow web 443
+    # Containers with no ufw-docker allow rule stay blocked from outside
+    ```
+
+    This keeps container external access under the same UFW-driven control
+    plane as the host rules, survives Docker restarts, and is the production
+    answer for this build. See
+    [Docker UFW Solutions](../docker/ufw-solutions.md) for the full workflow.
 
 ## Testing Integration
 

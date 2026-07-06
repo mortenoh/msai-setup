@@ -74,7 +74,7 @@ There are about 22 levels in the full hierarchy. The full ordered list is in the
 For the lab, this is enough:
 
 ```yaml
-# scripts/lab/ansible/group_vars/lab.yml
+# src/msai_setup/lab/ansible/group_vars/lab.yml (illustrative)
 zfs_pool_name: lab
 zfs_topology: stripe
 arc_max_bytes: 2147483648         # 2 GiB
@@ -381,6 +381,7 @@ Ansible variables are not really mutable in the imperative sense. `set_fact` reb
 ## Where to go next
 
 - [Templates](templates.md) — Jinja2 in detail.
-- [Vault](vault.md) — encrypting variables.
+- [Vault](vault.md) — encrypting variables (generic; not used by the shipped playbooks).
 - [Inventory](inventory.md) — group_vars/host_vars in context.
 - [Playbooks](playbooks.md) — how variables flow into tasks.
+- The hands-on walkthrough: [`src/msai_setup/lab/README.md`](https://github.com/mortenoh/msai-setup/blob/main/src/msai_setup/lab/README.md) — `-e` overrides (e.g. `msai lab apply zfs -e topology=mirror`) in action.

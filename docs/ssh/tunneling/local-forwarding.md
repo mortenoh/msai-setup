@@ -29,6 +29,9 @@ Local port forwarding makes a remote service accessible on your local machine. T
 ssh -L [bind_address:]local_port:destination_host:destination_port user@ssh_server
 ```
 
+!!! note "Disabled by default on this build"
+    This build's hardened sshd sets `AllowTcpForwarding no`, so `-L` forwards fail with `administratively prohibited` as-is. See [Tunneling overview](index.md) for how to scope an exception with a `Match` block instead of loosening the global config.
+
 ## Examples
 
 ### Access Remote Web Server

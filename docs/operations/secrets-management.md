@@ -1,86 +1,75 @@
 # Secrets Management
 
-Overview of storing and managing sensitive data across development and production.
+How secrets are (and aren't) handled on this single-host homelab. This is a headless Ubuntu box running plain Docker Compose, KVM VMs, and local LLM inference — managed over SSH and Tailscale. There is no CI/CD pipeline, no Kubernetes, and no Docker Swarm here, so the enterprise patterns (GitHub Actions secrets, cloud KMS, Swarm secrets, OIDC federation) don't apply. Keep the tooling proportional to a one-box setup.
 
-## Overview
+## What counts as a secret here
 
-Secrets management addresses:
+| Secret | Examples | Where it lives |
+|--------|----------|----------------|
+| Service passwords | Postgres/MariaDB passwords, Authentik admin, Nextcloud admin | Compose `.env` files + ansible-vault |
+| API tokens | Tailscale auth key, restic/B2 keys, ntfy/Discord webhook URLs | ansible-vault, password manager |
+| SSH keys | Host access, syncoid-to-backup-host key | 1Password SSH agent |
+| TLS | ACME account/email for Traefik | ansible-vault (email), auto-managed certs on disk |
+| ZFS encryption | Passphrase for any encrypted dataset | Password manager, multiple offline copies |
 
-- **Where to store** - Different solutions for different contexts
-- **Access control** - Who can access what
-- **Rotation** - Changing secrets without downtime
-- **Audit** - Tracking secret access
+## The intended pattern: ansible-vault
 
-## Secret Types
+Anything that needs to be a secret in this project belongs in **ansible-vault**, not scattered in plaintext files. The full reference — how to create/edit vaulted files, the `group_vars/<group>/vault.yml` split, and unlocking the vault master from 1Password — is documented in [Ansible -> Vault](../ansible/vault.md). The short version:
 
-| Type | Examples | Storage |
-|------|----------|---------|
-| API keys | GitHub tokens, cloud APIs | Password manager, env vars |
-| Database credentials | Connection strings | Environment, secrets manager |
-| SSH keys | Server access, Git auth | SSH agent, 1Password |
-| TLS certificates | HTTPS, mTLS | Let's Encrypt, cloud provider |
-| Encryption keys | Data at rest | HSM, KMS |
+- Keep secret **values** in a dedicated encrypted `vault.yml`, referenced from a plaintext `main.yml` so variable *names* stay reviewable in git.
+- Encrypt the whole vault file (`ansible-vault create`/`edit`), never hand-edit it in a normal editor.
+- Store the vault master password in 1Password and unlock it via a `--vault-password-file` script (`op read ...`), so no plaintext master ever lands on disk. This is the recommended pattern for this build — see [Vault -> Integration with 1Password](../ansible/vault.md#integration-with-1password--sops--bitwarden).
 
-## Local Development
+```yaml
+# group_vars/production/main.yml (plain, committed)
+postgres_user: authentik
+postgres_password: "{{ vault_postgres_password }}"   # reference into vault.yml
 
-### Environment Variables
+# group_vars/production/vault.yml (ansible-vault encrypted)
+vault_postgres_password: 'super-secret-passphrase'
+vault_traefik_acme_email: 'me@example.com'
+```
 
-For local-only, non-sensitive development config:
+!!! warning "Current state: no vaulted secrets are actually in place yet"
+    Be honest about where the shipped automation stands today. The playbooks in `src/msai_setup/lab/ansible/` **do not** use ansible-vault — there are no `group_vars/` or `vault.yml` files in the repo, and `bootstrap.yml` configures the managed user with **passwordless sudo** (`/etc/sudoers.d/90-<user>` containing `<user> ALL=(ALL) NOPASSWD:ALL`). That's a deliberate convenience for a throwaway lab and a private, Tailscale-only box, but it means:
+
+    - Ansible needs no `ansible_become_password`, so there's nothing vaulted for privilege escalation.
+    - Any real service secret you add (DB passwords, ACME email, restic keys) is currently expected to live in Compose `.env` files, which are **not** committed. Moving those into a vaulted `group_vars/production/vault.yml` (per [Vault](../ansible/vault.md)) is the recommended hardening step before this box holds anything sensitive beyond a private LAN.
+
+## Docker Compose secrets (plain Compose, not Swarm)
+
+Services here run under `docker compose`, which reads secrets from environment variables and `.env` files — there are no Swarm `secrets:` objects or `/run/secrets/` mounts in this build.
+
+```yaml
+# docker-compose.yml
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: authentik
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}   # from .env, never inline
+```
 
 ```bash
-# .envrc (with direnv)
-export DATABASE_URL="postgres://localhost/dev"
-export API_URL="http://localhost:3000"
+# .env — sits next to the compose file, chmod 600, NEVER committed
+POSTGRES_PASSWORD=super-secret-passphrase
 ```
 
-### .env Files
+Rules for `.env` files on this box:
 
-For project-specific environment:
+- Keep them out of git (see [Git safety](#git-safety) below). They live under `~/docker/<service>/.env` on the host.
+- `chmod 600` them; they're readable by your user and root only.
+- Back them up as part of the rebuild capture — they're explicitly copied into the ZFS `rebuild-<date>` snapshot in the [Rebuild Checklist](rebuild-checklist.md) Phase 0, and noted in [Backup &amp; Recovery](backup.md) as credentials to keep in a password manager too.
+- When you adopt ansible-vault, generate these `.env` values from vaulted variables at deploy time instead of hand-editing them.
+
+## SSH keys
+
+SSH is the management plane, and the syncoid replication jobs authenticate to the backup host over SSH. Store the keys in the 1Password SSH agent rather than as bare files on disk.
 
 ```bash
-# .env (committed - non-sensitive defaults)
-NODE_ENV=development
-API_URL=http://localhost:3000
-
-# .env.local (not committed - sensitive)
-DATABASE_PASSWORD=localpass
-API_KEY=dev-key-123
+# Generate (Ed25519)
+ssh-keygen -t ed25519 -C "morten@ms-s1-max"
 ```
-
-`.gitignore`:
-```
-.env.local
-.env.*.local
-```
-
-### Password Managers (1Password CLI)
-
-For actual secrets:
-
-```bash
-# Read secret at runtime
-export API_KEY="$(op read 'op://Development/API/key')"
-
-# Or with direnv
-# .envrc
-export API_KEY="$(op read 'op://Development/API/key')"
-```
-
-See [1Password CLI](../bash/tools/1password-cli.md) for setup.
-
-## SSH Keys Management
-
-### Generate Keys
-
-```bash
-# Ed25519 (recommended)
-ssh-keygen -t ed25519 -C "you@example.com"
-
-# RSA (legacy compatibility)
-ssh-keygen -t rsa -b 4096 -C "you@example.com"
-```
-
-### Key Locations
 
 | Key | Path | Permission |
 |-----|------|------------|
@@ -88,311 +77,57 @@ ssh-keygen -t rsa -b 4096 -C "you@example.com"
 | Public | `~/.ssh/id_ed25519.pub` | 644 |
 | Config | `~/.ssh/config` | 600 |
 
-### SSH Agent
-
-```bash
-# Start agent
-eval "$(ssh-agent -s)"
-
-# Add key
-ssh-add ~/.ssh/id_ed25519
-
-# List keys
-ssh-add -l
-```
-
-### 1Password SSH Agent
-
-Better approach - store keys in 1Password:
-
-1. Store SSH key in 1Password
-2. Enable SSH agent in 1Password settings
-3. Configure `~/.ssh/config`:
+Preferred: keep the private key in **1Password** and let its SSH agent serve it, so the key material never sits unencrypted on the laptop:
 
 ```
+# ~/.ssh/config
 Host *
     IdentityAgent "~/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock"
 ```
 
-See [1Password CLI SSH Setup](../bash/tools/1password-cli.md#ssh-agent-integration).
+The same 1Password account then protects both your SSH keys and the ansible-vault master password. See [1Password CLI](../bash/tools/1password-cli.md).
 
-## CI/CD Secrets
+## Git safety
 
-### GitHub Actions
-
-```yaml
-# .github/workflows/deploy.yml
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Deploy
-        env:
-          API_KEY: ${{ secrets.API_KEY }}
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        run: ./deploy.sh
-```
-
-Set secrets in: Repository Settings > Secrets and variables > Actions
-
-### Environment-Specific
-
-```yaml
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    environment: production  # Uses production environment secrets
-    steps:
-      - name: Deploy
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-```
-
-### OIDC for Cloud Access
-
-Avoid long-lived credentials:
-
-```yaml
-jobs:
-  deploy:
-    permissions:
-      id-token: write
-      contents: read
-    steps:
-      - uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: arn:aws:iam::123456789:role/github-deploy
-          aws-region: us-east-1
-```
-
-## Docker Secrets
-
-### Docker Compose (Development)
-
-```yaml
-services:
-  app:
-    environment:
-      - DATABASE_URL=${DATABASE_URL}
-```
-
-With `.env` file:
-```
-DATABASE_URL=postgres://user:pass@db:5432/app
-```
-
-### Docker Swarm Secrets
-
-```bash
-# Create secret
-echo "mypassword" | docker secret create db_password -
-
-# Use in service
-docker service create \
-  --name app \
-  --secret db_password \
-  myapp
-```
-
-```yaml
-# docker-compose.yml (swarm mode)
-services:
-  app:
-    secrets:
-      - db_password
-
-secrets:
-  db_password:
-    external: true
-```
-
-Access in container: `/run/secrets/db_password`
-
-### Build-Time Secrets
-
-```dockerfile
-# Dockerfile
-# syntax=docker/dockerfile:1.2
-
-FROM node:20
-RUN --mount=type=secret,id=npmrc,target=/root/.npmrc \
-    npm ci
-```
-
-```bash
-docker build --secret id=npmrc,src=$HOME/.npmrc .
-```
-
-## Git Safety
-
-### .gitignore
-
-Essential patterns:
+Nothing sensitive should reach the repo — not even a private one. Belt-and-suspenders:
 
 ```gitignore
-# Environment files
+# Environment / secrets
 .env
 .env.local
-.env.*.local
-.envrc.local
-
-# Credentials
 *.pem
 *.key
-credentials.json
-secrets.json
-.secrets/
-
-# IDE
-.idea/
-.vscode/settings.json
-
-# OS
-.DS_Store
+# Ansible vault password files (the vault files themselves are safe to commit;
+# the password that unlocks them is not)
+.ansible_vault_pass
+.vault_pass*
 ```
 
-### Pre-commit Hooks
-
-Using [git-secrets](https://github.com/awslabs/git-secrets):
+Run a scanner before committing so a stray token never lands:
 
 ```bash
-# Install
-brew install git-secrets
-
-# Initialize in repo
-cd repo
-git secrets --install
-
-# Add AWS patterns
-git secrets --register-aws
-
-# Add custom patterns
-git secrets --add 'password\s*=\s*.+'
-git secrets --add --literal 'AKIAIOSFODNN7EXAMPLE'
-```
-
-### Gitleaks
-
-```bash
-# Install
 brew install gitleaks
-
-# Scan repo
-gitleaks detect --source .
-
-# Pre-commit hook
-gitleaks protect --staged
+gitleaks detect --source .     # scan history
+gitleaks protect --staged      # pre-commit check
 ```
 
-### Pre-commit Framework
+Note that ansible-vault files (`vault.yml`) are **designed** to be committed — they're encrypted at rest. It's the vault *password* that must never be committed.
 
-`.pre-commit-config.yaml`:
+## ZFS dataset encryption passphrases
 
-```yaml
-repos:
-  - repo: https://github.com/gitleaks/gitleaks
-    rev: v8.18.0
-    hooks:
-      - id: gitleaks
+If you enable native ZFS encryption on any dataset (see [ZFS Encryption](../zfs/encryption.md)), the passphrase is unrecoverable if lost — there is no reset. Store it in the password manager **and** keep an offline copy in a second secure location, exactly as the [Rebuild Checklist](rebuild-checklist.md) credential table requires.
 
-  - repo: https://github.com/awslabs/git-secrets
-    rev: master
-    hooks:
-      - id: git-secrets
-```
+## Rotation and exposure
 
-## Secret Rotation
+Small setup, so keep it simple:
 
-### Database Credentials
-
-```bash
-# 1. Create new credentials
-# 2. Update application config
-# 3. Deploy with new credentials
-# 4. Verify application works
-# 5. Revoke old credentials
-```
-
-### API Keys
-
-```bash
-# In 1Password, store both old and new keys during rotation
-# Update references
-# Verify
-# Remove old key
-```
-
-### SSH Keys
-
-```bash
-# 1. Generate new key
-ssh-keygen -t ed25519 -C "you@example.com" -f ~/.ssh/id_ed25519_new
-
-# 2. Add new key to services
-# 3. Update 1Password / SSH agent
-# 4. Test access
-# 5. Remove old key from services
-```
-
-## Best Practices
-
-### Do
-
-- Use password managers for all secrets
-- Use SSH agent (preferably 1Password)
-- Use OIDC in CI/CD when possible
-- Rotate secrets regularly
-- Audit secret access
-- Use environment-specific secrets
-
-### Don't
-
-- Commit secrets to git (even private repos)
-- Log secrets
-- Share secrets via chat/email
-- Use the same secret across environments
-- Store secrets in code comments
-- Use weak passwords for any credential
-
-### Secret Hierarchy
-
-| Priority | Solution | Use Case |
-|----------|----------|----------|
-| 1 | OIDC/Workload Identity | Cloud CI/CD |
-| 2 | Cloud Secrets Manager | Production |
-| 3 | 1Password/Bitwarden | Development |
-| 4 | Environment variables | Local only, non-sensitive |
-
-## Emergency Response
-
-### If Secret is Exposed
-
-1. **Rotate immediately** - Generate new secret
-2. **Revoke old secret** - Disable exposed credential
-3. **Audit access** - Check for unauthorized use
-4. **Update all references** - Deploy with new secret
-5. **Document** - Record incident for review
-
-### Git History Cleanup
-
-If secret was committed:
-
-```bash
-# Using git-filter-repo (recommended)
-pip install git-filter-repo
-git filter-repo --invert-paths --path secrets.json
-
-# Force push (coordinate with team)
-git push --force-with-lease
-```
-
-Note: Anyone with a clone still has the secret. Always rotate.
+- **Service password rotation**: update the vaulted value (or `.env`), redeploy the service, verify, done. No zero-downtime dance needed on a homelab.
+- **SSH key rotation**: generate a new key, add it to the target's `authorized_keys` and to the backup host, test, then remove the old one.
+- **If a secret leaks**: rotate the underlying secret first (change the DB password, re-issue the token), *then* rekey the vault if the vault password was what leaked. A `git filter-repo` to scrub history is secondary — anyone with a clone already has it, so rotation is what actually protects you.
 
 ## See Also
 
-- [1Password CLI](../bash/tools/1password-cli.md) - Password manager CLI
-- [chezmoi](../bash/tools/chezmoi.md) - Dotfiles with secrets
-- [direnv](../bash/tools/direnv.md) - Environment management
-- [SSH Fundamentals](../ssh/fundamentals/keys.md) - SSH key management
+- [Ansible -> Vault](../ansible/vault.md) — the canonical how-to for this project's secret storage
+- [1Password CLI](../bash/tools/1password-cli.md) — password manager + SSH agent
+- [Rebuild Checklist](rebuild-checklist.md) — how secrets are captured and restored on a rebuild
+- [Backup &amp; Recovery](backup.md) — credential storage as part of disaster recovery

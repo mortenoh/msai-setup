@@ -4,6 +4,9 @@ ZFS is the storage backbone of this build. The host OS is on a boring ext4 root;
 
 This section is intentionally deep. It's meant to be read end-to-end before the reinstall, and many pages include an exercise you can recreate in a VirtualBox lab (see [VirtualBox Lab](virtualbox-lab.md)) without touching the real hardware.
 
+!!! info "ZFS is the canonical filesystem for this build"
+    ZFS is the **production, source-of-truth** filesystem here — every dataset that matters (VM disks, container data, media, models, backups) lives on it, and nothing else in this build stores real data. The [Bcachefs](../bcachefs/index.md) section is documented purely as an experimental/exploratory alternative to learn from; it is **not** used anywhere on the MS-S1 MAX.
+
 ## Why ZFS for this build
 
 The headline features:

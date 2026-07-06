@@ -25,6 +25,16 @@ UFW (Uncomplicated Firewall) is a user-friendly frontend for managing netfilter 
 └────────────────────────────────────────────────────────────┘
 ```
 
+!!! note "UFW does not speak nftables natively"
+    On Ubuntu 26.04, UFW does **not** have a native nftables backend. It
+    generates iptables-style rules and applies them via the `iptables` /
+    `ip6tables` binaries, which are the `iptables-nft` compatibility layer.
+    The rules end up in the kernel's nftables engine but in iptables-compat
+    tables, so both tools can inspect them: `sudo iptables -L -n` shows the
+    `ufw-*` chains directly (this is the tool that wrote them), and
+    `sudo nft list ruleset` shows the same rules rendered in nft syntax. See
+    [nftables Introduction](../fundamentals/nftables.md) for the details.
+
 ### UFW Components
 
 | Component | Location | Purpose |

@@ -80,6 +80,17 @@ Unattended-Upgrade::Package-Blacklist {
 };
 ```
 
+!!! warning "Blacklisting `docker-ce` leaves the container runtime unpatched"
+    Every package matched here is **excluded from automatic security updates**. On this build that is significant: `docker-ce` runs every service on the host, so pinning it out of unattended-upgrades means Docker CE will **not** receive security fixes automatically — the same applies to `linux-` (kernel) unless you rely on Livepatch, and to the database entries. This is deliberate (an in-place Docker upgrade can restart every container), but it makes patching Docker CE **your** responsibility. Update it on a controlled, scheduled cadence and verify containers come back healthy:
+
+    ```bash
+    sudo apt update
+    sudo apt install --only-upgrade docker-ce docker-ce-cli containerd.io
+    docker compose ps   # confirm stacks are healthy afterward
+    ```
+
+    Track Docker security advisories rather than assuming automatic updates cover the runtime.
+
 ### Email Notifications
 
 ```

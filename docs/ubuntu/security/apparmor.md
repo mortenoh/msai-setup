@@ -519,6 +519,53 @@ Common default profiles:
 | man | Enabled |
 | tcpdump | Enabled |
 
+## AppArmor on This Build (Docker + libvirt/QEMU)
+
+The generic nginx/`myapp` profiles above are for services running directly on the host. On this build most workloads run inside **Docker containers** and **KVM/QEMU VMs**, which AppArmor confines through their own machinery — you rarely hand-write those profiles.
+
+### Docker: the `docker-default` profile
+
+Docker loads a built-in profile named `docker-default` and applies it to every container automatically (no per-container config needed). Verify and inspect it:
+
+```bash
+# Is the profile loaded?
+sudo aa-status | grep docker-default
+
+# Which profile is a running container confined by?
+docker inspect --format '{{ .AppArmorProfile }}' <container>
+```
+
+Override or harden per container with `security_opt`:
+
+```yaml
+# docker-compose.yml
+services:
+  app:
+    image: myapp:latest
+    security_opt:
+      - apparmor=docker-default        # explicit default
+      # - apparmor=my-custom-profile   # a profile you loaded on the host
+      # - apparmor:unconfined          # AVOID: disables confinement
+      - no-new-privileges:true
+```
+
+Load a custom container profile on the host first (`sudo apparmor_parser -r /etc/apparmor.d/my-custom-profile`), then reference it by name. Do not reach for `apparmor:unconfined` to "fix" a denial — narrow the profile instead.
+
+### libvirt / QEMU: `virt-aa-helper`
+
+libvirt confines each QEMU VM with a dynamically generated per-domain profile (the `libvirt-<uuid>` profiles), built by `virt-aa-helper` from the domain XML. This is what keeps one VM from touching another VM's disk images.
+
+```bash
+# Per-VM profiles show up here once domains are running
+sudo aa-status | grep libvirt
+ls /etc/apparmor.d/libvirt/
+
+# Security driver in use (should be apparmor)
+sudo virsh capabilities | grep -A3 secmodel
+```
+
+If a VM needs an extra host path (e.g. a disk image on a `tank/vm` dataset outside the default search paths), add it to `/etc/apparmor.d/local/abstractions/libvirt-qemu` rather than disabling the driver.
+
 ## Best Practices
 
 ### Profile Development

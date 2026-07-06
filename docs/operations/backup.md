@@ -97,9 +97,20 @@ Schedule via systemd timer or cron. Example daily cron:
 ```bash
 # /etc/cron.daily/syncoid-replicate
 #!/bin/sh
+# Every dataset the "restore everything from offsite" runbook expects must
+# have a job here — otherwise it can't be recovered from the offsite host.
 /usr/sbin/syncoid -r tank/nextcloud-data backup-host:backup/nextcloud-data
+/usr/sbin/syncoid -r tank/nextcloud-app  backup-host:backup/nextcloud-app
 /usr/sbin/syncoid -r tank/db              backup-host:backup/db
+/usr/sbin/syncoid -r tank/ai             backup-host:backup/ai
+/usr/sbin/syncoid -r tank/containers     backup-host:backup/containers
+/usr/sbin/syncoid -r tank/backups        backup-host:backup/backups
+# Optional (large, and lower-value offsite): media and VM disk images.
+# /usr/sbin/syncoid -r tank/media          backup-host:backup/media
+# /usr/sbin/syncoid -r tank/vm             backup-host:backup/vm
 ```
+
+Each dataset lands under its own target on the backup host (`backup/nextcloud-data`, `backup/db`, `backup/ai`, `backup/containers`, `backup/backups`, ...). There is no single recursive `backup/tank` replica — the restore runbooks below pull each dataset back individually.
 
 ### Off-site target
 
@@ -159,13 +170,18 @@ zfs destroy tank/test-restore
 
 ## Backup Schedule
 
-| Data | Snapshot Frequency | Remote Backup |
+| Data | Snapshot Frequency | Remote Backup (syncoid) |
 |------|-------------------|---------------|
 | nextcloud-data | Hourly | Daily |
-| nextcloud-app | Daily | Weekly |
+| nextcloud-app | Daily | Daily |
 | db | Hourly | Daily |
-| media | Weekly | Monthly |
-| vm | Manual (pre-change) | Weekly |
+| ai | Manual (pre-change) | Daily |
+| containers | Hourly | Daily |
+| backups | Daily | Daily |
+| media | Weekly | Optional (see cron above) |
+| vm | Manual (pre-change) | Optional (see cron above) |
+
+Everything with a scheduled remote backup above has a matching syncoid job in the daily cron and is therefore restorable from offsite. `media` and `vm` are offsite only if you enable the optional jobs — otherwise they rely on local snapshots and the on-site replica.
 
 ## Recovery Testing
 
@@ -269,13 +285,16 @@ Maintain a log of all recovery tests:
    sudo zpool status  # Monitor resilver
    ```
 
-3. If no redundancy, restore from backup:
+3. If no redundancy, restore from backup. Offsite replication is **per-dataset** (there is no single recursive `backup/tank@latest`), so recreate the pool and pull each replicated dataset back individually:
    ```bash
-   # Replace disk, create new pool
-   sudo zpool create tank /dev/new-disk
+   # Replace the disk(s), recreate the pool (see Pool Creation for the full flags)
+   sudo zpool create tank <primary-part> <secondary>
 
-   # Restore from remote backup
-   ssh backup-server "zfs send -R backup/tank@latest" | sudo zfs receive -F tank
+   # Pull each replicated dataset back from the offsite host
+   for ds in nextcloud-data nextcloud-app db ai containers backups; do
+       syncoid -r backup-host:backup/$ds tank/$ds
+   done
+   # media / vm only if you enabled their optional offsite jobs.
    ```
 
 **Estimated Recovery Time**: 1-4 hours (mirror) or 4-24 hours (full restore)
@@ -426,14 +445,16 @@ Maintain a log of all recovery tests:
 
 3. Create pool (if restoring from backup):
    ```bash
-   sudo zpool create tank /dev/nvme0n1p3
+   sudo zpool create tank <primary-part> <secondary>
    ```
 
-4. Restore data:
+4. Restore data. The offsite copy is a set of **per-dataset** replicas (`backup/nextcloud-data`, `backup/nextcloud-app`, `backup/db`, `backup/ai`, `backup/containers`, `backup/backups`), **not** a single recursive `tank@latest`. Pull each one back individually:
    ```bash
-   # Full recursive restore
-   ssh backup-server "zfs send -R backup/tank@latest" | sudo zfs receive -F tank
+   for ds in nextcloud-data nextcloud-app db ai containers backups; do
+       syncoid -r backup-host:backup/$ds tank/$ds
+   done
    ```
+   Datasets without an offsite job (`media` and `vm`, unless you enabled the optional jobs) are **not** recoverable from offsite — restore those from their original source or the on-site replica.
 
 5. Follow [Rebuild Checklist](rebuild-checklist.md) for:
    - Docker installation

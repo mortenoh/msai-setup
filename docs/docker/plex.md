@@ -110,6 +110,17 @@ devices:
   - /dev/dri:/dev/dri
 ```
 
+!!! note "Why this needs only `/dev/dri` (no `/dev/kfd`)"
+    This is a deliberate exception to the fuller GPU-passthrough pattern used
+    elsewhere in these docs (`/dev/kfd` + `/dev/dri` + `group_add: [video,
+    render]`, see [Docker vs LXC](docker-vs-lxc.md#gpu-and-device-passthrough)).
+    Plex hardware transcoding uses the GPU's fixed-function video engine via
+    VA-API, which lives entirely behind the `/dev/dri` render node. It does
+    **not** use the ROCm/HIP compute stack, so the `/dev/kfd` compute device
+    (and the `render`/`video` group membership that ROCm compute needs) is not
+    required. Add `/dev/kfd` only for compute workloads like Ollama/llama.cpp,
+    not for Plex.
+
 !!! note
     If GPU is passed through to VM, hardware transcoding won't be available on the host.
 

@@ -337,7 +337,7 @@ done
 
 - Check GPU driver version (`amdgpu` kernel module, ROCm runtime)
 - Verify ROCm installation (`rocminfo`, `rocm-smi`)
-- Confirm `HSA_OVERRIDE_GFX_VERSION=11.5.1` is set if running on `gfx1151`
+- On ROCm 7.x with gfx1151, `HSA_OVERRIDE_GFX_VERSION` is **not** needed — make sure it is unset (a stale override can force a wrong architecture and slow things down)
 - Compare with reported benchmarks
 - Check for background processes
 

@@ -2,6 +2,14 @@
 
 Zed is a high-performance, multiplayer code editor built from scratch in Rust. It combines the speed of a native application with modern editor features.
 
+!!! important "Runs on your workstation, not the server"
+    Zed is a GPU-accelerated GUI application that runs on **your own local Mac
+    or PC**. It does **not** run on the headless MS-S1 MAX server, which has no
+    display server and no desktop environment. To edit files on the server, run
+    Zed locally and use its **Remote Development (SSH)** feature: the UI renders
+    on your workstation while language servers and terminals run on the server.
+    See [Installation](installation.md) for setup.
+
 ## Why Zed?
 
 - **Performance**: Native Rust implementation, extremely fast startup and editing

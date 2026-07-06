@@ -9,14 +9,13 @@ Comprehensive checklist for hardening Ubuntu Server 26.04 LTS. Use this as a ver
 - [ ] ISO checksum verified
 - [ ] ISO GPG signature verified
 - [ ] Boot media created and tested
-- [ ] Disk partitioning plan determined
-- [ ] LUKS encryption passphrase prepared
+- [ ] Disk partitioning plan determined (plain ext4: EFI + /boot + / on the primary NVMe — see [Disk Partitioning](../installation/disk-partitioning.md))
 - [ ] Network configuration planned
 
 ## BIOS/UEFI Settings
 
 - [ ] UEFI mode enabled (not Legacy)
-- [ ] Secure Boot enabled
+- [ ] Secure Boot disabled (this build's default — DKMS amdgpu/ROCm/ZFS modules make MOK enrollment its own chore; see `START.md`)
 - [ ] TPM enabled (if available)
 - [ ] Boot password set
 - [ ] Setup/BIOS password set
@@ -25,17 +24,15 @@ Comprehensive checklist for hardening Ubuntu Server 26.04 LTS. Use this as a ver
 
 ## Installation
 
-- [ ] Full disk encryption (LUKS) enabled
-- [ ] LVM configured
-- [ ] Separate partitions created:
-  - [ ] /boot/efi (512 MB)
-  - [ ] /boot (1 GB)
-  - [ ] / (root)
-  - [ ] /home
-  - [ ] /var
-  - [ ] /tmp
-  - [ ] swap
-- [ ] Strong LUKS passphrase used
+This build uses **plain ext4 root, no LUKS, no LVM**. The partition layout is:
+
+- [ ] Custom storage layout selected (not guided/entire-disk)
+- [ ] Partitions created on the primary NVMe:
+  - [ ] /boot/efi (512 MB, FAT32)
+  - [ ] /boot (1 GB, ext4)
+  - [ ] / (1 TB, ext4)
+  - [ ] ~1 TB left as free space for the ZFS pool
+- [ ] Secondary 4 TB NVMe left entirely unallocated (claimed by ZFS post-install)
 - [ ] SSH server installed
 - [ ] SSH keys imported
 
@@ -128,13 +125,13 @@ sysctl settings in `/etc/sysctl.d/99-security.conf`:
 
 ## Mount Options
 
-fstab entries with security options:
+This build uses a unified ext4 root (no separate /home, /var, /tmp partitions), so the fstab hardening surface is smaller. Apply security options where they exist:
 
-- [ ] /home mounted with nodev,nosuid
-- [ ] /var mounted with nodev,nosuid
-- [ ] /var/log mounted with nodev,nosuid,noexec
-- [ ] /tmp mounted with nodev,nosuid,noexec
+- [ ] /boot mounted with nodev,nosuid,noexec
+- [ ] /boot/efi mounted with umask=0077,fmask=0077,dmask=0077
 - [ ] /dev/shm mounted with nodev,nosuid,noexec
+- [ ] /tmp mounted as tmpfs with nodev,nosuid,noexec (optional — see [Disk Partitioning](../installation/disk-partitioning.md))
+- [ ] ZFS datasets under /mnt/tank/ carry their own per-dataset mount options
 
 ## Automatic Updates
 
@@ -194,10 +191,14 @@ fstab entries with security options:
 
 ## Disk Encryption
 
+!!! note "Only applicable if you chose the LUKS+LVM alternative"
+    This build's default layout is **unencrypted plain ext4 root** (the host lives on a private network behind UFW/Tailscale; LUKS adds a remote-unlock problem on a headless box). Skip this section unless you followed the "Encrypted Alternative — LUKS + LVM" path in [Disk Partitioning](../installation/disk-partitioning.md).
+
 - [ ] LUKS encryption active
 - [ ] Strong passphrase used
 - [ ] Recovery key created and stored securely
 - [ ] LUKS header backed up
+- [ ] Unlock mechanism planned (dropbear-initramfs / Clevis+Tang / walk-up)
 
 ## Backup
 
@@ -210,12 +211,38 @@ fstab entries with security options:
 - [ ] Backup restoration tested
 - [ ] Off-site backup configured
 
+## ZFS Data Pool
+
+- [ ] Pool `tank` imported and `ONLINE`: `zpool status tank`
+- [ ] No read/write/checksum errors reported
+- [ ] Scrub scheduled (and last scrub completed clean): `zpool status | grep scrub`
+- [ ] Datasets created per layout: `zfs list`
+- [ ] ARC capped (e.g. 16 GiB) so VMs and Ollama have predictable memory
+- [ ] sanoid snapshot schedule present and running: `systemctl status sanoid.timer`
+- [ ] Snapshots actually being taken: `zfs list -t snapshot | head`
+- [ ] syncoid / restic off-host replication configured and tested
+
+## GPU / AI Stack
+
+- [ ] ROCm installed and iGPU visible: `rocminfo | grep gfx1151`
+- [ ] `/dev/kfd` and `/dev/dri` present with correct group ownership (render/video)
+- [ ] amd-ttm GTT allocation configured (kernel `ttm.pages_limit` / `ttm.page_pool_size`)
+- [ ] Ollama / llama.cpp inference functional against the iGPU
+
+## Containers & Virtualization
+
+- [ ] Docker service data uses bind mounts into ZFS datasets (not named volumes)
+- [ ] `ufw-docker` applied so UFW actually filters Docker-published ports
+- [ ] KVM/QEMU functional (`virsh list --all`); VM disks on the primary NVMe
+- [ ] Service ports bound to 127.0.0.1 behind a reverse proxy
+
 ## Network
 
 - [ ] Static IP configured (for servers)
 - [ ] DNS servers configured
-- [ ] IPv6 disabled (if not used)
-- [ ] Network interfaces reviewed
+- [ ] Network interfaces reviewed (two RTL8127 10GbE NICs, r8169 driver)
+- [ ] Tailscale up and reachable: `tailscale status`
+- [ ] Host confirmed NOT directly exposed to the public internet (LAN + Tailscale only)
 
 ## Documentation
 

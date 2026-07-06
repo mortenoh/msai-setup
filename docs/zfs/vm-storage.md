@@ -269,7 +269,7 @@ sudo dpkg-reconfigure openssh-server   # regenerates host keys
 
 For the MS-S1 MAX:
 
-- **Keep VM disks on the primary 2 TB NVMe partition** (PCIe 4.0 x4). The secondary 4 TB NVMe is x1 — fine for media, slow for VM disks.
+- **Device placement is a preference, not a guarantee.** The primary 2 TB NVMe partition (PCIe 4.0 x4) is much faster than the secondary 4 TB NVMe (x1), so you'd *like* VM disks to live there. But because `tank` is one pool striped across both drives, ZFS spreads writes across both top-level vdevs — there's no way to pin `tank/vm` to the fast drive within a single pool. If guaranteed fast-drive placement for VM disks genuinely matters, build a **second, separate pool** from the primary drive's leftover space instead of folding it into `tank`. See [Pool Creation -> What this pool is not](pool-creation.md#what-this-pool-is-not) and [Datasets -> A note on device placement](datasets.md#a-note-on-device-placement).
 - **Use virtio drivers** end-to-end: `bus=virtio` for disks, `model=virtio` for network, virtio-balloon, virtio-rng.
 - **Pin the VM to a single CCX** ([VM Resources](../virtualization/vm-resources.md)). Disk IO threads benefit from cache locality.
 - **`cache=none`** for ZFS-backed VMs. ARC handles caching; double-caching wastes RAM.

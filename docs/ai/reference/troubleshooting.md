@@ -60,9 +60,9 @@ Error: failed to mmap model
 ```
 
 **Causes:**
-- Insufficient GPU memory (UMA frame buffer too small)
+- Insufficient GPU-accessible memory (GTT allocation too small)
 - Model exceeds available RAM
-- BIOS UMA setting needs tuning (see [Memory Configuration](../gpu/memory-configuration.md))
+- `amd-ttm`/GTT sizing needs tuning — not the BIOS UMA framebuffer, which stays small (see [Memory Configuration](../gpu/memory-configuration.md#software-vram-allocation-amd-ttm))
 
 **Solutions:**
 ```bash
@@ -137,10 +137,13 @@ ollama run llama3.3:70b-instruct-q3_K_M  # Instead of Q4_K_M
 --num-ctx 4096
 ```
 
-On the MS-S1 MAX, "GPU memory" is a slice of the unified-memory pool
-configured via the BIOS UMA frame buffer. If you keep running out, you
-may need to raise that allocation — see
-[Memory Configuration](../gpu/memory-configuration.md).
+On the MS-S1 MAX, "GPU memory" is drawn from the unified-memory pool via
+the dynamically sized GTT allocation, not the small fixed BIOS UMA frame
+buffer. Do **not** raise the UMA setting to fix OOM — leave it at 512MB.
+If you keep running out, adjust the `amd-ttm`/GTT sizing (e.g.
+`amd-ttm --set 108`) and make sure enough of the 128GB pool is available
+to the GPU — see the amd-ttm section in
+[Memory Configuration](../gpu/memory-configuration.md#software-vram-allocation-amd-ttm).
 
 ### Slow GPU performance
 
@@ -431,10 +434,10 @@ docker rm ollama
 sudo rm -rf /mnt/tank/ai/models/ollama/*
 
 # Start fresh
+# No HSA_OVERRIDE_GFX_VERSION needed — ROCm 7.x supports gfx1151 natively.
 docker run -d \
   --device=/dev/kfd --device=/dev/dri \
   --group-add video --group-add render \
-  -e HSA_OVERRIDE_GFX_VERSION=11.5.1 \
   -v /mnt/tank/ai/models/ollama:/root/.ollama \
   -p 11434:11434 \
   --name ollama \

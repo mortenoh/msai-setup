@@ -390,4 +390,5 @@ ansible.builtin.shell: 'echo "{{ msg }}"'   # single-quote the outer, double-quo
 
 - [Variables](variables.md) — what's available inside `{{ }}`.
 - [Modules -> `template:`](modules.md) — the module parameters.
-- [Vault](vault.md) — how to use encrypted values inside templates.
+- [Vault](vault.md) — how to use encrypted values inside templates (generic; not used by the shipped playbooks).
+- The hands-on walkthrough: [`src/msai_setup/lab/README.md`](https://github.com/mortenoh/msai-setup/blob/main/src/msai_setup/lab/README.md) — Jinja2-in-`copy` config generation, running for real via `msai lab apply`.

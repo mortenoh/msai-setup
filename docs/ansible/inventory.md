@@ -100,7 +100,7 @@ all:
           ansible_host: backup.example.com
 ```
 
-When variables conflict, child group wins over parent group, and host wins over group. See [Variables -> Precedence](variables.md#variable-precedence).
+When variables conflict, child group wins over parent group, and host wins over group. See [Variables -> Precedence](variables.md#variable-precedence-simplified).
 
 ## Inventory variables
 
@@ -180,40 +180,42 @@ For the homelab in this build, **a static YAML inventory is fine and easier to r
 
 ## Inventory for this build
 
-The lab automation (`scripts/lab/02_apply.py`) **generates an inventory file at runtime** from the lab config:
+The lab automation (`msai lab apply`, implemented in `src/msai_setup/lab/apply.py`) **generates an inventory file at runtime** from the lab config. Note there is **no** `ansible_become_password` — sudo is passwordless via bootstrap.yml — and auth is the lab keypair via `ansible_ssh_private_key_file`:
 
 ```yaml
-# scripts/lab/ansible/inventory.generated.yml (auto-generated)
+# src/msai_setup/lab/ansible/inventory.generated.yml (auto-generated — do not edit by hand)
 all:
   children:
     lab:
       hosts:
-        ms-s1-max-lab:
+        test:
           ansible_host: 127.0.0.1
           ansible_port: 2222
           ansible_user: morten
           ansible_become: true
-          ansible_become_password: 'changeme'
+          ansible_ssh_private_key_file: target/lab_id_ed25519
           ansible_python_interpreter: /usr/bin/python3
           ansible_ssh_extra_args: >-
             -o StrictHostKeyChecking=accept-new
             -o UserKnownHostsFile=/dev/null
+            -o IdentitiesOnly=yes
             -o LogLevel=ERROR
 ```
 
-For the real MS-S1 MAX, you'd hand-write an inventory once:
+For the real MS-S1 MAX, you'd hand-write an inventory once — matching the "From lab to real MS-S1 MAX" section of `src/msai_setup/lab/README.md`:
 
 ```yaml
-# ansible/inventory.yml
+# ~/msai-prod-inventory.yml
 all:
   children:
     production:
       hosts:
         ms-s1-max:
-          ansible_host: 192.168.1.10        # or its Tailscale name
+          ansible_host: 192.168.1.10             # or ms-s1-max.<tailnet>.ts.net
           ansible_user: morten
           ansible_become: true
-          # no password; key-based auth + passwordless sudo (via bootstrap.yml)
+          ansible_ssh_private_key_file: ~/.ssh/id_ed25519
+          # no become password; key-based auth + passwordless sudo (via bootstrap.yml)
 ```
 
 ## Verifying inventory

@@ -153,6 +153,14 @@ By default, device keys expire and require re-authentication.
 1. **Machines** -> Select device
 2. **Disable key expiry**
 
+!!! warning "Security tradeoff of disabling key expiry"
+    A device with key expiry disabled never re-verifies its identity. If that
+    node key is ever compromised or the machine is stolen, it stays valid on the
+    tailnet indefinitely until you manually remove or expire it. Reserve this for
+    stable, unattended infrastructure (like this always-on server) and pair it
+    with periodic manual key rotation and device auditing so a stale or leaked
+    key does not linger unnoticed.
+
 ### Re-authentication
 
 ```bash

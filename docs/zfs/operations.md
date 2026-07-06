@@ -33,7 +33,7 @@ A scrub on this build (1 TB + 4 TB pool, mostly used) takes maybe 8-20 hours dep
 
 ### Schedule a weekly scrub
 
-Ubuntu's `zfsutils-linux` package installs `zfs-scrub@.service`/`zfs-scrub@.timer` for you. Enable it on the pool:
+Ubuntu's `zfsutils-linux` package installs `zfs-scrub-weekly@.timer` and `zfs-scrub-monthly@.timer` (each backed by `zfs-scrub@.service`) for you. Enable one on the pool:
 
 ```bash
 sudo systemctl enable --now zfs-scrub-monthly@tank.timer

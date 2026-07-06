@@ -411,9 +411,12 @@ network:
         - to: 0.0.0.0/0
           via: 10.10.10.1
       routing-policy:
-        # Ensure VPN endpoint is reachable via eth0
+        # Ensure the VPN endpoint stays reachable via eth0 rather than
+        # looping back through the tunnel. A routing-policy `to:` takes an
+        # IP or CIDR, not a hostname — use the endpoint's resolved address
+        # as a /32 (here 198.51.100.20 stands in for vpn.example.com).
         - from: 0.0.0.0/0
-          to: vpn.example.com
+          to: 198.51.100.20/32
           table: main
       peers:
         - keys:

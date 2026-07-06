@@ -12,11 +12,22 @@ idempotent — running it twice is a no-op.
 
 ## What the playbook produces
 
-A single drop-in at `/etc/ssh/sshd_config.d/00-hardening.conf`,
-loaded after the distro's `sshd_config` (which has `Include
-/etc/ssh/sshd_config.d/*.conf`). The handler reloads `sshd` only if
-the file changed, and a pre-reload `sshd -t` check refuses to apply a
-config that wouldn't parse.
+A single drop-in at `/etc/ssh/sshd_config.d/00-hardening.conf`. The
+handler reloads `sshd` only if the file changed, and a pre-reload
+`sshd -t` check refuses to apply a config that wouldn't parse.
+
+!!! note "Why the drop-in wins: parsed first, not loaded last"
+    It is tempting to think the drop-in overrides the distro defaults because
+    it is "loaded last." That is backwards. Ubuntu's `/etc/ssh/sshd_config`
+    puts its `Include /etc/ssh/sshd_config.d/*.conf` line **near the top** of
+    the file, so the contents of `00-hardening.conf` are parsed **before**
+    most of the directives in the base file. And sshd is **first-match-wins**:
+    for most directives, the *first* value seen for a directive is the one
+    that takes effect and later occurrences are ignored. So the drop-in wins
+    precisely because it is parsed **first** (via that early `Include`), not
+    because it loads later. This is also why the `00-` prefix matters — among
+    the drop-ins, lexical order decides who is parsed first, and the earliest
+    file wins each directive.
 
 > **Order matters**: the playbook depends on your public key already
 > being authorised (`bootstrap.yml` puts it there during provisioning).

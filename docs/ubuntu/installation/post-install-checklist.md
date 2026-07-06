@@ -252,7 +252,7 @@ For comprehensive firewall configuration, see the [Networking & Firewall](../../
 
 ### Update fstab
 
-Add security mount options for non-root partitions:
+This build uses the plain-ext4 layout (no LVM, no LUKS): `nvme0n1p1` = `/boot/efi`, `nvme0n1p2` = `/boot`, `nvme0n1p3` = `/`. Harden mount options in `/etc/fstab`:
 
 ```bash
 sudo nano /etc/fstab
@@ -261,30 +261,22 @@ sudo nano /etc/fstab
 Update mount options:
 
 ```
-# Root - defaults only (needs exec for system)
-/dev/mapper/vg--system-lv--root /     ext4 defaults 0 1
-
-# Home - restrict device files and setuid
-/dev/mapper/vg--system-lv--home /home ext4 defaults,nodev,nosuid 0 2
-
-# Var - restrict device files and setuid
-/dev/mapper/vg--system-lv--var  /var  ext4 defaults,nodev,nosuid 0 2
-
-# Tmp - full restrictions
-/dev/mapper/vg--system-lv--tmp  /tmp  ext4 defaults,nodev,nosuid,noexec 0 2
+/dev/nvme0n1p1   /boot/efi  vfat   umask=0077,fmask=0077,dmask=0077  0 1
+/dev/nvme0n1p2   /boot      ext4   defaults,nodev,nosuid,noexec      0 2
+/dev/nvme0n1p3   /          ext4   defaults                          0 1
 ```
 
 Apply changes:
 
 ```bash
-# Remount all
-sudo mount -o remount /home
-sudo mount -o remount /var
-sudo mount -o remount /tmp
+# Remount
+sudo mount -o remount /boot
 
 # Verify
-mount | grep -E "(home|var|tmp)"
+mount | grep -E "(boot|nvme0n1)"
 ```
+
+See [Disk Partitioning → Mount Options for Security](disk-partitioning.md#mount-options-for-security) for the authoritative reference and stricter per-filesystem isolation options.
 
 ### Secure /dev/shm
 
@@ -491,9 +483,6 @@ timedatectl | grep -q "synchronized: yes"
 
 # Updates installed
 apt list --upgradable 2>/dev/null | grep -c upgradable
-
-# Disk encryption active
-sudo cryptsetup status cryptroot
 
 # Fail2ban running (if installed)
 systemctl is-active fail2ban

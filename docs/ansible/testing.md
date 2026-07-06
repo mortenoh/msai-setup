@@ -46,7 +46,7 @@ Lint your playbooks for style and common mistakes:
 
 ```bash
 pipx install ansible-lint
-ansible-lint scripts/lab/ansible/playbooks/
+ansible-lint src/msai_setup/lab/ansible/playbooks/
 
 # Or via pre-commit
 brew install pre-commit
@@ -93,34 +93,33 @@ cd my_role
 molecule test
 ```
 
-Molecule overkill for a homelab; **the VirtualBox/Multipass lab + the `--check --diff` workflow gets you 80% of the value at 10% of the complexity**. Save molecule for when you publish roles to Galaxy or maintain many playbooks across many environments.
+Molecule overkill for a homelab; **the VirtualBox lab + the `--check --diff` workflow gets you 80% of the value at 10% of the complexity**. Save molecule for when you publish roles to Galaxy or maintain many playbooks across many environments.
 
 ## Testing locally with the lab VM
 
-The pattern this build encourages:
+The pattern this build encourages, driven entirely through the `msai` CLI (see the hands-on walkthrough in [`src/msai_setup/lab/README.md`](https://github.com/mortenoh/msai-setup/blob/main/src/msai_setup/lab/README.md)):
 
 ```bash
-# 1. provision a fresh VM
-python3 scripts/lab/01_provision_multipass.py   # or 01_provision.py for VBox
+# 1. create a fresh VM (VirtualBox — the only supported provisioner)
+msai create test
 
 # 2. apply a single playbook
-python3 scripts/lab/02_apply.py bootstrap
+msai lab apply bootstrap
 
-# 3. check what changed
-python3 scripts/lab/02_apply.py bootstrap --check --diff
+# 3. check what would change (no changes made)
+msai lab apply bootstrap --check --diff
 
 # 4. snapshot before risky changes
-multipass snapshot ms-s1-max-lab --name pre-experiment
-# or:
-VBoxManage snapshot ms-s1-max-lab take pre-experiment --pause
+msai lab snapshot pre-experiment
 
 # 5. apply the risky thing
-python3 scripts/lab/02_apply.py zfs -e topology=mirror
+msai lab apply zfs -e topology=mirror
 
 # 6. roll back if it goes wrong
-multipass restore ms-s1-max-lab.pre-experiment
-# or:
-VBoxManage snapshot ms-s1-max-lab restorecurrent
+msai lab restore pre-experiment
+
+# 7. tear the VM down when finished
+msai lab destroy
 ```
 
 This is the "real" test loop. Fast, real, and matches what you'll do for the actual MS-S1 MAX install.
@@ -196,7 +195,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: pipx install ansible-lint
-      - run: ansible-lint scripts/lab/ansible/
+      - run: ansible-lint src/msai_setup/lab/ansible/
 
   syntax-check:
     runs-on: ubuntu-latest
@@ -204,8 +203,8 @@ jobs:
       - uses: actions/checkout@v4
       - run: pipx install ansible
       - run: |
-          for play in scripts/lab/ansible/playbooks/*.yml; do
-            ansible-playbook "$play" --syntax-check -i scripts/lab/ansible/inventory.example.yml
+          for play in src/msai_setup/lab/ansible/playbooks/*.yml; do
+            ansible-playbook "$play" --syntax-check -i src/msai_setup/lab/ansible/inventory.example.yml
           done
 ```
 

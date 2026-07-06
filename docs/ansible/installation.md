@@ -98,28 +98,31 @@ Ansible's modules are bundled into "collections". Some are built-in (`ansible.bu
 This build uses:
 
 ```yaml
-# scripts/lab/ansible/requirements.yml
+# src/msai_setup/lab/ansible/requirements.yml
 collections:
   - name: community.general
   - name: ansible.posix
+  - name: community.docker
   - name: devsec.hardening
 ```
+
+`community.docker` is required by `services.yml` (it uses `community.docker.docker_network` and `docker_compose_v2`).
 
 Install:
 
 ```bash
-ansible-galaxy collection install -r scripts/lab/ansible/requirements.yml
+ansible-galaxy collection install -r src/msai_setup/lab/ansible/requirements.yml
 ```
 
 Collections are stored in `~/.ansible/collections/` by default. To pin them inside the project tree (recommended for reproducibility):
 
 ```bash
 ansible-galaxy collection install \
-    -r scripts/lab/ansible/requirements.yml \
-    -p scripts/lab/ansible/collections
+    -r src/msai_setup/lab/ansible/requirements.yml \
+    -p src/msai_setup/lab/ansible/collections
 ```
 
-Then the `ansible.cfg` in `scripts/lab/ansible/` points at that path so plays find them automatically.
+Then the `ansible.cfg` in `src/msai_setup/lab/ansible/` points at that path so plays find them automatically.
 
 ## Verifying the install
 
@@ -151,3 +154,8 @@ Major releases of `ansible-core` ship every 6 months. Read the porting guide bef
 - apt: `sudo apt remove --purge ansible`
 
 Removing Ansible doesn't touch managed hosts (since there's no agent). Your playbooks and inventories stay where they were.
+
+## Where to go next
+
+- [Inventory](inventory.md) — describe your hosts.
+- The hands-on walkthrough: [`src/msai_setup/lab/README.md`](https://github.com/mortenoh/msai-setup/blob/main/src/msai_setup/lab/README.md) — installs `msai` and runs the real playbooks against a throwaway VM. It's the fastest way to see this section's tooling actually work.

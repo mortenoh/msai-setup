@@ -141,6 +141,12 @@ ss -s                             # Summary
 ping host
 traceroute host
 curl -I http://host
+
+# Tailscale (management plane)
+tailscale status                  # Peers, MagicDNS names
+tailscale ip -4                   # This host's tailnet IP
+tailscale ping host               # Reachability over the tailnet
+sudo tailscale up                 # Bring the tailnet interface up
 ```
 
 ## Firewall (UFW)
@@ -181,15 +187,36 @@ blkid
 
 # Mount
 mount
-sudo mount /dev/sdb1 /mnt
+sudo mount /dev/nvme0n1p3 /mnt
 sudo umount /mnt
+```
 
-# LVM
-sudo pvs                          # Physical volumes
-sudo vgs                          # Volume groups
-sudo lvs                          # Logical volumes
-sudo lvextend -L +10G /dev/vg/lv  # Extend
-sudo resize2fs /dev/vg/lv         # Resize filesystem
+## ZFS (pool `tank`)
+
+```bash
+# Pool health
+zpool status                      # Pool state, errors, scrub status
+zpool status tank
+zpool list                        # Capacity/health summary
+sudo zpool scrub tank             # Start a scrub
+
+# Datasets and snapshots
+zfs list                          # Datasets, used/avail/mountpoint
+zfs list -t snapshot              # All snapshots (sanoid-managed)
+zfs get compression,recordsize tank
+
+# Snapshot / rollback
+sudo zfs snapshot tank/dataset@manual
+sudo zfs rollback tank/dataset@snap
+```
+
+## GPU / ROCm
+
+```bash
+rocminfo | grep gfx1151           # Confirm the iGPU is visible (gfx1151)
+rocm-smi                          # GPU utilization / VRAM (GTT)
+ls -l /dev/kfd /dev/dri           # Compute + render nodes
+groups                            # Need render + video for GPU access
 ```
 
 ## Logs

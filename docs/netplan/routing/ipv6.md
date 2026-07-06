@@ -78,18 +78,17 @@ network:
   version: 2
   ethernets:
     eth0:
-      # IPv4
+      # Combine IPv4 and IPv6 under one addresses list.
+      # Netplan (like YAML in general) is last-key-wins, so a second
+      # addresses:/routes: block under the same interface would silently
+      # overwrite the first. Merge them instead.
       addresses:
-        - 192.168.1.100/24
+        - 192.168.1.100/24         # IPv4
+        - "2001:db8:1::100/64"     # IPv6
       routes:
-        - to: default
+        - to: default              # IPv4 default
           via: 192.168.1.1
-
-      # IPv6
-      addresses:
-        - "2001:db8:1::100/64"
-      routes:
-        - to: "::/0"
+        - to: "::/0"               # IPv6 default
           via: "2001:db8:1::1"
 
       nameservers:

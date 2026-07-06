@@ -2,6 +2,13 @@
 
 Proper preparation ensures a smooth installation and establishes a secure baseline.
 
+## Practice First (Recommended)
+
+!!! note "Console access is only needed for BIOS and the install itself"
+    This board has **no BMC/IPMI**. Entering BIOS and running the initial install require a keyboard and the single HDMI display temporarily connected to the machine. Once Ubuntu is installed and SSH is up, everything afterward is SSH-only — you can disconnect the display and keyboard.
+
+Before touching the real hardware, consider rehearsing the ZFS / SSH-hardening / UFW / Docker steps on a throwaway VirtualBox VM using the `msai` CLI tool — see `src/msai_setup/lab/README.md` in this repo. It runs the same Ansible playbooks you'd later run against the real MS-S1 MAX, so you can make (and recover from) mistakes safely before the real install.
+
 ## Hardware Verification
 
 ### Check System Compatibility
@@ -148,35 +155,11 @@ The flash is doable from Linux + EFI shell (no Windows required). See [capetron/
 
 ### Access Firmware Settings
 
-Access varies by manufacturer:
-
-| Manufacturer | Common Keys |
-|--------------|-------------|
-| Dell | F2, F12 |
-| HP | F10, Esc |
-| Lenovo | F1, F2 |
-| Supermicro | Del, F2 |
-| ASUS | Del, F2 |
+See [BIOS Setup](../../getting-started/bios-setup.md#accessing-bios) for this hardware's specific key (Del, or F2) and full configuration guidance.
 
 ### Recommended Settings
 
-**Security Settings:**
-
-| Setting | Recommended Value | Purpose |
-|---------|-------------------|---------|
-| Secure Boot | Enabled | Verify boot components |
-| TPM | Enabled | Hardware security module |
-| Boot Password | Set | Prevent unauthorized boot changes |
-| Setup Password | Set | Protect BIOS settings |
-
-**Boot Settings:**
-
-| Setting | Recommended Value | Purpose |
-|---------|-------------------|---------|
-| Boot Mode | UEFI | Modern boot process |
-| Fast Boot | Disabled | Allows USB boot, full POST |
-| CSM/Legacy | Disabled | UEFI only |
-| Boot Order | USB first (temporarily) | Boot from installation media |
+BIOS settings for this build are documented authoritatively in [BIOS Setup](../../getting-started/bios-setup.md) — refer there rather than duplicating them here. Note in particular: this build runs with Secure Boot **disabled** (see [BIOS Setup](../../getting-started/bios-setup.md#boot-settings)) to avoid MOK-signing friction for the amdgpu/ZFS DKMS modules. Boot mode is UEFI; a TPM is not required for the host OS (no BitLocker-equivalent is in use).
 
 **Virtualization Settings (if using KVM):**
 
@@ -240,8 +223,8 @@ Before starting the installer, confirm:
 
 - [ ] Hardware meets minimum requirements
 - [ ] UEFI mode enabled in BIOS
-- [ ] Secure Boot enabled (optional but recommended)
-- [ ] TPM enabled (if available)
+- [ ] Secure Boot disabled (this build's default — avoids MOK-signing friction for amdgpu/ZFS DKMS)
+- [ ] TPM enabled only if you specifically need it (not required by this build's host OS)
 - [ ] ISO downloaded and verified
 - [ ] Boot media created and tested
 - [ ] Network information gathered

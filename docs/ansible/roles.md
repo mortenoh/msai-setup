@@ -111,6 +111,7 @@ ansible-galaxy collection install -r requirements.yml
 collections:
   - name: community.general
   - name: ansible.posix
+  - name: community.docker      # used by services.yml
   - name: devsec.hardening
 ```
 
@@ -144,7 +145,7 @@ The dev-sec project maintains a vetted collection of CIS-style hardening playboo
 
 These apply hundreds of CIS controls. Read what they do before applying — some are aggressive (disable IPv6, set strict umasks). Cherry-pick by setting `os_hardening_modify_*` variables.
 
-For this build's lab, the playbooks under `scripts/lab/ansible/playbooks/ssh-hardening.yml` and `ufw.yml` re-implement the subset we want, so the hardening pass is auditable in this repo. For the production server, layering `devsec.hardening.*` on top is a fine choice.
+For this build's lab, the playbooks under `src/msai_setup/lab/ansible/playbooks/` (`ssh-hardening.yml` and `ufw.yml`) re-implement the subset we want, so the hardening pass is auditable in this repo. For the production server, layering `devsec.hardening.*` on top is a fine choice.
 
 ## Role dependencies
 
@@ -189,4 +190,5 @@ Conversion is purely structural — the tasks themselves don't change. So feel f
 
 - [Modules](modules.md) — what tasks inside a role typically invoke.
 - [Variables](variables.md) — `defaults/` vs `vars/` vs play vars.
-- [Vault](vault.md) — encrypting role-level secrets.
+- [Vault](vault.md) — encrypting role-level secrets (generic; not used by the shipped playbooks).
+- The hands-on walkthrough: [`src/msai_setup/lab/README.md`](https://github.com/mortenoh/msai-setup/blob/main/src/msai_setup/lab/README.md) — the flat playbooks this section might one day promote to roles.

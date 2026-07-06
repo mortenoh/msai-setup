@@ -2,6 +2,14 @@
 
 Modern JavaScript testing with Vitest, Jest, and Testing Library.
 
+!!! note "Not used in this repo"
+    This repository contains **no JavaScript or TypeScript code**. The CLI is
+    Python (Typer), the automation is Ansible YAML, and the docs are Markdown
+    built with MkDocs. This page is kept as general reference material in case
+    JS/TS is added later — it does not describe any existing practice or tooling
+    in this project. For the code that actually exists here, see
+    [Python Testing](python.md).
+
 ## Vitest (Recommended)
 
 ### Installation

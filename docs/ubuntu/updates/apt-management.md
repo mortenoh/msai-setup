@@ -439,8 +439,13 @@ cat /var/log/dpkg.log
 ### Verify Package Authenticity
 
 ```bash
-# Check package signature
-apt-key list
+# List the trusted repository keys (modern, per-repo keyrings)
+# apt-key is deprecated and removed on 26.04 — inspect the keyrings directly:
+ls -l /etc/apt/keyrings/
+gpg --show-keys /etc/apt/keyrings/docker.gpg
+
+# Confirm each third-party repo pins its key with signed-by=
+grep -r signed-by /etc/apt/sources.list.d/
 
 # Verify package integrity
 debsums package-name

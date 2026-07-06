@@ -108,7 +108,7 @@ services:
       - /data/config/sonarr:/config
       - /data:/data
     ports:
-      - "8989:8989"
+      - "127.0.0.1:8989:8989"   # localhost only; reach via reverse proxy
     networks:
       - media
       - proxy
@@ -125,7 +125,7 @@ services:
       - /data/config/radarr:/config
       - /data:/data
     ports:
-      - "7878:7878"
+      - "127.0.0.1:7878:7878"   # localhost only; reach via reverse proxy
     networks:
       - media
       - proxy
@@ -141,7 +141,7 @@ services:
     volumes:
       - /data/config/prowlarr:/config
     ports:
-      - "9696:9696"
+      - "127.0.0.1:9696:9696"   # localhost only; reach via reverse proxy
     networks:
       - media
       - proxy
@@ -158,8 +158,8 @@ services:
       - /data/config/transmission:/config
       - /data/downloads:/downloads
     ports:
-      - "9091:9091"
-      - "51413:51413"
+      - "127.0.0.1:9091:9091"   # web UI: localhost only, reach via reverse proxy
+      - "51413:51413"           # BitTorrent peer port: LAN/WAN as needed
       - "51413:51413/udp"
     networks:
       - media

@@ -24,6 +24,27 @@ Tailscale SSH provides secure, passwordless SSH access using Tailscale identitie
 
 ## Enabling Tailscale SSH
 
+!!! warning "Tailscale SSH bypasses your sshd hardening"
+    Tailscale SSH is a **second, independent SSH server implementation** built into
+    `tailscaled`. It does not use the system `sshd`, and it is governed **only** by
+    Tailscale ACLs (the `ssh` rules in your tailnet policy). It entirely bypasses
+    the sshd hardening documented in
+    [SSH Server Hardening](../../ssh/server/hardening.md): fail2ban, MFA/PAM,
+    cipher/AEAD restrictions, `AllowTcpForwarding no`, key-only auth, and the rest
+    do **not** apply to connections that come in over Tailscale SSH.
+
+    That leaves two different trust models - choose one deliberately:
+
+    - **Hardened sshd over Tailscale (this build's default):** do *not* enable
+      Tailscale SSH. Reach the box with plain `ssh` to its Tailscale IP; the packets
+      arrive at the system `sshd`, which still enforces every hardening control.
+    - **Tailscale SSH:** access control shifts entirely to Tailscale ACLs plus
+      device auth. Convenient (no key management), but the documented sshd hardening
+      no longer protects those sessions.
+
+    For this server the conservative default is the first option - keep the
+    hardened sshd as the enforcement point and reach it over the tailnet.
+
 ### On the Server
 
 ```bash

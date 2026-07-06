@@ -2,9 +2,27 @@
 
 ## LXC vs LXD
 
-- **LXC** - Low-level container runtime
-- **LXD** - High-level management layer for LXC
-- This guide focuses on LXD (the common way to use LXC)
+- **LXC** (classic) - Low-level container runtime. Managed with the
+  `lxc-*` tools: `lxc-create`, `lxc-start`, `lxc-stop`, `lxc-attach`,
+  `lxc-ls`. Per-container config lives in `/etc/lxc/` and
+  `~/.local/share/lxc/<name>/config`; networking is typically a system bridge
+  (`lxcbr0`) plus veth entries in that config file.
+- **LXD** - High-level management layer built on top of LXC. Its client is
+  confusingly named `lxc` (no dash), e.g. `lxc launch`, `lxc network`,
+  `lxc config`. This is a different command from classic LXC's `lxc-*`.
+- **This guide focuses on LXD**, which is the common way these systems are run.
+  Every command below that starts with `lxc ` (space, no dash) is the **LXD**
+  client, not classic LXC.
+
+!!! warning "`lxc` (LXD) is not `lxc-*` (classic LXC)"
+    The single most common point of confusion: `lxc launch ubuntu:26.04 web`
+    is an **LXD** command. The classic-LXC equivalent is a different tool
+    entirely, e.g. `sudo lxc-create -n web -t download -- -d ubuntu -r noble -a amd64`
+    then `sudo lxc-start -n web`. Concepts like `lxc network` and
+    `lxc config device add ... proxy` shown on this page are **LXD-only** —
+    classic LXC has no managed-network CLI; you edit the container's config
+    file and use host bridges/veth directly. Where a mechanism genuinely
+    differs, this page calls out which tool it belongs to.
 
 ## Network Types
 

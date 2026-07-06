@@ -109,9 +109,13 @@ docker run -d \
   -p 3000:8080 \
   -v /mnt/tank/ai/data/open-webui:/app/backend/data \
   -e OLLAMA_BASE_URL=http://host.docker.internal:11434 \
+  --add-host=host.docker.internal:host-gateway \
   --name open-webui \
   ghcr.io/open-webui/open-webui:main
 ```
+
+!!! note "`host.docker.internal` on native Linux Docker"
+    This build runs native Linux Docker (not Docker Desktop), where `host.docker.internal` is not resolvable by default. The `--add-host=host.docker.internal:host-gateway` flag above maps it to the host so the container can reach Ollama on the host.
 
 ## Topics
 

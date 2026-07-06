@@ -162,10 +162,10 @@ fi
 
 ```bash
 # .envrc
-layout python-venv
+layout python3
 
-# Or specify Python version
-layout python-venv python3.12
+# Or specify the Python interpreter
+layout python python3.12
 
 # Using uv (recommended)
 if has uv; then

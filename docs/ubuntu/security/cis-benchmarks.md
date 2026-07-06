@@ -108,20 +108,27 @@ install freevxfs /bin/true
 install jffs2 /bin/true
 install hfs /bin/true
 install hfsplus /bin/true
-install squashfs /bin/true
 install udf /bin/true
+# NOTE: squashfs is intentionally NOT blacklisted here. snapd mounts every
+# snap package as a squashfs image; blacklisting it breaks all snaps (and
+# LXD/other snap-delivered tooling). Leave squashfs loadable on this build.
 EOF
 ```
 
 **1.1.2-1.1.22 Mount options**
 
+This build uses a unified ext4 root on the primary NVMe (no LVM, no separate `/var` or `/home` volumes), so the mountable hardening surface is `/boot`, `/boot/efi`, `/dev/shm`, and an optional `tmpfs` `/tmp`:
+
 ```bash
-# /etc/fstab example with CIS options
-/dev/mapper/vg-tmp   /tmp       ext4  defaults,nodev,nosuid,noexec  0 2
-/dev/mapper/vg-var   /var       ext4  defaults,nodev,nosuid         0 2
-/dev/mapper/vg-home  /home      ext4  defaults,nodev,nosuid         0 2
-tmpfs                /dev/shm   tmpfs defaults,nodev,nosuid,noexec  0 0
+# /etc/fstab example with CIS options (real device paths for this build)
+/dev/nvme0n1p1  /boot/efi  vfat   umask=0077,fmask=0077,dmask=0077  0 1
+/dev/nvme0n1p2  /boot      ext4   defaults,nodev,nosuid,noexec      0 2
+/dev/nvme0n1p3  /          ext4   defaults                          0 1
+tmpfs           /tmp       tmpfs  defaults,nodev,nosuid,noexec      0 0
+tmpfs           /dev/shm   tmpfs  defaults,nodev,nosuid,noexec      0 0
 ```
+
+The `/tmp` tmpfs line is optional; see [Disk Partitioning](../installation/disk-partitioning.md) for the canonical layout.
 
 #### 1.4 Secure Boot Settings
 
@@ -407,8 +414,8 @@ install freevxfs /bin/true
 install jffs2 /bin/true
 install hfs /bin/true
 install hfsplus /bin/true
-install squashfs /bin/true
 install udf /bin/true
+# squashfs intentionally omitted: blacklisting it breaks snapd (snaps are squashfs images)
 EOF
 
 # Kernel hardening

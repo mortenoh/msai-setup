@@ -1,5 +1,17 @@
 # LXD UFW Integration
 
+!!! note "This page is about LXD, not classic LXC"
+    Every command here that starts with `lxc ` (space, no dash) —
+    `lxc network set`, `lxc config device add`, `lxc launch` — is the **LXD**
+    client. Classic LXC (the `lxc-create` / `lxc-start` tools) has no
+    `lxc network` CLI: its bridge and NAT come from `lxc-net` (configured in
+    `/etc/default/lxc-net`, default bridge `lxcbr0`) and per-container veth
+    settings in the container's config file. The UFW-bypass problem and the
+    `before.rules` remedy below apply to both — a NAT bridge is a NAT bridge —
+    but substitute your bridge name (`lxcbr0` for classic LXC, `lxdbr0` for
+    LXD) and note that `ipv4.firewall` / proxy devices are **LXD-only**
+    features.
+
 ## The Same Problem as Docker
 
 LXD with NAT networking has similar UFW bypass issues as Docker:

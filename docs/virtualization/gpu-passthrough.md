@@ -1,5 +1,8 @@
 # GPU Passthrough
 
+!!! warning "Not the default for this build"
+    This build does **not** pass the iGPU through to a VM. The default is documented in [Windows 11 VM](windows-vm.md): the host keeps the GPU for ROCm and the VM uses virtio-gpu + RDP. There is only one iGPU, so passthrough is mutually exclusive with host ROCm — enabling it means host ROCm / AI inference goes offline whenever the VM is running. Only follow this page if you have deliberately chosen that trade-off.
+
 ## Overview
 
 Pass the AMD GPU directly to a VM for native graphics performance.

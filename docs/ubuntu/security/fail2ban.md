@@ -97,9 +97,10 @@ maxretry = 5
 # Ignore these IPs (whitelist)
 ignoreip = 127.0.0.1/8 ::1 192.168.1.0/24
 
-# Action to take
-banaction = iptables-multiport
-banaction_allports = iptables-allports
+# Action to take. Ubuntu 26.04 runs the nftables backend (UFW uses nftables),
+# so use the nftables actions here — not the legacy iptables-* ones.
+banaction = nftables-multiport
+banaction_allports = nftables-allports
 
 # Email notifications (optional)
 #destemail = admin@example.com
@@ -347,8 +348,8 @@ sudo fail2ban-client unban --all
 # Check specific jail
 sudo fail2ban-client get sshd banned
 
-# Check iptables directly
-sudo iptables -L f2b-sshd -n
+# Check the nftables ruleset directly (nftables backend)
+sudo nft list ruleset | grep -i f2b
 ```
 
 ## Advanced Configuration
@@ -470,25 +471,29 @@ for jail in $(sudo fail2ban-client status | grep "Jail list" | sed 's/.*://'); d
 done
 ```
 
-## nftables vs iptables
+## nftables backend (this build)
 
-Ubuntu 26.04 may use nftables backend:
+This build uses the **nftables** backend — UFW is configured with the nftables backend on 26.04, and fail2ban should ban through the same subsystem so its rules coexist cleanly with UFW's. Use the nftables actions (this is the primary configuration, already set in `jail.local` above):
 
 ```ini
 [DEFAULT]
-# Use nftables
+# Primary: nftables actions, consistent with UFW's nftables backend
 banaction = nftables-multiport
 banaction_allports = nftables-allports
 
-# Or stay with iptables
+# Legacy iptables actions — do NOT use on this build:
 #banaction = iptables-multiport
+#banaction_allports = iptables-allports
 ```
 
-Check current backend:
+Check the active backend and actions:
 
 ```bash
-# View action configuration
+# View action configuration (should reference nftables)
 sudo fail2ban-client get sshd actions
+
+# See fail2ban's own nftables table/chains
+sudo nft list table inet f2b-table 2>/dev/null || sudo nft list ruleset | grep -i f2b
 ```
 
 ## Troubleshooting
@@ -517,8 +522,8 @@ sudo fail2ban-regex /var/log/auth.log /etc/fail2ban/filter.d/sshd.conf
 # Check fail2ban log
 sudo tail -f /var/log/fail2ban.log
 
-# Verify iptables rules
-sudo iptables -L -n | grep f2b
+# Verify the ban rules landed in nftables
+sudo nft list ruleset | grep -i f2b
 ```
 
 **Bans not persisting:**

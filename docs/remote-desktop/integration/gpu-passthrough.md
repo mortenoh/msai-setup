@@ -2,6 +2,18 @@
 
 When a GPU is passed through to a VM, traditional remote desktop becomes complicated. This guide covers the challenges and solutions.
 
+!!! warning "GPU passthrough is not this build's default"
+    The Strix Halo iGPU is the only GPU in the system, and this build
+    deliberately **keeps it on the host** for ROCm-based local LLM inference —
+    the primary purpose of the box. The default Windows VM uses virtio-gpu over
+    RDP with **no** passthrough (see
+    [Windows VM](../../virtualization/windows-vm.md), whose warning spells out
+    that passing the iGPU through takes the host's GPU offline for AI
+    workloads). Everything on this page therefore applies **only if you have
+    deliberately flipped that trade-off** and passed the iGPU to a VM. If you
+    have not, you don't need any of the dummy-plug / Sunshine / Looking Glass
+    workarounds below — reach the VM over plain RDP instead.
+
 ## The Problem
 
 With GPU passthrough, the GPU is owned exclusively by the VM:

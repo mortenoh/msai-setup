@@ -41,8 +41,11 @@ Vector DB: Finds documents about login issues, auth failures, credential problem
 | **Scalability** | Single node | Distributed | Distributed | PostgreSQL limits |
 | **Filtering** | Basic | Advanced | Advanced | SQL |
 | **Persistence** | File/Memory | File/Server | Server | PostgreSQL |
-| **GPU support** | No | No | Yes | No |
+| **GPU support** | No | No | Yes (CUDA only) | No |
 | **Best for** | Development | Production | Enterprise | PostgreSQL users |
+
+!!! warning "GPU-accelerated indexes need CUDA — not usable on this build"
+    Milvus's "GPU support" (and GPU index types like `GPU_IVF_FLAT`) is built on NVIDIA CUDA/RAFT and does **not** run on this MS-S1 MAX's AMD ROCm iGPU. On this hardware, use CPU-based indexes (HNSW, IVF_FLAT, IVF_SQ8) — they are the applicable path and perform well for typical local RAG workloads. See [Milvus](milvus.md#index-types) for the CPU index options.
 
 ## In This Section
 

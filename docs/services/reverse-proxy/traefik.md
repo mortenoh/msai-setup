@@ -78,6 +78,29 @@ certificatesResolvers:
         entryPoint: http
 ```
 
+!!! warning "This build is not on the public internet by default"
+    The `httpChallenge` above assumes a public domain name whose A/AAAA record
+    points at this host and **ports 80/443 reachable from the internet**. That
+    is not the default posture for this build: the MS-S1 MAX sits on the LAN
+    and is managed over Tailscale, with nothing forwarded from the public
+    internet (see `START.md` — "not directly on the public
+    internet"). Public ACME issuance via HTTP-01 therefore requires you to
+    **deliberately open 80/443** to the internet (router port-forward +
+    firewall rule), which widens your attack surface.
+
+    Alternatives that avoid a public-facing port:
+
+    - **DNS-01 challenge** (see [DNS Challenge](#dns-challenge-wildcard-certificates)
+      below) — issues public certs without exposing 80/443, using your DNS
+      provider's API. Works for LAN/Tailscale-only services.
+    - **Traefik `tls internal` / a private CA** for names you only reach over
+      the LAN or Tailscale.
+    - **[Tailscale Serve/Funnel](../../tailscale/features/funnel-serve.md)** — Serve exposes a
+      service to your tailnet with a Tailscale-issued TLS cert (no open port);
+      Funnel deliberately publishes it to the internet through Tailscale's
+      relays if you actually want public access, without forwarding a port on
+      your router.
+
 ### Setup Steps
 
 ```bash
@@ -227,23 +250,45 @@ services:
 
 ## TCP/UDP Routing
 
-### TCP Service (Database)
+Traefik can route raw TCP/UDP as well as HTTP. This is useful for the handful
+of services that legitimately need a public TCP endpoint.
+
+!!! danger "Do not expose a database this way"
+    A previous version of this page routed Postgres (`:5432`) through a Traefik
+    entrypoint with a wildcard `HostSNI("*")` rule, i.e. accepting connections
+    from anything that reaches the entrypoint. That directly contradicts the
+    port map in [services/index.md](../index.md#port-map), which requires
+    Postgres to bind `127.0.0.1` only. Databases have no business on a shared,
+    internet-facing entrypoint: a wildcard `HostSNI("*")` on a plain TCP router
+    does no per-host filtering,
+    and Postgres' own auth is your only remaining line of defense. Keep the DB
+    on `127.0.0.1` (or a private Docker network) and let the app containers
+    reach it internally; if you must reach it remotely, tunnel over Tailscale or
+    SSH rather than publishing an entrypoint.
+
+The example below instead shows a service that is actually meant to accept
+external TCP — a self-hosted Git server's SSH endpoint — routed by SNI:
 
 ```yaml
 # traefik.yml
 entryPoints:
-  postgres:
-    address: ":5432"
+  gitssh:
+    address: ":2222"
 
 # docker-compose.yml
 services:
-  postgres:
+  gitea:
     labels:
       - "traefik.enable=true"
-      - "traefik.tcp.routers.postgres.rule=HostSNI(`*`)"
-      - "traefik.tcp.routers.postgres.entrypoints=postgres"
-      - "traefik.tcp.services.postgres.loadbalancer.server.port=5432"
+      - "traefik.tcp.routers.gitssh.rule=HostSNI(`git.${DOMAIN}`)"
+      - "traefik.tcp.routers.gitssh.entrypoints=gitssh"
+      - "traefik.tcp.routers.gitssh.tls.passthrough=true"
+      - "traefik.tcp.services.gitssh.loadbalancer.server.port=22"
 ```
+
+Note that TCP entrypoints are subject to the same public-exposure caveat as
+HTTPS above — only open the port to the internet deliberately, and prefer
+Tailscale for anything that doesn't need to be public.
 
 ## File-Based Configuration
 

@@ -415,16 +415,23 @@ ls -la /var/log/
 **Remote logging not working:**
 
 ```bash
-# Check firewall
-sudo ufw allow 514/tcp
-sudo ufw allow 514/udp
+# Open the receiver port, but scope it — this host is not on the public
+# internet, so do NOT open 514 to the world. Prefer the Tailscale interface
+# (management plane) or the LAN subnet only.
+sudo ufw allow in on tailscale0 to any port 514 proto tcp
+sudo ufw allow in on tailscale0 to any port 514 proto udp
+# LAN alternative:
+# sudo ufw allow from 192.168.1.0/24 to any port 514 proto tcp
 
-# Test connection
-nc -vz logserver.example.com 514
+# Test connection (use the log server's MagicDNS name over the tailnet)
+nc -vz logserver.<tailnet>.ts.net 514
 
 # Check listener on server
 sudo ss -tlnp | grep 514
 ```
+
+!!! warning "Never open 514 broadly"
+    A bare `sudo ufw allow 514/tcp` accepts syslog from any source. On a build with no public exposure, bind the receiver to `tailscale0` or a specific LAN subnet so only trusted hosts can inject log records.
 
 ### View Processing
 

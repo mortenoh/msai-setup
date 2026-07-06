@@ -84,7 +84,7 @@ Unlike discrete GPUs limited to 24GB VRAM, the APU shares all 128GB with both CP
 
     ---
 
-    KVM setup, GPU passthrough, and Windows 11 VM
+    KVM setup, Windows 11 VM (virtio-gpu by default; GPU passthrough is an opt-in trade-off)
 
     [:octicons-arrow-right-24: VMs](virtualization/index.md)
 

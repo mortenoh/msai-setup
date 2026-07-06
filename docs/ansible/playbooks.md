@@ -349,16 +349,18 @@ ms-s1-max-lab : ok=4    changed=3    unreachable=0    failed=0    skipped=0    r
 
 ## Examples from this build
 
-The lab playbooks in `scripts/lab/ansible/playbooks/` demonstrate every pattern above:
+The lab playbooks in `src/msai_setup/lab/ansible/playbooks/` demonstrate every pattern above. All six are real and shipped:
 
 | Playbook | Patterns it demonstrates |
 |---|---|
-| `bootstrap.yml` | `apt` with a list, `community.general.timezone`, handlers, sudoers |
+| `bootstrap.yml` | `apt` with a list, `community.general.timezone`, handlers, passwordless sudoers drop-in, `lineinfile` |
 | `ssh-hardening.yml` | `copy` with content from a Jinja2-rendered string, `command` for validation, handlers |
 | `ufw.yml` | `loop:` with dict items, `community.general.ufw` |
-| `zfs.yml` | `shell` with `changed_when`, `set_fact`, `assert`, complex `command`, `community.general.zfs` |
+| `zfs.yml` | `shell` with `changed_when`, `set_fact`, `assert`, `block`/`when`, complex `command`, `community.general.zfs` |
+| `docker.yml` | `get_url` GPG keyring, `uri` HEAD probe with codename fallback, `set_fact`, `user` group membership, `daemon.json` via `copy`, restart handler, smoke-test `command` |
+| `services.yml` | `community.docker.docker_network` + `docker_compose_v2`, per-service `file`/`copy`, `uri` retry-until smoke test — deploys a Traefik + whoami stack |
 
-Read them open in one tab while you read this page in another — the docs make a lot more sense paired with worked examples.
+Read them open in one tab while you read this page in another — the docs make a lot more sense paired with worked examples. The [`src/msai_setup/lab/README.md`](https://github.com/mortenoh/msai-setup/blob/main/src/msai_setup/lab/README.md) walkthrough runs all of them against a throwaway VM via `msai lab apply`.
 
 ## Where to go next
 

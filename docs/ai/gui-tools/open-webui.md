@@ -57,8 +57,7 @@ services:
       - render
     volumes:
       - /mnt/tank/ai/models/ollama:/root/.ollama
-    environment:
-      HSA_OVERRIDE_GFX_VERSION: "11.5.1"
+    # No HSA_OVERRIDE_GFX_VERSION needed — ROCm 7.x supports gfx1151 natively.
     restart: unless-stopped
 
   open-webui:

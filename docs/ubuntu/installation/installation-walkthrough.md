@@ -279,14 +279,9 @@ When finished:
 
 ## First Boot
 
-### LUKS Passphrase Entry
+### Boot to Login
 
-After BIOS/UEFI:
-
-1. GRUB bootloader appears
-2. System prompts for LUKS passphrase
-3. Enter your disk encryption passphrase
-4. System continues booting
+After BIOS/UEFI, the GRUB bootloader appears briefly and the system boots straight through to the login prompt. With the canonical plain-ext4 layout (no LUKS) there is no disk-passphrase step.
 
 ### Login Prompt
 
@@ -324,12 +319,6 @@ lsb_release -a
 # Verify disk layout
 lsblk
 
-# Check encryption status
-sudo cryptsetup status cryptroot
-
-# Verify LVM
-sudo lvs
-
 # Check network
 ip addr show
 ip route show
@@ -356,14 +345,8 @@ sudo apt list --upgradable
 - Verify interface is supported
 - May need firmware packages post-installation
 
-### LUKS Won't Unlock
-
-- Ensure correct passphrase (check caps lock)
-- Try typing passphrase in a text field to verify
-- Boot from USB and verify LUKS header:
-  ```bash
-  sudo cryptsetup luksDump /dev/nvme0n1p3
-  ```
+!!! note "LUKS not used by default"
+    The canonical layout has no disk encryption, so there is no passphrase to unlock. If you chose the optional LUKS+LVM alternative from [Disk Partitioning](disk-partitioning.md), see that page for unlock troubleshooting.
 
 ### Bootloader Not Installed
 

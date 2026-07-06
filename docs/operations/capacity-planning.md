@@ -11,7 +11,7 @@ This guide covers system-wide resource allocation strategy for a multi-workload 
 | CPU | 16 cores / 32 threads | Zen 5 (Strix Halo), 2 x CCX |
 | Memory | 128GB LPDDR5X-8000 | Quad-channel, ~256 GB/s peak; unified CPU/GPU |
 | GPU CUs | 40 | RDNA 3.5 (`gfx1151`), shared memory |
-| Storage | 2 TB (PCIe 4.0 x4) + 4 TB (PCIe 4.0 x1) | Slot 2 is the slow one — keep VM disks on slot 1 |
+| Storage | 2 TB (PCIe 4.0 x4) + 4 TB (PCIe 4.0 x1) | Slot 2 is the slow one; both are in the single striped `tank` pool, so ZFS spreads data across both — you can't pin a dataset to slot 1 (see [ZFS Datasets](../zfs/datasets.md#a-note-on-device-placement)) |
 | Networking | 2 x 10GbE (Realtek RTL8127) | |
 
 ### Allocation Strategy
@@ -19,13 +19,17 @@ This guide covers system-wide resource allocation strategy for a multi-workload 
 | Workload | Memory | CPU Cores | Priority |
 |----------|--------|-----------|----------|
 | Host OS & Services | 4-8GB | 2 | High |
+| ZFS ARC (cache) | 16GB (capped) | — | High |
 | Docker containers | 8-16GB | 4-6 | Medium |
 | KVM VMs | 16-32GB | 4-8 | Medium |
-| LLM inference | 64-96GB | 8-12 | Low (batch) |
+| LLM inference | 48-80GB | 8-12 | Low (batch) |
 | Headroom | 8-16GB | 2-4 | - |
 
 !!! warning
     Memory totals should not exceed physical RAM. Overcommit leads to swapping and severe performance degradation, especially for LLM workloads.
+
+!!! note "Don't forget the ARC"
+    The ZFS ARC is capped at **16 GiB** on this build (`zfs_arc_max=17179869184`, see [ZFS Pool Creation](../zfs/pool-creation.md#cap-the-arc-size)). It is effectively always-on, reclaimable-but-reserved memory — count it in every budget. A plan that adds up VMs + containers + LLM to near 128 GB **without** the ARC line is already 16 GB over.
 
 ## Monitoring Current Usage
 
@@ -251,20 +255,21 @@ Running:
 | Component | Memory | CPU | Notes |
 |-----------|--------|-----|-------|
 | Host OS | 4GB | 2 | systemd, SSH, monitoring |
+| ZFS ARC | 16GB | — | Capped cache, always reserved |
 | Nextcloud | 2GB | 1 | Docker container |
 | Plex | 4GB | 2 | Docker container, transcoding |
 | Windows VM | 24GB | 6 | When running |
-| Ollama 70B | 80GB | 8 | Q4 quantization |
-| **Total** | **114GB** | **19** | OK if not simultaneous |
+| Ollama 70B | 72GB | 8 | Q4 quantization |
+| **Total** | **122GB** | **19** | Fits in 128GB, but only ~6GB headroom |
 
-**Constraint**: Windows VM and 70B model can't run simultaneously.
+**Constraint**: with the ARC accounted for, running the Windows VM **and** the 70B model together (122GB) leaves less than the recommended 8-16GB headroom — too tight for comfort under load.
 
-**Solution**: Use smaller model (32B) when VM is active:
+**Solution**: use a smaller model (32B) when the VM is active. Memory Used below **includes** the 16GB ARC plus the ~10GB always-on services (host + Nextcloud + Plex):
 
 | Scenario | Windows | LLM | Memory Used |
 |----------|---------|-----|-------------|
-| Gaming | 24GB | 32B (20GB) | 54GB |
-| AI Work | Off | 70B (80GB) | 90GB |
+| Gaming | 24GB | 32B (20GB) | 70GB |
+| AI Work | Off | 70B (72GB) | 98GB |
 
 ## Quick Reference
 

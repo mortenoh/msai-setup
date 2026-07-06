@@ -95,9 +95,11 @@ Canonical host-port assignments for this build. Most services should be routed t
 | 8096 | Jellyfin | LAN (local clients) |
 | 8181 | Tautulli | bind `127.0.0.1` |
 | 8989 | Sonarr | bind `127.0.0.1`; behind reverse proxy |
-| 9000 | Portainer (if used) | bind `127.0.0.1` |
+| 9000 | Authentik (HTTP) | bind `127.0.0.1`; behind reverse proxy on its own subdomain |
+| 9002 | Portainer (if used) | bind `127.0.0.1`; **moved off 9000** to avoid colliding with Authentik |
 | 9090 | Prometheus | bind `127.0.0.1` |
 | 9091 | Transmission web UI | bind `127.0.0.1` (Authelia also defaults here — Authelia is behind the reverse proxy on its own subdomain) |
+| 9443 | Authentik (HTTPS) | bind `127.0.0.1`; behind reverse proxy |
 | 9696 | Prowlarr | bind `127.0.0.1` |
 | 11434 | Ollama | LAN or Tailscale-only |
 | 32400 | Plex | LAN |

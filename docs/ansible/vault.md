@@ -2,10 +2,15 @@
 
 `ansible-vault` is Ansible's built-in encryption layer. Use it for any value that shouldn't be in plain text in git: passwords, API tokens, TLS keys, the SSH host key Ansible pushes onto a target.
 
+!!! note "The shipped playbooks do not use ansible-vault (yet)"
+    None of the six playbooks in this repo (`bootstrap`, `ssh-hardening`, `ufw`, `zfs`, `docker`, `services`) needs a secret, so **nothing is vaulted today**. Sudo is passwordless (bootstrap.yml writes a NOPASSWD sudoers drop-in, so there is no `ansible_become_password`), and SSH is key-only. There is no `group_vars/vault.yml` and no 1Password lookup wired into the real playbooks.
+
+    This page is kept as generic, accurate reference material for the day you add a playbook that *does* need a secret — an API token, a TLS key, a service password. At that point `ansible-vault` is the right built-in tool. Read it as "here's how you would" rather than "here's what this build does".
+
 ## When to use vault
 
-- **Always for production secrets.** Database passwords, sudo passwords, API tokens.
-- **Probably for the lab.** Even if the lab passwords are throwaway, build the habit now.
+- **Always for production secrets.** Database passwords, API tokens, TLS keys — *if you add a playbook that needs them*. The current playbooks don't.
+- **Not needed for the shipped build.** Sudo is passwordless and SSH is key-only, so there's nothing to encrypt right now.
 - **Not for non-secret config.** Hostnames, ports, retention policies — those live in regular `group_vars/`.
 
 There's no "tier" between vault and plain — encrypt the whole file or don't. Pattern: keep your secret values in dedicated `vault.yml` files and reference them from regular vars files. That way diffs in the regular files stay reviewable.
@@ -37,14 +42,14 @@ A script-based password file is the pattern that scales — see "Integration wit
 ## Encrypting a whole file
 
 ```bash
-# Create a new encrypted file
-ansible-vault create scripts/lab/ansible/group_vars/lab/vault.yml
+# Create a new encrypted file (path is illustrative — this build ships no such file)
+ansible-vault create src/msai_setup/lab/ansible/group_vars/lab/vault.yml
 
 # Edit an existing one
-ansible-vault edit scripts/lab/ansible/group_vars/lab/vault.yml
+ansible-vault edit src/msai_setup/lab/ansible/group_vars/lab/vault.yml
 
 # Decrypt to stdout (just to view)
-ansible-vault view scripts/lab/ansible/group_vars/lab/vault.yml
+ansible-vault view src/msai_setup/lab/ansible/group_vars/lab/vault.yml
 
 # Encrypt an existing plain file in place
 ansible-vault encrypt some-secret-file.yml
@@ -155,7 +160,7 @@ ansible-playbook play.yml --vault-password-file ~/.bin/ansible-vault-pass-1p
 
 Now the master never lives in plain on disk — it's in 1Password (which is in turn protected by your account passphrase + biometric). The script unlocks via `op` (1Password CLI) which is itself authenticated separately.
 
-**For this build**, this is the recommended pattern: master password in 1Password, vault files in git, no plaintext secrets anywhere.
+If you do add vaulted secrets to this build later, this is the recommended pattern: master password in 1Password, vault files in git, no plaintext secrets anywhere. (Nothing wires this up today — the shipped playbooks need no secrets.)
 
 ## Sops as an alternative
 
@@ -219,4 +224,5 @@ If a secret really leaks: rotate the underlying secret (change the DB password, 
 
 - [Variables](variables.md) — where vault values fit in the precedence picture.
 - [Inventory](inventory.md) — `group_vars/<group>/vault.yml` placement.
-- [Integration](integration.md) — how this build wires up 1Password to ansible-vault.
+- [Integration](integration.md) — why the shipped playbooks need no vaulted secrets today.
+- The hands-on walkthrough: [`src/msai_setup/lab/README.md`](https://github.com/mortenoh/msai-setup/blob/main/src/msai_setup/lab/README.md) — the real, secret-free `msai` CLI + playbook workflow.

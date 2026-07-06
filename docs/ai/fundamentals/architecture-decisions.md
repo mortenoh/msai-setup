@@ -107,8 +107,7 @@ services:
     group_add:
       - video
       - render
-    environment:
-      - HSA_OVERRIDE_GFX_VERSION=11.5.1  # gfx1151 (Strix Halo)
+    # No HSA_OVERRIDE_GFX_VERSION needed — ROCm 7.x supports gfx1151 natively.
 ```
 
 ### macOS Container Limitations

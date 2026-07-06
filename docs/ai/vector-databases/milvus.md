@@ -163,7 +163,10 @@ for hits in results:
 | IVF_FLAT | Balanced recall/speed | Medium | Fast |
 | IVF_SQ8 | Memory constrained | Low | Fast |
 | HNSW | High recall requirement | High | Very fast |
-| GPU_IVF_FLAT | GPU acceleration | GPU | Very fast |
+| GPU_IVF_FLAT | GPU acceleration (NVIDIA CUDA only) | GPU | Very fast |
+
+!!! warning "GPU indexes are CUDA/RAFT-only — not usable on this build"
+    Milvus GPU index types (`GPU_IVF_FLAT`, `GPU_IVF_PQ`, `GPU_CAGRA`, etc.) are built on NVIDIA CUDA/RAFT and do **not** run on the MS-S1 MAX's AMD ROCm iGPU. On this hardware, stick to the CPU-based indexes above (HNSW, IVF_FLAT, IVF_SQ8) — they are the applicable path and are more than adequate for local RAG workloads.
 
 ### HNSW Index
 
@@ -180,6 +183,9 @@ collection.create_index("embedding", index_params)
 ```
 
 ### GPU Index
+
+!!! warning "NVIDIA CUDA only — will not run on this AMD build"
+    The `GPU_IVF_FLAT` index below requires an NVIDIA CUDA GPU (via RAFT). The MS-S1 MAX has an AMD ROCm iGPU only, so this index type is not available here. Use a CPU index (HNSW or IVF_FLAT) instead. The snippet is kept for reference / NVIDIA deployments.
 
 ```python
 index_params = {

@@ -278,8 +278,7 @@ services:
     group_add:
       - video
       - render
-    environment:
-      - HSA_OVERRIDE_GFX_VERSION=11.5.1
+    # No HSA_OVERRIDE_GFX_VERSION needed — ROCm 7.x supports gfx1151 natively.
     deploy:
       resources:
         limits:
@@ -293,8 +292,7 @@ services:
     group_add:
       - video
       - render
-    environment:
-      - HSA_OVERRIDE_GFX_VERSION=11.5.1
+    # No HSA_OVERRIDE_GFX_VERSION needed — ROCm 7.x supports gfx1151 natively.
     deploy:
       resources:
         limits:

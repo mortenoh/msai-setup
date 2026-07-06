@@ -12,6 +12,17 @@ Docker Compose provides:
 - **Volume management** - Persistent data across restarts
 - **Development workflows** - Hot reload and overrides
 
+!!! warning "Generic reference — this build uses ZFS bind mounts, not named volumes"
+    The examples on this page use Docker **named volumes** (`db_data:`,
+    `redis_data:`, etc.) because they are the portable, copy-anywhere default.
+    That is **not** the convention for real services on this build. On the
+    MS-S1 MAX, anything holding data you care about is bind-mounted into a ZFS
+    dataset (`/mnt/tank/...`) instead — so it can be snapshotted, replicated,
+    and survives a container wipe. See
+    [Docker vs LXC](docker-vs-lxc.md#docker-on-zfs-the-pattern-used-in-these-docs)
+    and [Nextcloud](nextcloud.md) for the pattern to follow. Don't copy a
+    named-volume block verbatim for a production service here.
+
 ## Installation
 
 Docker Compose v2 is included with Docker Desktop and Docker Engine:

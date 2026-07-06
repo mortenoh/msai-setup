@@ -296,8 +296,16 @@ z myapp             # Jumps to ~/projects/myapp
 Install zoxide (recommended):
 
 ```bash
-brew install zoxide
+sudo apt install zoxide         # Ubuntu/Debian
+brew install zoxide             # macOS
 ```
+
+!!! note "If zoxide is not in your apt repos"
+    On older releases where `zoxide` is not packaged, use the official
+    installer script:
+    ```bash
+    curl -sSfL https://raw.githubusercontent.com/ajeetdsouza/zoxide/main/install.sh | sh
+    ```
 
 Add to `.bashrc`:
 

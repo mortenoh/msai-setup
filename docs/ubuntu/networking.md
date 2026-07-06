@@ -83,6 +83,22 @@ Common patterns:
 | `ens192` | Hotplug slot |
 | `eth0` | Legacy naming (rare) |
 
+!!! note "This build's NICs: 2x 10GbE Realtek RTL8127 (r8169)"
+    The MS-S1 MAX has **two physical 10GbE ports, both Realtek RTL8127**, driven by the in-kernel `r8169` module. The `enp5s0` used in the examples on this page is a placeholder — your two interfaces will get predictable `enpXsY` names based on their PCI slots. Confirm the real names and that both are bound to `r8169` before writing netplan:
+
+    ```bash
+    # Both NICs, one line each, with link state
+    ip -br link
+
+    # Which driver is bound to a given interface
+    ethtool -i enp5s0        # "driver: r8169"
+
+    # See both Realtek controllers on the PCI bus
+    lspci | grep -i ethernet
+    ```
+
+    If a port shows no driver or an unexpected name, verify `r8169` is loaded (`lsmod | grep r8169`) before troubleshooting netplan.
+
 ## Common Tasks
 
 ### Multiple IP Addresses

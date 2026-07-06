@@ -244,12 +244,25 @@ bind d detach-client
 bind [ copy-mode
 bind ] copy-mode
 
-# Vi-style selection and copy
+# Clipboard via OSC 52 (default: works over SSH to a headless server).
+# tmux hands the copied text to your local terminal emulator, which puts
+# it on the clipboard of the machine you are sitting at. This is the only
+# mechanism that works when tmux runs on a remote, display-less box like
+# the MS-S1 MAX.
+set -g set-clipboard on
+
+# Vi-style selection and copy (uses set-clipboard / OSC 52 above)
 bind -T copy-mode-vi v send-keys -X begin-selection
-bind -T copy-mode-vi y send-keys -X copy-pipe-and-cancel "pbcopy"
+bind -T copy-mode-vi y send-keys -X copy-selection-and-cancel
 
 # Mouse selection copies to clipboard
-bind -T copy-mode-vi MouseDragEnd1Pane send-keys -X copy-pipe-and-cancel "pbcopy"
+bind -T copy-mode-vi MouseDragEnd1Pane send-keys -X copy-selection-and-cancel
+
+# Local-machine equivalent: when tmux runs on your own macOS box (not
+# over SSH), you can pipe directly to the platform clipboard tool instead.
+# macOS: pbcopy   Linux/Wayland: wl-copy   Linux/X11: xclip -selection clipboard
+# bind -T copy-mode-vi y send-keys -X copy-pipe-and-cancel "pbcopy"
+# bind -T copy-mode-vi MouseDragEnd1Pane send-keys -X copy-pipe-and-cancel "pbcopy"
 
 # ============================================
 # Status Bar

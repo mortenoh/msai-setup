@@ -231,7 +231,7 @@ If you ever boot and the pool isn't imported, see [Troubleshooting -> Pool Impor
 It's worth re-stating the trade-offs explicitly:
 
 - **Not redundant.** A failed primary partition or the secondary NVMe = a dead pool. Mitigated by snapshots + off-host replication.
-- **Asymmetric IO.** The 4 TB drive is on a PCIe 4.0 x1 link (~2 GB/s ceiling). For VM disks and hot databases, prefer the partition on the primary drive (PCIe 4.0 x4). See [Datasets](datasets.md) for per-dataset placement hints.
+- **Asymmetric IO, and no way to pin around it.** The 4 TB drive is on a PCIe 4.0 x1 link (~2 GB/s ceiling); the primary partition is on PCIe 4.0 x4 (~8 GB/s). It's tempting to say "keep VM disks and hot databases on the fast primary drive" — but with **one** pool made of two top-level striped vdevs you can't. ZFS's allocator spreads every new write across both top-level vdevs by free space; there is no per-dataset device pinning in stock ZFS. If you genuinely need guaranteed placement on the fast drive, the only way is a **second, separate pool** built solely from the primary drive's leftover space (kept out of `tank`) — a deliberate trade-off that costs you the shared capacity. See [Datasets -> A note on device placement](datasets.md#a-note-on-device-placement) for the fuller explanation.
 - **Two top-level vdevs of different sizes.** ZFS will allocate proportionally; the larger device will see more writes. Fine for this workload but worth knowing.
 
 ## What to do next

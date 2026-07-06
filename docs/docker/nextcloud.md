@@ -62,7 +62,7 @@ services:
       - /mnt/tank/nextcloud-app:/var/www/html
       - /mnt/tank/nextcloud-data:/var/www/html/data
     ports:
-      - "8080:80"
+      - "127.0.0.1:8080:80"   # not reachable on LAN; the reverse proxy below fronts it
 ```
 
 ## Environment File
@@ -95,7 +95,7 @@ cd ~/docker/nextcloud
 docker compose up -d
 ```
 
-Access at `http://server-ip:8080`.
+The port is published on `127.0.0.1` only, so reach it from the host at `http://localhost:8080` (for example over an SSH tunnel) or through the reverse proxy configured below. It is intentionally not reachable directly on the LAN.
 
 ## Initial Setup
 
