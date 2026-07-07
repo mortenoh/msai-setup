@@ -81,7 +81,11 @@ method = "script"
 commands = [
   "sudo apt-get install -y git cmake libcurl4-openssl-dev",
   "rm -rf /tmp/llama.cpp-src && git clone --depth 1 https://github.com/ggml-org/llama.cpp /tmp/llama.cpp-src",
-  "cmake -S /tmp/llama.cpp-src -B /tmp/llama.cpp-src/build -DGGML_HIP=ON -DAMDGPU_TARGETS=gfx1151 -DCMAKE_BUILD_TYPE=Release",
+  # HIPCXX/HIP_PATH point cmake at the ROCm clang (distro ROCm lives in /usr, not /opt/rocm).
+  "HIPCXX=$(hipconfig -l)/clang HIP_PATH=$(hipconfig -R) cmake -S /tmp/llama.cpp-src -B /tmp/llama.cpp-src/build -DGGML_HIP=ON -DAMDGPU_TARGETS=gfx1151 -DCMAKE_BUILD_TYPE=Release",
   "cmake --build /tmp/llama.cpp-src/build --config Release -j",
   "sudo cmake --install /tmp/llama.cpp-src/build",
+  # cmake --install does not refresh the loader cache; without this the binaries
+  # fail with 'libllama-server-impl.so: cannot open shared object file'.
+  "sudo ldconfig",
 ]
