@@ -70,6 +70,7 @@ nav:
 
   - Getting Started:
     - getting-started/index.md
+    - CLI (msai): getting-started/cli.md
     - Hardware: getting-started/hardware.md
     - Hardware Architecture: getting-started/hardware-architecture.md
     - Software Architecture: getting-started/software-architecture.md
