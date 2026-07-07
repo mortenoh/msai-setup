@@ -706,7 +706,8 @@ def check_rocm() -> CheckResult:
             status=CheckStatus.FAIL,
             message="ROCm not installed",
             category=Category.GPU,
-            fix="sudo apt install rocm-libs",
+            detail="26.04 ships ROCm 7.x with native gfx1151 support; see docs ai/gpu/rocm-installation",
+            fix="sudo apt install rocm",
         )
 
     result = run_command("rocminfo")
