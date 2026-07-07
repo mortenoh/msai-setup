@@ -45,7 +45,11 @@ category = "kvm"
 detect = "command -v virsh"
 method = "apt"
 packages = [
-  "qemu-kvm",
+  # 26.04: qemu-kvm is a virtual package with multiple providers, so name the
+  # concrete one. ovmf gives UEFI/Secure-Boot firmware for the Windows 11 VM.
+  "qemu-system-x86",
+  "qemu-utils",
+  "ovmf",
   "libvirt-daemon-system",
   "libvirt-clients",
   "bridge-utils",
