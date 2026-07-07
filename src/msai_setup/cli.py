@@ -228,65 +228,79 @@ FixOption = Annotated[
     bool,
     typer.Option("--fix", "-f", help="Show fix commands for issues"),
 ]
+ApplyOption = Annotated[
+    bool,
+    typer.Option("--apply", "-a", help="Apply fixes (prompts before each; implies --fix)"),
+]
+YesOption = Annotated[
+    bool,
+    typer.Option("--yes", "-y", help="With --apply, auto-apply safe fixes without prompting"),
+]
 
 
 @doctor_app.callback(invoke_without_command=True)
 def doctor_main(
     ctx: typer.Context,
     fix: FixOption = False,
+    apply: ApplyOption = False,
+    yes: YesOption = False,
 ) -> None:
     """Run all health checks."""
     if ctx.invoked_subcommand is None:
-        _passed, _warnings, failed = run_doctor(fix=fix)
+        _passed, _warnings, failed = run_doctor(fix=fix, apply=apply, assume_yes=yes)
         raise typer.Exit(code=1 if failed > 0 else 0)
 
 
 @doctor_app.command()
-def system(fix: FixOption = False) -> None:
+def system(fix: FixOption = False, apply: ApplyOption = False, yes: YesOption = False) -> None:
     """Run system checks (Ubuntu, kernel, memory, CPU, SSH)."""
-    _passed, _warnings, failed = run_category(Category.SYSTEM, fix=fix)
+    _passed, _warnings, failed = run_category(
+        Category.SYSTEM, fix=fix, apply=apply, assume_yes=yes
+    )
     raise typer.Exit(code=1 if failed > 0 else 0)
 
 
 @doctor_app.command()
-def zfs(fix: FixOption = False) -> None:
+def zfs(fix: FixOption = False, apply: ApplyOption = False, yes: YesOption = False) -> None:
     """Run ZFS checks (pool, health, scrub, snapshots)."""
-    _passed, _warnings, failed = run_category(Category.ZFS, fix=fix)
+    _passed, _warnings, failed = run_category(Category.ZFS, fix=fix, apply=apply, assume_yes=yes)
     raise typer.Exit(code=1 if failed > 0 else 0)
 
 
 @doctor_app.command()
-def docker(fix: FixOption = False) -> None:
+def docker(fix: FixOption = False, apply: ApplyOption = False, yes: YesOption = False) -> None:
     """Run Docker checks (daemon, group, compose)."""
-    _passed, _warnings, failed = run_category(Category.DOCKER, fix=fix)
+    _passed, _warnings, failed = run_category(Category.DOCKER, fix=fix, apply=apply, assume_yes=yes)
     raise typer.Exit(code=1 if failed > 0 else 0)
 
 
 @doctor_app.command()
-def kvm(fix: FixOption = False) -> None:
+def kvm(fix: FixOption = False, apply: ApplyOption = False, yes: YesOption = False) -> None:
     """Run KVM checks (libvirtd, IOMMU, vfio-pci)."""
-    _passed, _warnings, failed = run_category(Category.KVM, fix=fix)
+    _passed, _warnings, failed = run_category(Category.KVM, fix=fix, apply=apply, assume_yes=yes)
     raise typer.Exit(code=1 if failed > 0 else 0)
 
 
 @doctor_app.command()
-def gpu(fix: FixOption = False) -> None:
+def gpu(fix: FixOption = False, apply: ApplyOption = False, yes: YesOption = False) -> None:
     """Run GPU checks (AMD driver, ROCm, Vulkan)."""
-    _passed, _warnings, failed = run_category(Category.GPU, fix=fix)
+    _passed, _warnings, failed = run_category(Category.GPU, fix=fix, apply=apply, assume_yes=yes)
     raise typer.Exit(code=1 if failed > 0 else 0)
 
 
 @doctor_app.command()
-def ollama(fix: FixOption = False) -> None:
+def ollama(fix: FixOption = False, apply: ApplyOption = False, yes: YesOption = False) -> None:
     """Run Ollama checks (service, API, models)."""
-    _passed, _warnings, failed = run_category(Category.OLLAMA, fix=fix)
+    _passed, _warnings, failed = run_category(Category.OLLAMA, fix=fix, apply=apply, assume_yes=yes)
     raise typer.Exit(code=1 if failed > 0 else 0)
 
 
 @doctor_app.command()
-def tailscale(fix: FixOption = False) -> None:
+def tailscale(fix: FixOption = False, apply: ApplyOption = False, yes: YesOption = False) -> None:
     """Run Tailscale checks (daemon, connection, MagicDNS)."""
-    _passed, _warnings, failed = run_category(Category.TAILSCALE, fix=fix)
+    _passed, _warnings, failed = run_category(
+        Category.TAILSCALE, fix=fix, apply=apply, assume_yes=yes
+    )
     raise typer.Exit(code=1 if failed > 0 else 0)
 
 

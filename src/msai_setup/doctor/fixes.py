@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 
-from msai_setup.utils.shell import run_command
+from msai_setup.utils.shell import run_interactive
 
 
 @dataclass
@@ -17,6 +17,9 @@ class FixResult:
 def apply_fix(command: str, *, dry_run: bool = False) -> FixResult:
     """Apply a fix command.
 
+    Runs through a shell with inherited stdio so pipes, redirects and sudo
+    password prompts work and the user sees output live.
+
     Args:
         command: The command to run.
         dry_run: If True, just print what would be done.
@@ -30,28 +33,31 @@ def apply_fix(command: str, *, dry_run: bool = False) -> FixResult:
             message=f"Would run: {command}",
         )
 
-    result = run_command(command)
-    if result.success:
+    code = run_interactive(command)
+    if code == 0:
         return FixResult(
             success=True,
-            message=f"Successfully ran: {command}",
-            output=result.output,
+            message=f"Applied: {command}",
         )
 
     return FixResult(
         success=False,
-        message=f"Failed to run: {command}",
-        output=result.stderr,
+        message=f"Failed (exit {code}): {command}",
     )
 
 
-# Common fixes that can be safely auto-applied
+# Fixes that are safe to auto-apply with --yes: idempotent, non-destructive,
+# no package installation and no data changes. Install-type or state-changing
+# fixes are deliberately excluded so they always require an explicit prompt.
 SAFE_FIXES: dict[str, str] = {
-    "zfs_scrub": "sudo zpool scrub tank",
     "docker_start": "sudo systemctl start docker",
     "libvirtd_start": "sudo systemctl start libvirtd",
     "ollama_start": "sudo systemctl start ollama",
-    "tailscale_start": "sudo systemctl start tailscaled",
+    "tailscaled_start": "sudo systemctl start tailscaled",
+    "audio_powersave": (
+        "echo 'options snd_hda_intel power_save=0 power_save_controller=N' "
+        "| sudo tee /etc/modprobe.d/audio-disable-powersave.conf"
+    ),
 }
 
 

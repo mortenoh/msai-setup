@@ -86,6 +86,26 @@ def run_command(
         )
 
 
+def run_interactive(cmd: str, *, timeout: float | None = None) -> int:
+    """Run a command through a shell with inherited stdio.
+
+    Unlike run_command, this executes via ``bash -c`` so pipes, redirects and
+    ``sudo`` password prompts work, and stdout/stderr/stdin are inherited from
+    the parent so the user sees output live and can authenticate. Intended for
+    applying fixes, not for scraping output.
+
+    Returns:
+        The command's exit code (127 if bash is missing).
+    """
+    try:
+        result = subprocess.run(["bash", "-c", cmd], timeout=timeout, check=False)
+        return result.returncode
+    except FileNotFoundError:
+        return 127
+    except subprocess.TimeoutExpired:
+        return -1
+
+
 def command_exists(cmd: str) -> bool:
     """Check if a command exists in PATH."""
     result = run_command(f"which {cmd}")
