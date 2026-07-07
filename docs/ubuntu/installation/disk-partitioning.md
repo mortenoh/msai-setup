@@ -146,7 +146,7 @@ If you need encryption at rest (regulated environment, physical-theft concern):
 
 - **ZFS native encryption** is the natural fit for the *data* pools — set `-O encryption=aes-256-gcm -O keyformat=passphrase -O keylocation=prompt` (or `file:///path/to/keyfile` for unattended unlock) on `hot` and/or `tank` at `zpool create` time. No LUKS layer, no LVM. This encrypts everything stateful (containers, VMs, databases, media) while leaving the small ext4 OS root in the clear.
 - **LUKS + LVM** is the route if you also want the ext4 **root** encrypted. The trade-offs (unlock mechanism on a headless box: walk-up, `dropbear-initramfs`, or Clevis+Tang) are the classic ones. See `cryptsetup` and the LVM man pages for the mechanics; this project doesn't duplicate them.
-- If you take the [ZFS Root (Alternative)](zfs-root-alternative.md) path, ZFS native encryption on `rpool` composes cleanly with ZFSBootMenu, which prompts for the passphrase at boot — the recommended encryption option there.
+- If you take the [ZFS Root (Alternative)](zfs-root-alternative.md) path, ZFS native encryption on the root pool composes cleanly with ZFSBootMenu, which prompts for the passphrase at boot — the recommended encryption option there.
 
 If you go the encryption route, plan the unlock mechanism *before* you encrypt — locking yourself out of the only host is not a fun recovery exercise.
 

@@ -19,7 +19,7 @@ This page covers the ZFS side of that chain (which host datasets, what propertie
 |            |  bind mount (layer 1, Incus disk device) |
 |   host ZFS datasets:                                      |
 |     /tank/nextcloud-data   /tank/media                    |
-|     /rpool/db              /rpool/ai                       |
+|     /hot/db              /hot/ai                       |
 |        ^ snapshotted, compressed, replicated              |
 +-----------------------------------------------------------+
 ```
@@ -27,8 +27,8 @@ This page covers the ZFS side of that chain (which host datasets, what propertie
 Why this shape:
 
 - **Incus is the one virtualization layer.** Docker workloads nest inside an Incus system container (`security.nesting=true`), running the existing `docker-compose.yml` stacks essentially unchanged. See the repo-root `START.md` for the intent and [Docker inside Incus](../incus/docker-in-incus.md) for the how.
-- **The container's own root filesystem is a ZFS dataset** under `rpool/incus` (Incus's storage driver) — so Docker's overlay2 layers, images, and build cache sit on ZFS via the instance's rootfs, managed by Incus, not on a separate host ext4 root.
-- **Persistent service data stays on dedicated host datasets** (`tank/nextcloud-data`, `tank/media`, `rpool/db`, `rpool/ai`) that get ZFS snapshots, compression, and send/receive — bind-mounted *in*, never copied into the disposable container rootfs.
+- **The container's own root filesystem is a ZFS dataset** under `hot/incus` (Incus's storage driver) — so Docker's overlay2 layers, images, and build cache sit on ZFS via the instance's rootfs, managed by Incus, not on a separate host ext4 root.
+- **Persistent service data stays on dedicated host datasets** (`tank/nextcloud-data`, `tank/media`, `hot/db`, `hot/ai`) that get ZFS snapshots, compression, and send/receive — bind-mounted *in*, never copied into the disposable container rootfs.
 - **Bind mounts beat named volumes** for transparency: you can `ls`, `tar`, `rsync`, `zfs snapshot` the data on the host without touching Docker or Incus internals.
 
 ## The two-layer bind-mount chain
@@ -53,7 +53,7 @@ Full worked examples (including the idmap/permission handling) are in [Docker in
 The persistent-data datasets, per [Datasets](datasets.md):
 
 ```
-rpool/                  # fast 4 TB NVMe
+hot/                  # fast 4 TB NVMe
 +-- db/                 # Postgres / MariaDB data; recordsize=16K
 +-- ai/                 # Ollama / model files; recordsize=1M, compression=off
 
@@ -64,10 +64,10 @@ tank/                   # slow 2 TB NVMe
 +-- backups/            # cold archive target
 ```
 
-There is intentionally **no `tank/containers/<svc>` tree** anymore. Under the old bare-host design each service got its own `tank/containers/<svc>` bind-mount target; now the disposable container state lives in the Incus container's rootfs (`rpool/incus`), and only the data that's worth snapshotting/replicating gets a dedicated host dataset above. Create those with the properties in [Datasets](datasets.md).
+There is intentionally **no `tank/containers/<svc>` tree** anymore. Under the old bare-host design each service got its own `tank/containers/<svc>` bind-mount target; now the disposable container state lives in the Incus container's rootfs (`hot/incus`), and only the data that's worth snapshotting/replicating gets a dedicated host dataset above. Create those with the properties in [Datasets](datasets.md).
 
 !!! note "What the lab automation creates"
-    The shipped lab Ansible playbook (`src/msai_setup/lab/ansible/playbooks/zfs.yml`) provisions a teaching pool for the VirtualBox lab, not the real-hardware `rpool`/`tank` split. Treat the lab's dataset layout as ZFS practice; the canonical production datasets are the ones in [Datasets](datasets.md).
+    The shipped lab Ansible playbook (`src/msai_setup/lab/ansible/playbooks/zfs.yml`) provisions a teaching pool for the VirtualBox lab, not the real-hardware `hot`/`tank` split. Treat the lab's dataset layout as ZFS practice; the canonical production datasets are the ones in [Datasets](datasets.md).
 
 ## Recordsize per workload — the cheat-sheet
 
@@ -75,13 +75,13 @@ What to set on each **host** dataset before bind-mounting it in:
 
 | Dataset | Recordsize | Compression | Notes |
 |---|---|---|---|
-| `rpool/db` | 16 K | `lz4` | Match Postgres/MariaDB page size. |
-| `rpool/ai` | 1 M | `off` | GGUF/safetensors already compressed; skip the test. |
+| `hot/db` | 16 K | `lz4` | Match Postgres/MariaDB page size. |
+| `hot/ai` | 1 M | `off` | GGUF/safetensors already compressed; skip the test. |
 | `tank/nextcloud-data` | 128 K (default) | `lz4` | Mixed file sizes; default works. |
 | `tank/nextcloud-app` | 128 K (default) | `lz4` | Code/config; default works. |
 | `tank/media` | 1 M | `lz4` | Large sequential reads. |
 
-See [Datasets → Per-dataset properties](datasets.md#per-dataset-properties-for-this-build) for the canonical setup commands. The Incus container's rootfs (where Docker's overlay2 actually lives) inherits `rpool/incus`'s properties — you don't tune that per-service.
+See [Datasets → Per-dataset properties](datasets.md#per-dataset-properties-for-this-build) for the canonical setup commands. The Incus container's rootfs (where Docker's overlay2 actually lives) inherits `hot/incus`'s properties — you don't tune that per-service.
 
 ## Compose patterns (inside the Docker-in-Incus container)
 
@@ -122,13 +122,13 @@ services:
     image: postgres:16-alpine
     restart: unless-stopped
     volumes:
-      - /data/db-postgres:/var/lib/postgresql/data   # <- host rpool/db
+      - /data/db-postgres:/var/lib/postgresql/data   # <- host hot/db
     environment:
       POSTGRES_USER: authentik
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
 ```
 
-The host `rpool/db` dataset is `recordsize=16K`; **don't** set `sync=disabled` on it (Postgres relies on fsync). It's on the fast drive precisely so database IO isn't stuck behind the slow x1 link.
+The host `hot/db` dataset is `recordsize=16K`; **don't** set `sync=disabled` on it (Postgres relies on fsync). It's on the fast drive precisely so database IO isn't stuck behind the slow x1 link.
 
 ## Permissions and the idmap wrinkle
 
@@ -139,8 +139,8 @@ Each service's container image documents the UID/GID it runs as. Pre-own the **h
 sudo chown -R 33:33 /tank/nextcloud-data /tank/nextcloud-app
 
 # Postgres (UID 999 in the official image)
-sudo chown -R 999:999 /rpool/db
-sudo chmod 700 /rpool/db
+sudo chown -R 999:999 /hot/db
+sudo chmod 700 /hot/db
 ```
 
 But there's an extra layer now: an **unprivileged Incus container remaps UIDs**, so the ownership the nested Docker service ultimately needs may not be the raw host UID. Incus bridges this with idmapped mounts automatically on 26.04's kernel; if a bind-mounted dataset shows up as `nobody:nogroup` inside the container, that mapping is the cause — see [Incus storage → bind mounts and idmap](../incus/storage.md#bind-mounting-host-datasets-into-containers) and [Docker inside Incus](../incus/docker-in-incus.md). For `linuxserver.io` images, `PUID`/`PGID` env vars still let the container chown at startup.
@@ -177,11 +177,11 @@ Retention per host dataset (mirrors the canonical [backup config](../operations/
 [tank/nextcloud-app]
     use_template = data
 
-[rpool/db]
+[hot/db]
     use_template = db
     recursive = yes
 
-[rpool/incus]
+[hot/incus]
     use_template = data
     recursive = yes      # covers the container rootfs (Docker overlay2 lives here)
 
@@ -189,16 +189,16 @@ Retention per host dataset (mirrors the canonical [backup config](../operations/
     autosnap = no        # snapshot manually before big imports
     autoprune = no
 
-[rpool/ai]
+[hot/ai]
     autosnap = no        # models are big; snapshots rarely useful
     autoprune = no
 ```
 
-`rpool/incus` is included so the `docker-host` container's rootfs (and thus Docker's overlay2 state) has retained snapshots — but that's sanoid's job, not a per-service concern. Let sanoid own the `rpool/incus` schedule and leave Incus's own `snapshots.schedule` unset — see [Incus storage → composing with sanoid](../incus/storage.md#composing-with-sanoid-and-syncoid).
+`hot/incus` is included so the `docker-host` container's rootfs (and thus Docker's overlay2 state) has retained snapshots — but that's sanoid's job, not a per-service concern. Let sanoid own the `hot/incus` schedule and leave Incus's own `snapshots.schedule` unset — see [Incus storage → composing with sanoid](../incus/storage.md#composing-with-sanoid-and-syncoid).
 
 ## Named volumes vs bind mounts
 
-Prefer bind mounts (transparent, obvious snapshot/replicate target) for anything you care about. Named Docker volumes live inside the container's rootfs on `rpool/incus` — fine for genuinely ephemeral state, but opaque. This build's rule (from `START.md`): **ZFS datasets bind-mounted in, never opaque named volumes for important data.**
+Prefer bind mounts (transparent, obvious snapshot/replicate target) for anything you care about. Named Docker volumes live inside the container's rootfs on `hot/incus` — fine for genuinely ephemeral state, but opaque. This build's rule (from `START.md`): **ZFS datasets bind-mounted in, never opaque named volumes for important data.**
 
 ## Footguns
 
@@ -208,7 +208,7 @@ If a host dataset isn't mounted when Incus starts the `docker-host` container, i
 
 ```bash
 findmnt /tank/nextcloud-data
-mountpoint /rpool/db
+mountpoint /hot/db
 ```
 
 ### Container image upgrade changes UID
@@ -217,11 +217,11 @@ Rare, but an image can bump its internal UID between versions, breaking access t
 
 ### Don't snapshot the container's throwaway layers separately
 
-Docker's images, networks, and build cache live in the `docker-host` container's rootfs — rebuildable (`docker compose up` re-pulls images, recreates networks). You don't need a special snapshot strategy for them beyond `rpool/incus`'s retention; the data that matters is on the dedicated host datasets already.
+Docker's images, networks, and build cache live in the `docker-host` container's rootfs — rebuildable (`docker compose up` re-pulls images, recreates networks). You don't need a special snapshot strategy for them beyond `hot/incus`'s retention; the data that matters is on the dedicated host datasets already.
 
 ## Next steps
 
 - [Docker inside Incus](../incus/docker-in-incus.md) — the nesting, GPU passthrough, and full two-layer chain.
-- [Incus storage](../incus/storage.md) — the `rpool/incus` backend and bind-mount idmap details.
+- [Incus storage](../incus/storage.md) — the `hot/incus` backend and bind-mount idmap details.
 - [Operations](operations.md) — scrubs, replace, expand the pools.
 - [Backup & Recovery](../operations/backup.md) — high-level strategy.

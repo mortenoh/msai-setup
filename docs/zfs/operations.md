@@ -29,25 +29,25 @@ sudo zpool status tank
 watch -n 5 zpool status tank
 ```
 
-A scrub on this build depends on the pool: `rpool` (4 TB, fast x4 link, mostly used) might take a few hours; `tank` (2 TB, slow x1 link) can take considerably longer per used-TB because the bus is the bottleneck. Both are I/O-throttled by default to not interfere with regular work, but you'll notice the disk activity.
+A scrub on this build depends on the pool: `hot` (4 TB, fast x4 link, mostly used) might take a few hours; `tank` (2 TB, slow x1 link) can take considerably longer per used-TB because the bus is the bottleneck. Both are I/O-throttled by default to not interfere with regular work, but you'll notice the disk activity.
 
 ### Schedule a weekly (or monthly) scrub — on both pools
 
-Ubuntu's `zfsutils-linux` package installs `zfs-scrub-weekly@.timer` and `zfs-scrub-monthly@.timer` (each backed by `zfs-scrub@.service`) for you. Enable one **per pool** — the timer is instantiated by pool name, so `rpool` and `tank` each need their own:
+Ubuntu's `zfsutils-linux` package installs `zfs-scrub-weekly@.timer` and `zfs-scrub-monthly@.timer` (each backed by `zfs-scrub@.service`) for you. Enable one **per pool** — the timer is instantiated by pool name, so `hot` and `tank` each need their own:
 
 ```bash
-sudo systemctl enable --now zfs-scrub-monthly@rpool.timer
+sudo systemctl enable --now zfs-scrub-monthly@hot.timer
 sudo systemctl enable --now zfs-scrub-monthly@tank.timer
 
 # Or weekly:
-sudo systemctl enable --now zfs-scrub-weekly@rpool.timer
+sudo systemctl enable --now zfs-scrub-weekly@hot.timer
 sudo systemctl enable --now zfs-scrub-weekly@tank.timer
 
 # Check
 systemctl list-timers | grep zfs-scrub
 ```
 
-For a homelab, **monthly is fine**. For a production storage server with millions of files, weekly. The point is "regular", not "frequent". Don't forget `rpool` — it holds root and all instance data, so it needs scrubbing just as much as `tank`.
+For a homelab, **monthly is fine**. For a production storage server with millions of files, weekly. The point is "regular", not "frequent". Don't forget `hot` — it holds all instance and hot data, so it needs scrubbing just as much as `tank`.
 
 ### Reading scrub output
 
@@ -58,12 +58,12 @@ sudo zpool status -v tank
 Healthy result (each pool is a single-disk vdev, so one leaf per pool):
 
 ```
-  pool: rpool
+  pool: hot
  state: ONLINE
   scan: scrub repaired 0B in 01:12:44 with 0 errors on Sun May 17 04:12:44 2026
 config:
   NAME                                       STATE     READ WRITE CKSUM
-  rpool                                      ONLINE       0     0     0
+  hot                                      ONLINE       0     0     0
     nvme-Samsung_SSD_990_PRO_4TB_xxx-part2   ONLINE       0     0     0
 errors: No known data errors
 
@@ -83,11 +83,11 @@ Unhealthy result (one of):
 - `state: DEGRADED` -> a vdev lost a leaf; reads work from remaining redundancy but you need to act.
 - `errors: <N> data errors, see ...` -> some files are permanently lost because no redundancy was available to repair them.
 
-For the MS-S1 MAX's no-redundancy pools, any CKSUM errors are immediately problematic — each pool is a single disk, so there's nothing to heal from. The repair path is to identify the affected files, restore them from off-host backup, and decide whether to replace the failing disk. If the errors are on `rpool/ROOT/ubuntu`, a bad boot environment can also be rolled back via ZFSBootMenu — see the [rebuild checklist](../operations/rebuild-checklist.md#scenario-a-os-broken-pools-fine-boot-environment-rollback).
+For the MS-S1 MAX's no-redundancy pools, any CKSUM errors are immediately problematic — each pool is a single disk, so there's nothing to heal from. The repair path is to identify the affected files, restore them from off-host backup, and decide whether to replace the failing disk.
 
 ## Disk replacement
 
-Procedure for swapping a pool member (e.g. a failing drive identified by `zpool status`). The commands below use `tank` as the example; the same steps apply to `rpool`, but **replacing `rpool`'s drive is closer to a full rebuild** than a hot-swap — it's the boot drive, so you also re-create the EFI partition and re-register the ZFSBootMenu boot entry, and with no in-pool redundancy you restore data from a replica. See [Rebuild Checklist — Scenario B](../operations/rebuild-checklist.md#scenario-b-full-rebuild).
+Procedure for swapping a pool member (e.g. a failing drive identified by `zpool status`). The commands below use `tank` as the example; the same steps apply to `hot`, but **replacing `hot`'s drive is closer to a full rebuild** than a hot-swap — `hot` shares the primary NVMe with the EFI/`/boot`/ext4-root partitions, so you also re-partition, reinstall the OS, and re-register GRUB, and with no in-pool redundancy you restore data from a replica. See [Rebuild Checklist — Scenario B](../operations/rebuild-checklist.md#scenario-b-full-rebuild).
 
 ### 1. Identify the device
 
@@ -261,8 +261,8 @@ Exporting a pool flushes pending writes, unmounts datasets, and removes the pool
 sudo zpool export tank
 ```
 
-!!! warning "You cannot export `rpool` on a running system"
-    `rpool` holds root — it's in use the whole time the system is up, so a live `zpool export rpool` will fail (datasets busy). Exporting `rpool` only happens from a live/rescue environment during a rebuild (see [Rebuild Checklist](../operations/rebuild-checklist.md)). `tank` can be exported live once nothing is using it (stop Incus instances / services that hold `tank` datasets first).
+!!! warning "You cannot export `hot` while Incus is running"
+    `hot` holds `hot/incus` (Incus's storage backend) plus `hot/db` and `hot/ai` — all in use whenever Incus and its services are up, so a live `zpool export hot` will fail (datasets busy). Stop Incus and anything holding `hot` datasets first, or export it from a live/rescue environment during a rebuild (see [Rebuild Checklist](../operations/rebuild-checklist.md)). `tank` can be exported live once nothing is using it (stop Incus instances / services that hold `tank` datasets first).
 
 Exporting `tank` is useful before:
 
