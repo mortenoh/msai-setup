@@ -16,6 +16,7 @@ class Category(Enum):
     SYSTEM = "system"
     ZFS = "zfs"
     DOCKER = "docker"
+    INCUS = "incus"
     KVM = "kvm"
     GPU = "gpu"
     INFERENCE = "inference"
@@ -883,6 +884,119 @@ def check_llamacpp_gpu() -> CheckResult:
         category=Category.INFERENCE,
         detail="Rebuild with a GPU backend (Vulkan or HIP) for offload",
         fix="msai bootstrap llamacpp-vulkan --force",
+    )
+
+
+# =============================================================================
+# Incus Checks
+# =============================================================================
+
+
+@register_check(Category.INCUS, "Incus installed")
+def check_incus_installed() -> CheckResult:
+    """Check the incus client is installed."""
+    if command_exists("incus"):
+        return CheckResult(
+            name="Incus installed",
+            status=CheckStatus.OK,
+            message="Incus installed",
+            category=Category.INCUS,
+        )
+    return CheckResult(
+        name="Incus installed",
+        status=CheckStatus.FAIL,
+        message="Incus not installed",
+        category=Category.INCUS,
+        fix="msai bootstrap incus",
+    )
+
+
+@register_check(Category.INCUS, "Daemon running")
+def check_incus_daemon() -> CheckResult:
+    """Check the incus daemon (socket-activated) is available."""
+    if not command_exists("incus"):
+        return CheckResult(
+            name="Daemon running",
+            status=CheckStatus.SKIP,
+            message="incus not installed",
+            category=Category.INCUS,
+        )
+    if is_service_running("incus.socket") or is_service_running("incus"):
+        return CheckResult(
+            name="Daemon running",
+            status=CheckStatus.OK,
+            message="incus daemon active",
+            category=Category.INCUS,
+        )
+    return CheckResult(
+        name="Daemon running",
+        status=CheckStatus.FAIL,
+        message="incus daemon not running",
+        category=Category.INCUS,
+        fix="sudo systemctl enable --now incus.socket",
+    )
+
+
+@register_check(Category.INCUS, "Initialized")
+def check_incus_initialized() -> CheckResult:
+    """Check incus has been set up (a storage pool exists)."""
+    if not command_exists("incus"):
+        return CheckResult(
+            name="Initialized",
+            status=CheckStatus.SKIP,
+            message="incus not installed",
+            category=Category.INCUS,
+        )
+    result = run_command("incus storage list -f csv")
+    if not result.success:
+        stderr = result.stderr.lower()
+        if "restricted" in stderr or "permission" in stderr:
+            # Restricted cert => only the 'incus' group is active, not 'incus-admin'.
+            return CheckResult(
+                name="Initialized",
+                status=CheckStatus.WARN,
+                message="restricted access; need incus-admin active (log out/in), then 'sudo incus admin init'",
+                category=Category.INCUS,
+            )
+        return CheckResult(
+            name="Initialized",
+            status=CheckStatus.WARN,
+            message="cannot query incus (daemon issue?)",
+            category=Category.INCUS,
+            detail=result.stderr[:120] if result.stderr else None,
+        )
+    if result.output.strip():
+        pools = [line.split(",")[0] for line in result.output.splitlines() if line.strip()]
+        return CheckResult(
+            name="Initialized",
+            status=CheckStatus.OK,
+            message=f"initialized (storage pool: {', '.join(pools)})",
+            category=Category.INCUS,
+        )
+    return CheckResult(
+        name="Initialized",
+        status=CheckStatus.WARN,
+        message="no storage pool; incus not initialized",
+        category=Category.INCUS,
+        fix="sudo incus admin init",
+    )
+
+
+@register_check(Category.INCUS, "incus-admin group")
+def check_incus_group() -> CheckResult:
+    """Check the user can manage incus without sudo (incus-admin group)."""
+    if not command_exists("incus"):
+        return CheckResult(
+            name="incus-admin group",
+            status=CheckStatus.SKIP,
+            message="incus not installed",
+            category=Category.INCUS,
+        )
+    return _group_membership(
+        "incus-admin",
+        name="incus-admin group",
+        category=Category.INCUS,
+        fix="sudo usermod -aG incus-admin $USER",
     )
 
 

@@ -33,6 +33,7 @@ _EXPECTED: dict[Profile, set[Category]] = {
     Profile.DESKTOP: {
         Category.SYSTEM,
         Category.DOCKER,
+        Category.INCUS,
         Category.GPU,
         Category.INFERENCE,
         Category.TAILSCALE,
