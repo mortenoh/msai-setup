@@ -7,12 +7,7 @@ from enum import Enum
 from pathlib import Path
 
 from msai_setup.utils.formatting import CheckStatus
-from msai_setup.utils.shell import (
-    command_exists,
-    is_service_running,
-    run_command,
-    shell_succeeds,
-)
+from msai_setup.utils.shell import command_exists, is_service_running, run_command
 
 
 class Category(Enum):
@@ -853,8 +848,13 @@ def check_llamacpp_installed() -> CheckResult:
 
 @register_check(Category.INFERENCE, "HIP/ROCm backend")
 def check_llamacpp_hip() -> CheckResult:
-    """Check the llama.cpp build is linked against the ROCm/HIP runtime."""
-    if not command_exists("llama-server"):
+    """Check llama.cpp actually enumerates a ROCm GPU device.
+
+    The HIP backend lives in a separate ``libggml-hip.so`` that ggml loads at
+    runtime, so inspecting the binary's direct links misses it. Asking
+    llama.cpp itself to list devices is the reliable signal.
+    """
+    if not command_exists("llama-cli"):
         return CheckResult(
             name="HIP/ROCm backend",
             status=CheckStatus.SKIP,
@@ -862,19 +862,23 @@ def check_llamacpp_hip() -> CheckResult:
             category=Category.INFERENCE,
         )
 
-    # A HIP build links libamdhip64 / hip/rocBLAS; a CPU-only build does not.
-    if shell_succeeds('ldd "$(command -v llama-server)" | grep -qiE "amdhip|hipblas|rocblas"'):
+    result = run_command("llama-cli --list-devices")
+    if result.success and "ROCm" in result.output:
+        device = next(
+            (line.strip() for line in result.output.splitlines() if "ROCm" in line),
+            "ROCm device",
+        )
         return CheckResult(
             name="HIP/ROCm backend",
             status=CheckStatus.OK,
-            message="llama-server linked against ROCm/HIP (GPU offload)",
+            message=f"GPU offload available ({device})",
             category=Category.INFERENCE,
         )
 
     return CheckResult(
         name="HIP/ROCm backend",
         status=CheckStatus.WARN,
-        message="llama-server present but not HIP-linked (CPU-only build)",
+        message="no ROCm device listed by llama.cpp (CPU-only build?)",
         category=Category.INFERENCE,
         detail="Rebuild with -DGGML_HIP=ON for gfx1151 GPU offload",
         fix="msai bootstrap llamacpp --force",
