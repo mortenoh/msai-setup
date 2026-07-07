@@ -4,6 +4,7 @@ import typer
 
 from msai_setup.doctor.checks import Category, CheckResult, registry
 from msai_setup.doctor.fixes import apply_fix, is_safe_fix
+from msai_setup.doctor.profile import Profile, category_expected, resolve_profile
 from msai_setup.utils.formatting import (
     CheckStatus,
     console,
@@ -13,6 +14,20 @@ from msai_setup.utils.formatting import (
 )
 
 _FIXABLE = (CheckStatus.WARN, CheckStatus.FAIL)
+
+
+def _apply_profile(result: CheckResult, profile: Profile) -> CheckResult:
+    """Soften findings for categories not expected on the active profile.
+
+    On a desktop box, a missing ZFS pool or KVM is not a failure; downgrade
+    such WARN/FAIL results to SKIP with a note so the report stays honest.
+    """
+    if result.status not in _FIXABLE or category_expected(profile, result.category):
+        return result
+    result.status = CheckStatus.SKIP
+    result.message = f"{result.message} (not expected on {profile.value})"
+    result.fix = None
+    return result
 
 
 def _maybe_apply(result: CheckResult, *, assume_yes: bool) -> None:
@@ -41,6 +56,7 @@ def run_doctor(
     fix: bool = False,
     apply: bool = False,
     assume_yes: bool = False,
+    profile: Profile | None = None,
 ) -> tuple[int, int, int]:
     """Run health checks and display results.
 
@@ -50,12 +66,19 @@ def run_doctor(
         apply: If True, offer to run each fix (safe fixes auto-apply with
             assume_yes; install/state-changing fixes always prompt).
         assume_yes: If True, auto-apply safe fixes without prompting.
+        profile: Host profile; None resolves it automatically.
 
     Returns:
         Tuple of (passed, warnings, failed) counts.
     """
+    if profile is None:
+        profile, source = resolve_profile()
+    else:
+        source = "specified"
+
     console.print("\n[header]MS-S1 MAX Health Check[/header]")
     console.print("[dim]" + "=" * 22 + "[/dim]")
+    console.print(f"[dim]profile: {profile.value} ({source})[/dim]")
 
     # Applying implies showing the fix line.
     if apply:
@@ -70,7 +93,7 @@ def run_doctor(
             checks_by_category[cat] = []
 
         try:
-            result = check.run()
+            result = _apply_profile(check.run(), profile)
             checks_by_category[cat].append(result)
         except Exception as e:
             # Handle unexpected errors in checks
@@ -134,6 +157,7 @@ def run_category(
     fix: bool = False,
     apply: bool = False,
     assume_yes: bool = False,
+    profile: Profile | None = None,
 ) -> tuple[int, int, int]:
     """Run checks for a single category.
 
@@ -142,8 +166,11 @@ def run_category(
         fix: If True, display fix commands.
         apply: If True, offer to run each fix.
         assume_yes: If True, auto-apply safe fixes without prompting.
+        profile: Host profile; None resolves it automatically.
 
     Returns:
         Tuple of (passed, warnings, failed) counts.
     """
-    return run_doctor([category], fix=fix, apply=apply, assume_yes=assume_yes)
+    return run_doctor(
+        [category], fix=fix, apply=apply, assume_yes=assume_yes, profile=profile
+    )

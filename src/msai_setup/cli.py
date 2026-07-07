@@ -8,6 +8,7 @@ import typer
 from rich.table import Table
 
 from msai_setup.doctor.checks import Category
+from msai_setup.doctor.profile import Profile, resolve_profile, set_profile
 from msai_setup.doctor.runner import run_category, run_doctor
 from msai_setup.lab import instance as lab_instance
 from msai_setup.lab import vbox as lab_vbox
@@ -27,8 +28,39 @@ doctor_app = typer.Typer(
     help="System health checks (run these ON the MS-S1 MAX, not your laptop).",
     invoke_without_command=True,
 )
+profile_app = typer.Typer(
+    name="profile",
+    help="Show or set the host profile (server vs desktop) used by doctor.",
+    invoke_without_command=True,
+    no_args_is_help=False,
+)
+
 app.add_typer(doctor_app, name="doctor")
+app.add_typer(profile_app, name="profile")
 app.add_typer(lab_app, name="lab")
+
+
+@profile_app.callback(invoke_without_command=True)
+def profile_main(ctx: typer.Context) -> None:
+    """Show the active profile when no subcommand is given."""
+    if ctx.invoked_subcommand is None:
+        profile, source = resolve_profile()
+        typer.echo(f"profile: {profile.value} (resolved from {source})")
+
+
+@profile_app.command("set")
+def profile_set(
+    name: Annotated[str, typer.Argument(help="Profile to persist: server or desktop.")],
+) -> None:
+    """Persist the host profile for future doctor runs."""
+    try:
+        profile = Profile(name.strip().lower())
+    except ValueError:
+        valid = ", ".join(p.value for p in Profile)
+        typer.echo(f"unknown profile '{name}'. Valid: {valid}", err=True)
+        raise typer.Exit(code=1) from None
+    path = set_profile(profile)
+    typer.echo(f"profile set to '{profile.value}' ({path})")
 
 
 @app.command()
