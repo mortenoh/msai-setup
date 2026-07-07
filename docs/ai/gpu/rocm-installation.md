@@ -81,6 +81,18 @@ sudo apt install rocm
 
 This pulls ROCm 7.1.0 from Ubuntu's Universe repo. It includes the runtime, HIP, OpenCL, and Lemonade Server, and relies on the kernel's built-in amdgpu driver rather than a DKMS-rebuilt one — which sidesteps the kernel-point-release DKMS build failures described in [Method 2](#method-2-amdgpu-install-newer-rocm-via-amds-repo) below. Use this unless you specifically need a newer ROCm than 7.1.0.
 
+!!! success "No reboot needed with Method 1 — only a re-login"
+    Because the in-distro `rocm` reuses the **already-loaded in-tree amdgpu driver**, there is no new kernel module to load — `rocminfo` enumerates `gfx1151` and `/dev/kfd` exists immediately after install, no reboot required. The only pending step is **group membership**: `usermod -aG render,video` doesn't affect your current session, so log out and back in (a reboot also works) before running GPU workloads as your user. Verify you don't actually need a reboot:
+
+    ```bash
+    ls /var/run/reboot-required 2>/dev/null || echo "no reboot needed"
+    dkms status                       # empty => nothing to rebuild/load
+    ls -l /dev/kfd                    # present => compute node ready
+    rocminfo | grep -m1 gfx           # should print gfx1151
+    ```
+
+    By contrast, [Method 2](#method-2-amdgpu-install-newer-rocm-via-amds-repo) with DKMS (`--usecase=...,dkms`) builds a **new** amdgpu module that only takes over after a **reboot** — there, a reboot genuinely is required.
+
 ### Method 2: amdgpu-install (Newer ROCm via AMD's repo)
 
 The `amdgpu-install` script tracks upstream ROCm faster than the Ubuntu archive.
