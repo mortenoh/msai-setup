@@ -12,7 +12,7 @@ Target OS: **Ubuntu Server 26.04 LTS** ("Resolute Raccoon"), headless.
 - **Everything runs inside Incus.** [Incus](https://linuxcontainers.org/incus/) (the community fork of LXD) is the one virtualization/container layer on the host. Docker workloads run nested inside Incus system containers (existing `docker-compose.yml` stacks, largely unchanged) or as native Incus OCI application containers where that fits better; VMs (Windows 11, etc.) are Incus VM instances — QEMU/KVM under the hood, managed with `incus` instead of bare `virsh`/`virt-install` or `docker`.
 - **Data lives in ZFS.** Two independent pools, one per physical drive — no striping a pool across both. `hot` (hot data + Incus's own storage backend) on the fast drive, `tank` (bulk/cold data) on the slow drive. Every container/VM's storage is a native ZFS dataset via Incus's ZFS storage driver — no bind-mount choreography needed for that layer.
 - **Virtual machines are first-class, via Incus.** Windows 11 VM (TPM 2.0 and Secure Boot via Incus's built-in `tpm` device and `security.secureboot` config key, virtio — no GPU passthrough by default; the iGPU stays with the host for ROCm).
-- **AI is the primary purpose.** ROCm 7.x on the host iGPU, reachable from Incus containers via `/dev/kfd` + `/dev/dri` device passthrough (Incus's `gpu` device type alone only wires up `/dev/dri` — ROCm compute needs an explicit `/dev/kfd` device too). Ollama + llama.cpp (HIP build) for local LLM inference, with `amd-ttm` allocating ~108 GB of the 128 GB pool as GPU-accessible (GTT) memory.
+- **AI is the primary purpose.** ROCm 7.x on the host iGPU, reachable from Incus containers via `/dev/kfd` + `/dev/dri` device passthrough (Incus's `gpu` device type alone only wires up `/dev/dri` — ROCm compute needs an explicit `/dev/kfd` device too). llama.cpp (built with the ROCm/HIP backend for gfx1151) for local LLM inference — plain GGUF on disk, OpenAI-compatible `llama-server`, no custom model store — with `amd-ttm` allocating ~108 GB of the 128 GB pool as GPU-accessible (GTT) memory.
 - **Everything is recoverable.** Snapshots (sanoid, on both ZFS pools) for accidents and bad upgrades to data. Off-host replication (syncoid over Tailscale and restic to B2/S3) for disk failure and site loss. The ext4 OS root is not snapshotted — it is disposable and reproducible from the install walkthrough plus captured config.
 
 ## Hardware assumptions (one-line each)
@@ -61,7 +61,7 @@ tank (single pool, one disk, no redundancy — snapshots + replication for prote
 +-- backups         (compression=zstd-3 — cold archive target)
 ```
 
-ARC capped at 16 GiB (shared across both pools) so VMs and Ollama have predictable memory.
+ARC capped at 16 GiB (shared across both pools) so VMs and inference workloads have predictable memory.
 
 Detailed properties live in `docs/zfs/datasets.md`.
 

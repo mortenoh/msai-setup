@@ -41,13 +41,13 @@ The APU architecture enables running 70B+ parameter LLMs that wouldn't fit in di
 | **ZFS Storage** | Pool creation, datasets, snapshots, Docker integration | [View](https://mortenoh.github.io/msai-setup/zfs/) |
 | **Bcachefs** | Next-gen COW filesystem, DKMS setup, encryption, caching | [View](https://mortenoh.github.io/msai-setup/bcachefs/) |
 | **Virtualization** | KVM setup, Windows 11 VM (virtio-gpu by default; GPU passthrough is an opt-in trade-off) | [View](https://mortenoh.github.io/msai-setup/virtualization/) |
-| **Docker** | Compose, development stacks, Ollama, monitoring, Nextcloud, Plex | [View](https://mortenoh.github.io/msai-setup/docker/) |
+| **Docker** | Compose, development stacks, monitoring, Nextcloud, Plex | [View](https://mortenoh.github.io/msai-setup/docker/) |
 | **Netplan** | Network configuration, bridges, bonds, VLANs | [View](https://mortenoh.github.io/msai-setup/netplan/) |
 | **Firewall & Security** | UFW, iptables, nftables, Docker/KVM networking | [View](https://mortenoh.github.io/msai-setup/networking/) |
 | **SSH** | Client/server config, tunneling, file transfer | [View](https://mortenoh.github.io/msai-setup/ssh/) |
 | **Tailscale** | Mesh VPN, MagicDNS, exit nodes, Docker integration | [View](https://mortenoh.github.io/msai-setup/tailscale/) |
 | **Bash** | Shell fundamentals, scripting, tools, chezmoi, direnv, Starship | [View](https://mortenoh.github.io/msai-setup/bash/) |
-| **AI & Local LLMs** | ROCm, llama.cpp, Ollama, AI coding tools (Claude Code, Aider, Cline) | [View](https://mortenoh.github.io/msai-setup/ai/) |
+| **AI & Local LLMs** | ROCm, llama.cpp (ROCm/HIP), AI coding tools (Claude Code, Aider, Cline) | [View](https://mortenoh.github.io/msai-setup/ai/) |
 | **Operations** | Monitoring, backup, recovery, secrets management | [View](https://mortenoh.github.io/msai-setup/operations/) |
 
 ## Key Topics
@@ -56,12 +56,12 @@ The APU architecture enables running 70B+ parameter LLMs that wouldn't fit in di
 - **ZFS** - Pool creation, datasets, snapshots, Docker integration
 - **Bcachefs** - Next-gen filesystem, encryption, compression, SSD caching
 - **KVM/QEMU** - Virtualization, Windows 11 VM (virtio-gpu by default; GPU passthrough is an opt-in trade-off)
-- **Docker** - Compose, development stacks, Ollama stack, monitoring, container services
+- **Docker** - Compose, development stacks, monitoring, container services
 - **Networking** - Netplan, UFW, iptables/nftables, namespaces
 - **SSH** - Keys, agent forwarding, tunneling, jump hosts
 - **Tailscale** - WireGuard mesh VPN, ACLs, subnet routing
 - **Bash** - Scripting, chezmoi, direnv, 1Password CLI, modern CLI tools, Starship
-- **Local LLMs** - ROCm setup, llama.cpp, Ollama, AI coding tools (Claude Code, Aider, Cline, Continue)
+- **Local LLMs** - ROCm setup, llama.cpp (ROCm/HIP), AI coding tools (Claude Code, Aider, Cline, Continue)
 
 ## Local Development
 
