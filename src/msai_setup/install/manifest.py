@@ -23,11 +23,12 @@ from pathlib import Path
 
 MANIFEST_PATH = Path(__file__).with_name("components.toml")
 
-_METHODS = {"apt", "curl_sh"}
+_METHODS = {"apt", "curl_sh", "script"}
 _COMMON_KEYS = {"description", "detect", "post", "category", "needs_root", "method"}
 _METHOD_KEYS = {
     "apt": {"packages"},
     "curl_sh": {"url", "extra_args", "shell"},
+    "script": {"commands"},
 }
 
 
@@ -55,6 +56,8 @@ class Component:
     url: str = ""
     extra_args: list[str] = field(default_factory=_str_list)
     shell: str = "sh"
+    # script
+    commands: list[str] = field(default_factory=_str_list)
 
 
 def _parse_component(name: str, spec: dict[str, object]) -> Component:
@@ -71,6 +74,8 @@ def _parse_component(name: str, spec: dict[str, object]) -> Component:
         raise ManifestError(f"{name}: apt method requires a non-empty 'packages' list")
     if method == "curl_sh" and not spec.get("url"):
         raise ManifestError(f"{name}: curl_sh method requires 'url'")
+    if method == "script" and not spec.get("commands"):
+        raise ManifestError(f"{name}: script method requires a non-empty 'commands' list")
 
     return Component(**spec)  # type: ignore[arg-type]
 

@@ -13,7 +13,7 @@ msai docs        # serve these docs locally
 
 ## `msai doctor` — health checks
 
-Runs categorized checks (system, ZFS, Docker, KVM, GPU, Ollama, Tailscale) and
+Runs categorized checks (system, ZFS, Docker, KVM, GPU, inference, Tailscale) and
 reports OK / WARN / FAIL / SKIP per item. Run it on the machine itself.
 
 ```bash
@@ -51,8 +51,9 @@ target (a graphical target autodetects as `desktop`, headless as `server`).
 Brings a fresh Ubuntu install up to the target software state, driven by a
 declarative manifest (`src/msai_setup/install/components.toml`). It installs
 **packages and daemons only** — Docker, ZFS userland tools, ROCm (gfx1151),
-KVM/libvirt, Tailscale, and Ollama. Disk partitioning and ZFS **pool creation
-stay manual** (see [Disk Partitioning](../ubuntu/installation/disk-partitioning.md)),
+KVM/libvirt, Tailscale, and llama.cpp (built with the ROCm/HIP backend, plain
+GGUF, OpenAI-compatible `llama-server`). Disk partitioning and ZFS **pool
+creation stay manual** (see [Disk Partitioning](../ubuntu/installation/disk-partitioning.md)),
 because that is destructive and the [NVMe enumeration is reversed](hardware.md)
 from the slot numbering.
 
@@ -69,10 +70,12 @@ Every component is idempotent: a component whose `detect` probe passes (e.g.
 continues rather than aborting the rest. Group changes (docker, render, libvirt)
 take effect on next login; verify afterwards with `msai doctor`.
 
-!!! note "Tailscale and Ollama"
+!!! note "Tailscale and llama.cpp"
     `bootstrap` installs Tailscale but does not run `sudo tailscale up` (that is
-    interactive browser auth); connect afterwards. The Ollama installer sets up
-    its own systemd service.
+    interactive browser auth); connect afterwards. The `llamacpp` component is a
+    real source build with the HIP backend for gfx1151 (several minutes, and it
+    needs the `rocm` component installed first); `msai doctor inference` confirms
+    the resulting `llama-server` is linked against ROCm/HIP.
 
 ## `msai lab` — the rehearsal lab
 

@@ -34,7 +34,7 @@ _EXPECTED: dict[Profile, set[Category]] = {
         Category.SYSTEM,
         Category.DOCKER,
         Category.GPU,
-        Category.OLLAMA,
+        Category.INFERENCE,
         Category.TAILSCALE,
     },
 }

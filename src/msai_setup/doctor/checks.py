@@ -7,7 +7,12 @@ from enum import Enum
 from pathlib import Path
 
 from msai_setup.utils.formatting import CheckStatus
-from msai_setup.utils.shell import command_exists, is_service_running, run_command
+from msai_setup.utils.shell import (
+    command_exists,
+    is_service_running,
+    run_command,
+    shell_succeeds,
+)
 
 
 class Category(Enum):
@@ -18,7 +23,7 @@ class Category(Enum):
     DOCKER = "docker"
     KVM = "kvm"
     GPU = "gpu"
-    OLLAMA = "ollama"
+    INFERENCE = "inference"
     TAILSCALE = "tailscale"
 
 
@@ -557,7 +562,7 @@ def _user_groups() -> tuple[set[str], set[str]]:
     """
     session = set(run_command("id -nG").output.split())
     user = run_command("id -un").output
-    account = set(run_command(f"id -nG {user}").output.split()) if user else set()
+    account = set(run_command(f"id -nG {user}").output.split()) if user else set[str]()
     return session, account
 
 
@@ -822,93 +827,57 @@ def check_vulkan() -> CheckResult:
 
 
 # =============================================================================
-# Ollama Checks
+# Inference Checks (llama.cpp)
 # =============================================================================
 
 
-@register_check(Category.OLLAMA, "Service running")
-def check_ollama_service() -> CheckResult:
-    """Check Ollama service is running."""
-    # Check systemd service
-    if is_service_running("ollama"):
+@register_check(Category.INFERENCE, "llama.cpp installed")
+def check_llamacpp_installed() -> CheckResult:
+    """Check llama.cpp's server binary is installed."""
+    if command_exists("llama-server"):
         return CheckResult(
-            name="Service running",
+            name="llama.cpp installed",
             status=CheckStatus.OK,
-            message="Ollama service running",
-            category=Category.OLLAMA,
-        )
-
-    # Check if running in Docker
-    result = run_command("docker ps --format '{{.Names}}' | grep -i ollama")
-    if result.success and result.output:
-        return CheckResult(
-            name="Service running",
-            status=CheckStatus.OK,
-            message=f"Ollama running in Docker ({result.output})",
-            category=Category.OLLAMA,
+            message="llama-server present",
+            category=Category.INFERENCE,
         )
 
     return CheckResult(
-        name="Service running",
+        name="llama.cpp installed",
         status=CheckStatus.FAIL,
-        message="Ollama not running",
-        category=Category.OLLAMA,
-        fix="sudo systemctl start ollama",
+        message="llama.cpp not installed",
+        category=Category.INFERENCE,
+        fix="msai bootstrap llamacpp",
     )
 
 
-@register_check(Category.OLLAMA, "API responding")
-def check_ollama_api() -> CheckResult:
-    """Check Ollama API is responding."""
-    result = run_command("curl -s -o /dev/null -w '%{http_code}' http://localhost:11434")
-    if result.success and result.output == "200":
+@register_check(Category.INFERENCE, "HIP/ROCm backend")
+def check_llamacpp_hip() -> CheckResult:
+    """Check the llama.cpp build is linked against the ROCm/HIP runtime."""
+    if not command_exists("llama-server"):
         return CheckResult(
-            name="API responding",
-            status=CheckStatus.OK,
-            message="API responding on :11434",
-            category=Category.OLLAMA,
-        )
-
-    return CheckResult(
-        name="API responding",
-        status=CheckStatus.FAIL,
-        message="API not responding on :11434",
-        category=Category.OLLAMA,
-    )
-
-
-@register_check(Category.OLLAMA, "Models present")
-def check_ollama_models() -> CheckResult:
-    """Check Ollama has models installed."""
-    result = run_command("ollama list")
-    if not result.success:
-        return CheckResult(
-            name="Models present",
+            name="HIP/ROCm backend",
             status=CheckStatus.SKIP,
-            message="Could not list models",
-            category=Category.OLLAMA,
+            message="llama.cpp not installed",
+            category=Category.INFERENCE,
         )
 
-    lines = result.output.strip().split("\n")
-    # First line is header
-    if len(lines) > 1:
-        models = [line.split()[0] for line in lines[1:] if line.strip()]
-        model_list = ", ".join(models[:3])
-        if len(models) > 3:
-            model_list += f" (+{len(models) - 3} more)"
+    # A HIP build links libamdhip64 / hip/rocBLAS; a CPU-only build does not.
+    if shell_succeeds('ldd "$(command -v llama-server)" | grep -qiE "amdhip|hipblas|rocblas"'):
         return CheckResult(
-            name="Models present",
+            name="HIP/ROCm backend",
             status=CheckStatus.OK,
-            message=f"Models: {model_list}",
-            category=Category.OLLAMA,
+            message="llama-server linked against ROCm/HIP (GPU offload)",
+            category=Category.INFERENCE,
         )
 
     return CheckResult(
-        name="Models present",
+        name="HIP/ROCm backend",
         status=CheckStatus.WARN,
-        message="No models installed",
-        category=Category.OLLAMA,
-        fix="ollama pull llama3.3:70b",
+        message="llama-server present but not HIP-linked (CPU-only build)",
+        category=Category.INFERENCE,
+        detail="Rebuild with -DGGML_HIP=ON for gfx1151 GPU offload",
+        fix="msai bootstrap llamacpp --force",
     )
 
 

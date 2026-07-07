@@ -69,9 +69,19 @@ detect = "command -v tailscale"
 method = "curl_sh"
 url = "https://tailscale.com/install.sh"
 
-[ollama]
-description = "Ollama local LLM runtime (its installer sets up the systemd service)"
-category = "ollama"
-detect = "command -v ollama"
-method = "curl_sh"
-url = "https://ollama.com/install.sh"
+[llamacpp]
+# Built from source with the ROCm/HIP backend for gfx1151 -- plain GGUF on disk,
+# OpenAI-compatible llama-server, no custom model store. Requires the rocm
+# component above (provides hipcc/HIP). Installs llama-server/llama-cli into
+# /usr/local/bin. This is a real compile (several minutes), not a one-liner.
+description = "llama.cpp with ROCm/HIP for gfx1151 (llama-server, llama-cli; plain GGUF)"
+category = "inference"
+detect = "command -v llama-server"
+method = "script"
+commands = [
+  "sudo apt-get install -y git cmake libcurl4-openssl-dev",
+  "rm -rf /tmp/llama.cpp-src && git clone --depth 1 https://github.com/ggml-org/llama.cpp /tmp/llama.cpp-src",
+  "cmake -S /tmp/llama.cpp-src -B /tmp/llama.cpp-src/build -DGGML_HIP=ON -DAMDGPU_TARGETS=gfx1151 -DCMAKE_BUILD_TYPE=Release",
+  "cmake --build /tmp/llama.cpp-src/build --config Release -j",
+  "sudo cmake --install /tmp/llama.cpp-src/build",
+]

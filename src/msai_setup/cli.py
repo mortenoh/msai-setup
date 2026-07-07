@@ -350,9 +350,11 @@ def gpu(fix: FixOption = False, apply: ApplyOption = False, yes: YesOption = Fal
 
 
 @doctor_app.command()
-def ollama(fix: FixOption = False, apply: ApplyOption = False, yes: YesOption = False) -> None:
-    """Run Ollama checks (service, API, models)."""
-    _passed, _warnings, failed = run_category(Category.OLLAMA, fix=fix, apply=apply, assume_yes=yes)
+def inference(fix: FixOption = False, apply: ApplyOption = False, yes: YesOption = False) -> None:
+    """Run inference checks (llama.cpp installed, HIP/ROCm backend)."""
+    _passed, _warnings, failed = run_category(
+        Category.INFERENCE, fix=fix, apply=apply, assume_yes=yes
+    )
     raise typer.Exit(code=1 if failed > 0 else 0)
 
 

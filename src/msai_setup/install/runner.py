@@ -37,6 +37,8 @@ def install_commands(component: Component) -> list[str]:
                 + " ".join(component.extra_args)
             )
         commands.append(base)
+    elif component.method == "script":
+        commands.extend(component.commands)
     commands.extend(component.post)
     return commands
 

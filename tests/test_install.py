@@ -21,11 +21,13 @@ def test_manifest_loads_and_is_ordered() -> None:
 def test_manifest_methods_valid() -> None:
     """Every component uses a supported method with its required fields."""
     for name, component in load_manifest().items():
-        assert component.method in {"apt", "curl_sh"}, name
+        assert component.method in {"apt", "curl_sh", "script"}, name
         if component.method == "apt":
             assert component.packages, name
-        else:
+        elif component.method == "curl_sh":
             assert component.url, name
+        else:
+            assert component.commands, name
 
 
 def test_install_commands_apt() -> None:
@@ -36,6 +38,11 @@ def test_install_commands_apt() -> None:
 def test_install_commands_curl_sh() -> None:
     comp = Component(method="curl_sh", url="https://x/i.sh")
     assert install_commands(comp) == ["curl -fsSL https://x/i.sh | sh"]
+
+
+def test_install_commands_script() -> None:
+    comp = Component(method="script", commands=["a", "b"], post=["c"])
+    assert install_commands(comp) == ["a", "b", "c"]
 
 
 def test_install_commands_curl_sh_with_args() -> None:
