@@ -4,7 +4,8 @@
 #
 # Each component declares:
 #   detect  -- shell probe; exit 0 => already installed => skipped
-#   method  -- "apt" (archive packages) or "curl_sh" (upstream installer)
+#   method  -- "apt" (archive packages), "curl_sh" (upstream installer), or
+#              "script" (an explicit list of shell commands)
 #   post    -- shell commands run after install (group adds, enabling units);
 #              $USER expands at run time
 #   category-- the `msai doctor` category this maps to
@@ -26,6 +27,19 @@ category = "zfs"
 detect = "command -v zpool"
 method = "apt"
 packages = ["zfsutils-linux"]
+
+[incus]
+# The core virtualization layer for this build (containers + VMs). The archive
+# package needs no third-party repo on 26.04. Storage/network setup is done by
+# the interactive 'sudo incus admin init', left to the user. See docs/incus/.
+description = "Incus containers + VMs (run 'sudo incus admin init' afterwards to set up storage/network)"
+category = "incus"
+detect = "command -v incus"
+method = "apt"
+packages = ["incus"]
+post = [
+  "sudo usermod -aG incus-admin $USER",
+]
 
 [rocm]
 # 26.04 ships ROCm 7.x in Universe with native gfx1151 support -- no third-party
@@ -69,23 +83,45 @@ detect = "command -v tailscale"
 method = "curl_sh"
 url = "https://tailscale.com/install.sh"
 
-[llamacpp]
-# Built from source with the ROCm/HIP backend for gfx1151 -- plain GGUF on disk,
-# OpenAI-compatible llama-server, no custom model store. Requires the rocm
-# component above (provides hipcc/HIP). Installs llama-server/llama-cli into
-# /usr/local/bin. This is a real compile (several minutes), not a one-liner.
-description = "llama.cpp with ROCm/HIP for gfx1151 (llama-server, llama-cli; plain GGUF)"
+# --- llama.cpp: two backends -------------------------------------------------
+# On this Strix Halo, Vulkan (RADV) benchmarks faster than ROCm/HIP for llama.cpp
+# inference (pp512 ~756 vs ~316 t/s; tg128 ~29 vs ~27 t/s on Gemma-4-12B Q4_0),
+# so Vulkan is the default on PATH. The HIP build is installed alongside under
+# /opt for A/B benchmarking. ROCm itself stays installed (rocm component) for the
+# rest of the stack (PyTorch, vLLM, fine-tuning) which Vulkan cannot do.
+
+[llamacpp-vulkan]
+# Plain GGUF, OpenAI-compatible llama-server, installed to /usr/local/bin (PATH).
+# detect probes the *backend*, not just the binary, so it correctly replaces a
+# previously-installed HIP llama-server.
+description = "llama.cpp with the Vulkan backend (fastest inference here) -- the default on PATH"
 category = "inference"
-detect = "command -v llama-server"
+detect = "llama-cli --list-devices 2>/dev/null | grep -q Vulkan"
 method = "script"
 commands = [
-  "sudo apt-get install -y git cmake libcurl4-openssl-dev",
+  "sudo apt-get install -y git cmake libcurl4-openssl-dev libvulkan-dev spirv-headers glslang-dev glslc glslang-tools spirv-tools mesa-vulkan-drivers vulkan-tools",
   "rm -rf /tmp/llama.cpp-src && git clone --depth 1 https://github.com/ggml-org/llama.cpp /tmp/llama.cpp-src",
-  # HIPCXX/HIP_PATH point cmake at the ROCm clang (distro ROCm lives in /usr, not /opt/rocm).
-  "HIPCXX=$(hipconfig -l)/clang HIP_PATH=$(hipconfig -R) cmake -S /tmp/llama.cpp-src -B /tmp/llama.cpp-src/build -DGGML_HIP=ON -DAMDGPU_TARGETS=gfx1151 -DCMAKE_BUILD_TYPE=Release",
-  "cmake --build /tmp/llama.cpp-src/build --config Release -j",
-  "sudo cmake --install /tmp/llama.cpp-src/build",
+  "cmake -S /tmp/llama.cpp-src -B /tmp/llama.cpp-src/build-vk -DGGML_VULKAN=ON -DCMAKE_BUILD_TYPE=Release",
+  "cmake --build /tmp/llama.cpp-src/build-vk --config Release -j",
+  "sudo cmake --install /tmp/llama.cpp-src/build-vk",
   # cmake --install does not refresh the loader cache; without this the binaries
   # fail with 'libllama-server-impl.so: cannot open shared object file'.
   "sudo ldconfig",
+]
+
+[llamacpp-hip]
+# ROCm/HIP build for gfx1151, kept under /opt for A/B comparison against Vulkan.
+# Built in place (not system-installed) so its libs don't collide with the Vulkan
+# build's identically-named libs on the default loader path; run its binaries by
+# full path, e.g. /opt/llama.cpp-hip/build/bin/llama-bench. Needs the rocm component.
+description = "llama.cpp ROCm/HIP build under /opt/llama.cpp-hip (for A/B benchmarking vs Vulkan)"
+category = "inference"
+detect = "test -x /opt/llama.cpp-hip/build/bin/llama-server"
+method = "script"
+commands = [
+  "sudo apt-get install -y git cmake libcurl4-openssl-dev",
+  "sudo mkdir -p /opt/llama.cpp-hip && sudo chown $USER /opt/llama.cpp-hip",
+  "rm -rf /opt/llama.cpp-hip/src && git clone --depth 1 https://github.com/ggml-org/llama.cpp /opt/llama.cpp-hip/src",
+  "HIPCXX=$(hipconfig -l)/clang HIP_PATH=$(hipconfig -R) cmake -S /opt/llama.cpp-hip/src -B /opt/llama.cpp-hip/build -DGGML_HIP=ON -DAMDGPU_TARGETS=gfx1151 -DCMAKE_BUILD_TYPE=Release",
+  "cmake --build /opt/llama.cpp-hip/build --config Release -j",
 ]

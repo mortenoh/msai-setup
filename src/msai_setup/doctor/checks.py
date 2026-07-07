@@ -846,42 +846,43 @@ def check_llamacpp_installed() -> CheckResult:
     )
 
 
-@register_check(Category.INFERENCE, "HIP/ROCm backend")
-def check_llamacpp_hip() -> CheckResult:
-    """Check llama.cpp actually enumerates a ROCm GPU device.
+@register_check(Category.INFERENCE, "GPU backend")
+def check_llamacpp_gpu() -> CheckResult:
+    """Check llama.cpp enumerates a GPU device (Vulkan or ROCm).
 
-    The HIP backend lives in a separate ``libggml-hip.so`` that ggml loads at
+    The GPU backend lives in a separate ``libggml-*.so`` that ggml loads at
     runtime, so inspecting the binary's direct links misses it. Asking
-    llama.cpp itself to list devices is the reliable signal.
+    llama.cpp itself to list devices is the reliable signal. The default build
+    is Vulkan (fastest here); a ROCm/HIP build is equally valid.
     """
     if not command_exists("llama-cli"):
         return CheckResult(
-            name="HIP/ROCm backend",
+            name="GPU backend",
             status=CheckStatus.SKIP,
             message="llama.cpp not installed",
             category=Category.INFERENCE,
         )
 
     result = run_command("llama-cli --list-devices")
-    if result.success and "ROCm" in result.output:
-        device = next(
-            (line.strip() for line in result.output.splitlines() if "ROCm" in line),
-            "ROCm device",
-        )
+    device = next(
+        (line.strip() for line in result.output.splitlines() if "Vulkan" in line or "ROCm" in line),
+        None,
+    )
+    if result.success and device:
         return CheckResult(
-            name="HIP/ROCm backend",
+            name="GPU backend",
             status=CheckStatus.OK,
             message=f"GPU offload available ({device})",
             category=Category.INFERENCE,
         )
 
     return CheckResult(
-        name="HIP/ROCm backend",
+        name="GPU backend",
         status=CheckStatus.WARN,
-        message="no ROCm device listed by llama.cpp (CPU-only build?)",
+        message="no GPU device listed by llama.cpp (CPU-only build?)",
         category=Category.INFERENCE,
-        detail="Rebuild with -DGGML_HIP=ON for gfx1151 GPU offload",
-        fix="msai bootstrap llamacpp --force",
+        detail="Rebuild with a GPU backend (Vulkan or HIP) for offload",
+        fix="msai bootstrap llamacpp-vulkan --force",
     )
 
 

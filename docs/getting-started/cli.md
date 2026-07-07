@@ -50,12 +50,22 @@ target (a graphical target autodetects as `desktop`, headless as `server`).
 
 Brings a fresh Ubuntu install up to the target software state, driven by a
 declarative manifest (`src/msai_setup/install/components.toml`). It installs
-**packages and daemons only** — Docker, ZFS userland tools, ROCm (gfx1151),
-KVM/libvirt, Tailscale, and llama.cpp (built with the ROCm/HIP backend, plain
-GGUF, OpenAI-compatible `llama-server`). Disk partitioning and ZFS **pool
-creation stay manual** (see [Disk Partitioning](../ubuntu/installation/disk-partitioning.md)),
+**packages and daemons only** — Docker, ZFS userland tools, Incus, ROCm
+(gfx1151), KVM/libvirt, Tailscale, and llama.cpp. Disk partitioning and ZFS
+**pool creation stay manual** (see [Disk Partitioning](../ubuntu/installation/disk-partitioning.md)),
 because that is destructive and the [NVMe enumeration is reversed](hardware.md)
-from the slot numbering.
+from the slot numbering. `incus admin init` (storage/network setup) is also left
+to you, as it is interactive.
+
+For llama.cpp there are two backend components (plain GGUF, OpenAI-compatible
+`llama-server`):
+
+- **`llamacpp-vulkan`** — the default, installed on `PATH`. On this Strix Halo,
+  Vulkan (RADV) benchmarks faster than ROCm/HIP for inference (prompt processing
+  ~2.4× faster; token generation slightly faster).
+- **`llamacpp-hip`** — the ROCm/HIP build, kept under `/opt/llama.cpp-hip/build/bin`
+  for A/B benchmarking. ROCm itself stays installed (the `rocm` component) for
+  PyTorch/vLLM/fine-tuning, which Vulkan cannot do.
 
 ```bash
 msai bootstrap --dry-run       # print the plan, run nothing (start here)
@@ -72,10 +82,10 @@ take effect on next login; verify afterwards with `msai doctor`.
 
 !!! note "Tailscale and llama.cpp"
     `bootstrap` installs Tailscale but does not run `sudo tailscale up` (that is
-    interactive browser auth); connect afterwards. The `llamacpp` component is a
-    real source build with the HIP backend for gfx1151 (several minutes, and it
-    needs the `rocm` component installed first); `msai doctor inference` confirms
-    the resulting `llama-server` is linked against ROCm/HIP.
+    interactive browser auth); connect afterwards. Both `llamacpp-*` components
+    are real source builds (several minutes each); the HIP one needs the `rocm`
+    component first. `msai doctor inference` confirms the default `llama-server`
+    lists a GPU device (Vulkan or ROCm).
 
 ## `msai lab` — the rehearsal lab
 
