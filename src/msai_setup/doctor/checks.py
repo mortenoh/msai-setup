@@ -697,6 +697,30 @@ def check_amd_driver() -> CheckResult:
     )
 
 
+@register_check(Category.GPU, "Render/video groups")
+def check_gpu_groups() -> CheckResult:
+    """Check the user is in render+video groups (needed for /dev/kfd + /dev/dri)."""
+    result = run_command("groups")
+    groups = result.output.split() if result.success else []
+    missing = [g for g in ("render", "video") if g not in groups]
+    if not missing:
+        return CheckResult(
+            name="Render/video groups",
+            status=CheckStatus.OK,
+            message="User in render and video groups",
+            category=Category.GPU,
+        )
+
+    return CheckResult(
+        name="Render/video groups",
+        status=CheckStatus.WARN,
+        message=f"User not in {', '.join(missing)} group(s); ROCm compute needs /dev/kfd access",
+        category=Category.GPU,
+        detail="Group change takes effect on next login",
+        fix="sudo usermod -aG render,video $USER",
+    )
+
+
 @register_check(Category.GPU, "ROCm installed")
 def check_rocm() -> CheckResult:
     """Check ROCm is installed and working."""
