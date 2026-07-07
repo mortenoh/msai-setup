@@ -344,7 +344,7 @@ def incus(fix: FixOption = False, apply: ApplyOption = False, yes: YesOption = F
 
 @doctor_app.command()
 def kvm(fix: FixOption = False, apply: ApplyOption = False, yes: YesOption = False) -> None:
-    """Run KVM checks (libvirtd, IOMMU, vfio-pci)."""
+    """Run KVM checks (KVM enabled, QEMU, IOMMU, vfio-pci)."""
     _passed, _warnings, failed = run_category(Category.KVM, fix=fix, apply=apply, assume_yes=yes)
     raise typer.Exit(code=1 if failed > 0 else 0)
 

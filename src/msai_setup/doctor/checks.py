@@ -630,23 +630,42 @@ def check_docker_compose() -> CheckResult:
 # =============================================================================
 
 
-@register_check(Category.KVM, "libvirtd running")
-def check_libvirtd() -> CheckResult:
-    """Check libvirtd service is running."""
-    if is_service_running("libvirtd"):
+@register_check(Category.KVM, "KVM enabled")
+def check_kvm_enabled() -> CheckResult:
+    """Check hardware KVM acceleration is available (/dev/kvm present)."""
+    if Path("/dev/kvm").exists():
         return CheckResult(
-            name="libvirtd running",
+            name="KVM enabled",
             status=CheckStatus.OK,
-            message="libvirtd running",
+            message="KVM acceleration available (/dev/kvm)",
             category=Category.KVM,
         )
 
     return CheckResult(
-        name="libvirtd running",
+        name="KVM enabled",
         status=CheckStatus.FAIL,
-        message="libvirtd not running",
+        message="/dev/kvm missing (enable SVM/virtualization in BIOS)",
         category=Category.KVM,
-        fix="sudo systemctl start libvirtd",
+    )
+
+
+@register_check(Category.KVM, "QEMU installed")
+def check_qemu() -> CheckResult:
+    """Check the QEMU x86 system emulator Incus uses for VMs is installed."""
+    if command_exists("qemu-system-x86_64"):
+        return CheckResult(
+            name="QEMU installed",
+            status=CheckStatus.OK,
+            message="qemu-system-x86 present",
+            category=Category.KVM,
+        )
+
+    return CheckResult(
+        name="QEMU installed",
+        status=CheckStatus.WARN,
+        message="qemu-system-x86 not installed (needed for Incus VMs)",
+        category=Category.KVM,
+        fix="msai bootstrap kvm",
     )
 
 

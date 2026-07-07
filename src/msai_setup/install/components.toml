@@ -54,9 +54,12 @@ post = [
 ]
 
 [kvm]
-description = "KVM/libvirt virtualization stack"
+# Incus drives QEMU/KVM directly through its own daemon -- no libvirt. So this
+# installs only what Incus VMs need, not the libvirt stack (libvirtd/virsh/
+# virt-install/bridge-utils are deliberately excluded; see START.md).
+description = "QEMU + OVMF for Incus VMs (KVM acceleration); managed by Incus, no libvirt"
 category = "kvm"
-detect = "command -v virsh"
+detect = "command -v qemu-system-x86_64"
 method = "apt"
 packages = [
   # 26.04: qemu-kvm is a virtual package with multiple providers, so name the
@@ -64,14 +67,6 @@ packages = [
   "qemu-system-x86",
   "qemu-utils",
   "ovmf",
-  "libvirt-daemon-system",
-  "libvirt-clients",
-  "bridge-utils",
-  "virtinst",
-]
-post = [
-  "sudo systemctl enable --now libvirtd",
-  "sudo usermod -aG libvirt,kvm $USER",
 ]
 
 [tailscale]

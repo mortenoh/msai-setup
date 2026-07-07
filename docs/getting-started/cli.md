@@ -51,7 +51,7 @@ target (a graphical target autodetects as `desktop`, headless as `server`).
 Brings a fresh Ubuntu install up to the target software state, driven by a
 declarative manifest (`src/msai_setup/install/components.toml`). It installs
 **packages and daemons only** — Docker, ZFS userland tools, Incus, ROCm
-(gfx1151), KVM/libvirt, Tailscale, and llama.cpp. Disk partitioning and ZFS
+(gfx1151), QEMU/KVM (for Incus VMs), Tailscale, and llama.cpp. Disk partitioning and ZFS
 **pool creation stay manual** (see [Disk Partitioning](../ubuntu/installation/disk-partitioning.md)),
 because that is destructive and the [NVMe enumeration is reversed](hardware.md)
 from the slot numbering. `incus admin init` (storage/network setup) is also left
@@ -77,7 +77,7 @@ msai bootstrap --force         # install even if already detected
 
 Every component is idempotent: a component whose `detect` probe passes (e.g.
 `command -v docker`) is skipped. A failing component warns and the run
-continues rather than aborting the rest. Group changes (docker, render, libvirt)
+continues rather than aborting the rest. Group changes (docker, render, incus-admin)
 take effect on next login; verify afterwards with `msai doctor`.
 
 !!! note "Tailscale and llama.cpp"
