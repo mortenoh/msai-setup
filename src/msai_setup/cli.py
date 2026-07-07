@@ -79,6 +79,35 @@ def docs() -> None:
     subprocess.run(["mkdocs", "serve"], check=True)
 
 
+@app.command()
+def bootstrap(
+    components: Annotated[
+        list[str] | None,
+        typer.Argument(help="Components to install (default: all). E.g. docker rocm kvm."),
+    ] = None,
+    dry_run: Annotated[
+        bool,
+        typer.Option("--dry-run", "-n", help="Print the plan without running anything."),
+    ] = False,
+    yes: Annotated[
+        bool,
+        typer.Option("--yes", "-y", help="Skip the per-component confirmation prompt."),
+    ] = False,
+    force: Annotated[
+        bool,
+        typer.Option("--force", help="Install even if already detected as present."),
+    ] = False,
+) -> None:
+    """Install the MS-S1 MAX stack (Docker, ZFS tools, ROCm, KVM, Tailscale, Ollama).
+
+    Packages and daemons only; disk partitioning and ZFS pool creation stay
+    manual. Run this ON the MS-S1 MAX. Each component is idempotent.
+    """
+    from msai_setup.install.runner import bootstrap as run_bootstrap
+
+    run_bootstrap(components, dry_run=dry_run, assume_yes=yes, force=force)
+
+
 # ---------------------------------------------------------------------------
 # Lab-instance lifecycle (grouped under `msai lab`)
 # ---------------------------------------------------------------------------

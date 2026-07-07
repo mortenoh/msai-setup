@@ -106,6 +106,25 @@ def run_interactive(cmd: str, *, timeout: float | None = None) -> int:
         return -1
 
 
+def shell_succeeds(cmd: str, *, timeout: float | None = 10.0) -> bool:
+    """Run a shell snippet quietly and report whether it exited 0.
+
+    Uses ``bash -c`` (so pipes/builtins like ``command -v`` work) with output
+    discarded. Intended for idempotency probes, e.g. ``command -v docker``.
+    """
+    try:
+        result = subprocess.run(
+            ["bash", "-c", cmd],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=timeout,
+            check=False,
+        )
+        return result.returncode == 0
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return False
+
+
 def command_exists(cmd: str) -> bool:
     """Check if a command exists in PATH."""
     result = run_command(f"which {cmd}")

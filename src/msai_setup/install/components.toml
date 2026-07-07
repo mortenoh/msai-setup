@@ -1,0 +1,73 @@
+# Stack components installed by `msai bootstrap`, in install order.
+# Packages and daemons only -- no disk partitioning or ZFS pool creation
+# (that stays a documented manual step; see docs/ubuntu/installation/).
+#
+# Each component declares:
+#   detect  -- shell probe; exit 0 => already installed => skipped
+#   method  -- "apt" (archive packages) or "curl_sh" (upstream installer)
+#   post    -- shell commands run after install (group adds, enabling units);
+#              $USER expands at run time
+#   category-- the `msai doctor` category this maps to
+
+[docker]
+description = "Docker Engine + Compose (via the official convenience script)"
+category = "docker"
+detect = "command -v docker"
+method = "curl_sh"
+url = "https://get.docker.com"
+post = [
+  "sudo systemctl enable --now docker",
+  "sudo usermod -aG docker $USER",
+]
+
+[zfs]
+description = "ZFS userland tools (zpool/zfs); pools are created manually, not here"
+category = "zfs"
+detect = "command -v zpool"
+method = "apt"
+packages = ["zfsutils-linux"]
+
+[rocm]
+# 26.04 ships ROCm 7.x in Universe with native gfx1151 support -- no third-party
+# repo and no HSA_OVERRIDE needed. See docs/ai/gpu/rocm-installation.md.
+description = "AMD ROCm runtime for the Radeon 8060S (gfx1151)"
+category = "gpu"
+detect = "command -v rocminfo"
+method = "apt"
+packages = ["rocm"]
+post = [
+  "sudo usermod -aG render,video $USER",
+]
+
+[kvm]
+description = "KVM/libvirt virtualization stack"
+category = "kvm"
+detect = "command -v virsh"
+method = "apt"
+packages = [
+  "qemu-kvm",
+  "libvirt-daemon-system",
+  "libvirt-clients",
+  "bridge-utils",
+  "virtinst",
+]
+post = [
+  "sudo systemctl enable --now libvirtd",
+  "sudo usermod -aG libvirt,kvm $USER",
+]
+
+[tailscale]
+# `tailscale up` is interactive (browser auth), so it is left to the user after
+# install rather than run here.
+description = "Tailscale mesh VPN (run 'sudo tailscale up' afterwards to connect)"
+category = "tailscale"
+detect = "command -v tailscale"
+method = "curl_sh"
+url = "https://tailscale.com/install.sh"
+
+[ollama]
+description = "Ollama local LLM runtime (its installer sets up the systemd service)"
+category = "ollama"
+detect = "command -v ollama"
+method = "curl_sh"
+url = "https://ollama.com/install.sh"
