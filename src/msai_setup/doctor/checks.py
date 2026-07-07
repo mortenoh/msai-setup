@@ -547,22 +547,54 @@ def check_docker_daemon() -> CheckResult:
     )
 
 
+def _user_groups() -> tuple[set[str], set[str]]:
+    """Return (session_groups, account_groups) for the current user.
+
+    ``id -nG`` with no argument reflects the *running session*; with an explicit
+    username it computes the account's configured groups from the group DB. The
+    two differ right after ``usermod -aG`` and before the next login, which is
+    exactly the case we want to report distinctly rather than as "not in group".
+    """
+    session = set(run_command("id -nG").output.split())
+    user = run_command("id -un").output
+    account = set(run_command(f"id -nG {user}").output.split()) if user else set()
+    return session, account
+
+
+def _group_membership(
+    group: str, *, name: str, category: Category, fix: str
+) -> CheckResult:
+    """OK if the group is active now, OK-with-note if pending re-login, else WARN."""
+    session, account = _user_groups()
+    if group in session:
+        return CheckResult(
+            name=name,
+            status=CheckStatus.OK,
+            message=f"User in {group} group",
+            category=category,
+        )
+    if group in account:
+        return CheckResult(
+            name=name,
+            status=CheckStatus.OK,
+            message=f"User in {group} group (log out/in to activate in this session)",
+            category=category,
+        )
+    return CheckResult(
+        name=name,
+        status=CheckStatus.WARN,
+        message=f"User not in {group} group",
+        category=category,
+        fix=fix,
+    )
+
+
 @register_check(Category.DOCKER, "User in group")
 def check_docker_group() -> CheckResult:
     """Check current user is in docker group."""
-    result = run_command("groups")
-    if result.success and "docker" in result.output.split():
-        return CheckResult(
-            name="User in group",
-            status=CheckStatus.OK,
-            message="User in docker group",
-            category=Category.DOCKER,
-        )
-
-    return CheckResult(
+    return _group_membership(
+        "docker",
         name="User in group",
-        status=CheckStatus.WARN,
-        message="User not in docker group",
         category=Category.DOCKER,
         fix="sudo usermod -aG docker $USER && newgrp docker",
     )
@@ -700,17 +732,25 @@ def check_amd_driver() -> CheckResult:
 @register_check(Category.GPU, "Render/video groups")
 def check_gpu_groups() -> CheckResult:
     """Check the user is in render+video groups (needed for /dev/kfd + /dev/dri)."""
-    result = run_command("groups")
-    groups = result.output.split() if result.success else []
-    missing = [g for g in ("render", "video") if g not in groups]
-    if not missing:
+    needed = ("render", "video")
+    session, account = _user_groups()
+
+    if all(g in session for g in needed):
         return CheckResult(
             name="Render/video groups",
             status=CheckStatus.OK,
             message="User in render and video groups",
             category=Category.GPU,
         )
+    if all(g in account for g in needed):
+        return CheckResult(
+            name="Render/video groups",
+            status=CheckStatus.OK,
+            message="User in render and video groups (log out/in to activate in this session)",
+            category=Category.GPU,
+        )
 
+    missing = [g for g in needed if g not in account]
     return CheckResult(
         name="Render/video groups",
         status=CheckStatus.WARN,

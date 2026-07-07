@@ -1,5 +1,6 @@
 """Tests for the doctor fix-application layer."""
 
+from msai_setup.doctor.checks import CheckResult, registry
 from msai_setup.doctor.fixes import (
     SAFE_FIXES,
     apply_fix,
@@ -7,6 +8,13 @@ from msai_setup.doctor.fixes import (
     is_safe_fix,
 )
 from msai_setup.utils.shell import run_interactive
+
+
+def test_every_registered_check_returns_a_checkresult() -> None:
+    """Guard against a decorator landing on a helper instead of a check."""
+    for _category, check in registry.get_checks():
+        result = check.run()
+        assert isinstance(result, CheckResult), f"{check.name} returned {type(result)}"
 
 
 def test_run_interactive_success() -> None:
