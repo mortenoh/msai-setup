@@ -3,8 +3,8 @@
 # docs/incus/networking.md, and docs/incus/profiles.md.
 #
 # The storage backend is pointed at an existing ZFS dataset. On the real
-# MS-S1 MAX that is rpool/incus (created during disk-partitioning); on the
-# lab VM there is no rpool, so override the dataset to match zfs.yml's pool:
+# MS-S1 MAX that is hot/incus (created during disk-partitioning); on the
+# lab VM there is no hot pool, so override the dataset to match zfs.yml's pool:
 #
 #   ansible-playbook incus.yml -e incus_zfs_dataset=tank/incus
 #
@@ -24,7 +24,7 @@
 
   vars:
     incus_install_source: archive          # archive | zabbly
-    incus_zfs_dataset: rpool/incus         # existing ZFS pool/dataset for the storage backend
+    incus_zfs_dataset: hot/incus           # existing ZFS pool/dataset for the storage backend
     incus_zfs_pool: "{{ incus_zfs_dataset.split('/')[0] }}"
     incus_bridge: incusbr0
     # Explicit rather than "auto": live-testing found incus admin init --preseed

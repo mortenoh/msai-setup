@@ -65,7 +65,7 @@ sudo zfs create tank/nextcloud-app
 sudo zfs create -o compression=zstd-3 tank/backups
 ```
 
-Then point Incus at `hot/incus` (during [Incus installation](../incus/installation.md)) so it builds and manages its own `containers/`, `virtual-machines/`, `images/`, … children — see [Incus storage](../incus/storage.md#how-rpoolincus-becomes-incuss-pool).
+Then point Incus at `hot/incus` (during [Incus installation](../incus/installation.md)) so it builds and manages its own `containers/`, `virtual-machines/`, `images/`, … children — see [Incus storage](../incus/storage.md#how-hotincus-becomes-incuss-pool).
 
 Verify:
 

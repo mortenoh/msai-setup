@@ -1,38 +1,38 @@
 # Storage — the ZFS driver in depth
 
-Incus's ZFS storage driver is why this build trusts it with instance data: every container and VM is a native ZFS dataset under `rpool/incus`, so snapshots, clones, and `zfs send`/`receive` all work per instance with no bind-mount choreography. This page covers how that mapping works, how Incus snapshots relate to raw `zfs` snapshots, and how the whole thing composes with this build's [sanoid/syncoid](../zfs/snapshots.md) backup tooling.
+Incus's ZFS storage driver is why this build trusts it with instance data: every container and VM is a native ZFS dataset under `hot/incus`, so snapshots, clones, and `zfs send`/`receive` all work per instance with no bind-mount choreography. This page covers how that mapping works, how Incus snapshots relate to raw `zfs` snapshots, and how the whole thing composes with this build's [sanoid/syncoid](../zfs/snapshots.md) backup tooling.
 
-## How `rpool/incus` becomes Incus's pool
+## How `hot/incus` becomes Incus's pool
 
-During [installation](installation.md) you answered `no` to "create a new ZFS pool" and pointed Incus at the existing **`rpool/incus`** dataset (created in [disk partitioning](../ubuntu/installation/disk-partitioning.md)). That created an Incus storage pool named `default` with:
+During [installation](installation.md) you answered `no` to "create a new ZFS pool" and pointed Incus at the existing **`hot/incus`** dataset (created in [disk partitioning](../ubuntu/installation/disk-partitioning.md)). That created an Incus storage pool named `default` with:
 
 ```yaml
 name: default
 driver: zfs
 config:
-  source: rpool/incus
-  zfs.pool_name: rpool/incus
+  source: hot/incus
+  zfs.pool_name: hot/incus
 ```
 
 The `source` key is the load-bearing one: it tells Incus "manage this existing dataset," not "take over a raw disk." Incus then builds a dataset tree beneath it:
 
 ```bash
-zfs list -r rpool/incus
+zfs list -r hot/incus
 ```
 
 ```
-rpool/incus
-rpool/incus/containers                # one child per container
-rpool/incus/containers/web
-rpool/incus/virtual-machines          # one child per VM (holds a zvol)
-rpool/incus/virtual-machines/win11
-rpool/incus/images                    # cached image datasets
-rpool/incus/custom                    # custom volumes (shared data)
-rpool/incus/deleted                   # staging for deletions
+hot/incus
+hot/incus/containers                # one child per container
+hot/incus/containers/web
+hot/incus/virtual-machines          # one child per VM (holds a zvol)
+hot/incus/virtual-machines/win11
+hot/incus/images                    # cached image datasets
+hot/incus/custom                    # custom volumes (shared data)
+hot/incus/deleted                   # staging for deletions
 ```
 
-!!! danger "Incus assumes full control of `rpool/incus` and everything under it"
-    The Incus docs are explicit: Incus assumes it owns the dataset you hand it. **Do not** manually create datasets under `rpool/incus`, rename Incus's datasets, or `zfs destroy` them out from under Incus — you will desynchronize Incus's database from the on-disk reality and instances will fail to start. Manage instance storage through `incus` commands. Raw `zfs` is for *reading* (inspecting, sending snapshots for backup), not for restructuring what Incus created. Other datasets on `rpool` (`rpool/ROOT`, `rpool/home`, `rpool/ai`, `rpool/db`) are outside `rpool/incus` and are yours to manage normally.
+!!! danger "Incus assumes full control of `hot/incus` and everything under it"
+    The Incus docs are explicit: Incus assumes it owns the dataset you hand it. **Do not** manually create datasets under `hot/incus`, rename Incus's datasets, or `zfs destroy` them out from under Incus — you will desynchronize Incus's database from the on-disk reality and instances will fail to start. Manage instance storage through `incus` commands. Raw `zfs` is for *reading* (inspecting, sending snapshots for backup), not for restructuring what Incus created. Other datasets on `hot` (`hot/ai`, `hot/db`) are outside `hot/incus` and are yours to manage normally.
 
 ## Per-instance datasets
 
@@ -42,11 +42,11 @@ Each container's root filesystem is a ZFS dataset. Create one and watch it appea
 
 ```bash
 incus launch images:ubuntu/24.04 web
-zfs list -r rpool/incus/containers
-# rpool/incus/containers/web   <- the container's root dataset
+zfs list -r hot/incus/containers
+# hot/incus/containers/web   <- the container's root dataset
 ```
 
-Because it is a real dataset, it inherits `rpool`'s properties (compression, etc.) and can be inspected, snapshotted, and sent like any other.
+Because it is a real dataset, it inherits `hot`'s properties (compression, etc.) and can be inspected, snapshotted, and sent like any other.
 
 ### VMs
 
@@ -54,9 +54,9 @@ A VM's disk is a **zvol** (a ZFS block device), not a filesystem dataset — a V
 
 ```bash
 incus launch images:ubuntu/24.04 builder --vm
-zfs list -t all -r rpool/incus/virtual-machines
-# rpool/incus/virtual-machines/builder        (a small config filesystem)
-# rpool/incus/virtual-machines/builder.block   (the zvol — the VM's disk)
+zfs list -t all -r hot/incus/virtual-machines
+# hot/incus/virtual-machines/builder        (a small config filesystem)
+# hot/incus/virtual-machines/builder.block   (the zvol — the VM's disk)
 ```
 
 ### Sizing and properties
@@ -82,7 +82,7 @@ incus storage volume set default db-data zfs.blocksize 16KiB
 ```
 
 !!! note "recordsize and the model files live outside Incus"
-    This build keeps large AI model files on the dedicated `rpool/ai` dataset (`recordsize=1M`, `compression=off`) — see [ZFS datasets](../zfs/datasets.md) — **not** inside an instance's root dataset. Instances that need models reach them via a bind-mount `disk` device (below), so the tuned `rpool/ai` properties apply, not Incus's generic volume defaults. Don't copy 40 GB of GGUF into a container's root dataset; mount `rpool/ai` in.
+    This build keeps large AI model files on the dedicated `hot/ai` dataset (`recordsize=1M`, `compression=off`) — see [ZFS datasets](../zfs/datasets.md) — **not** inside an instance's root dataset. Instances that need models reach them via a bind-mount `disk` device (below), so the tuned `hot/ai` properties apply, not Incus's generic volume defaults. Don't copy 40 GB of GGUF into a container's root dataset; mount `hot/ai` in.
 
 ## Custom storage volumes
 
@@ -104,12 +104,12 @@ Custom volumes survive instance deletion — good for data you want decoupled fr
 
 ## Bind-mounting host datasets into containers
 
-For data that already lives on a tuned host dataset (`rpool/ai` models, `tank/media` libraries), bind-mount the host path into the container with a `disk` device pointing at `source=<host-path>`:
+For data that already lives on a tuned host dataset (`hot/ai` models, `tank/media` libraries), bind-mount the host path into the container with a `disk` device pointing at `source=<host-path>`:
 
 ```bash
 # Mount the host's model dataset read-only into an AI container
 incus config device add ai-stack models disk \
-  source=/rpool/ai path=/models readonly=true
+  source=/hot/ai path=/models readonly=true
 ```
 
 !!! note "Bind mounts and unprivileged containers: shiftfs / idmap"
@@ -138,8 +138,8 @@ incus snapshot delete web before-upgrade
 Under the hood, `incus snapshot create web before-upgrade` produces a ZFS snapshot on the instance's dataset:
 
 ```bash
-zfs list -t snapshot -r rpool/incus/containers/web
-# rpool/incus/containers/web@snapshot-before-upgrade
+zfs list -t snapshot -r hot/incus/containers/web
+# hot/incus/containers/web@snapshot-before-upgrade
 ```
 
 Incus tracks the snapshot in its own database (that's how `incus snapshot list` knows about it and how `restore` works cleanly). **Prefer `incus snapshot` for anything Incus should know about** — it keeps the database and ZFS in sync.
@@ -175,22 +175,22 @@ incus storage get default zfs.clone_copy
 
 ### Raw `zfs snapshot` still works
 
-Because these are real ZFS datasets, `zfs snapshot rpool/incus/containers/web@manual` works too. **But Incus won't know about it** — it won't show in `incus snapshot list`, and `incus snapshot restore` can't use it. A raw snapshot is fine as a backup source for `zfs send` (below), but for *managing* instance state, go through Incus so its database stays consistent.
+Because these are real ZFS datasets, `zfs snapshot hot/incus/containers/web@manual` works too. **But Incus won't know about it** — it won't show in `incus snapshot list`, and `incus snapshot restore` can't use it. A raw snapshot is fine as a backup source for `zfs send` (below), but for *managing* instance state, go through Incus so its database stays consistent.
 
 ## Composing with sanoid and syncoid
 
-This build's backup story is [sanoid for local retention, syncoid for replication](../operations/backup.md). Incus's datasets live under `rpool/incus`, so they are reachable by both tools — but there is a coordination question.
+This build's backup story is [sanoid for local retention, syncoid for replication](../operations/backup.md). Incus's datasets live under `hot/incus`, so they are reachable by both tools — but there is a coordination question.
 
 ### Snapshots: pick one scheduler per dataset
 
 Both sanoid and Incus's `snapshots.schedule` can auto-snapshot the same dataset. Running both means two independent retention policies fighting over the same dataset's snapshot namespace, which is confusing and wasteful.
 
-**Recommended for this build:** let **sanoid own the snapshot schedule** for Incus datasets, consistent with how it owns every other dataset on `rpool` and `tank`. Point sanoid at `rpool/incus` recursively:
+**Recommended for this build:** let **sanoid own the snapshot schedule** for Incus datasets, consistent with how it owns every other dataset on `hot` and `tank`. Point sanoid at `hot/incus` recursively:
 
 ```ini
 # /etc/sanoid/sanoid.conf  (add to the existing config)
 
-[rpool/incus]
+[hot/incus]
     use_template = data
     recursive = yes
 ```
@@ -200,16 +200,16 @@ This gives Incus instances the same hourly/daily/weekly retention as the rest of
 !!! note "Trade-off: Incus won't 'see' sanoid's snapshots"
     sanoid's `autosnap_*` snapshots are raw ZFS snapshots, so `incus snapshot list` won't display them and `incus snapshot restore` can't roll back to them. That is an accepted trade-off: sanoid snapshots are for the *disaster/oops* recovery path (restore a file from `.zfs/snapshot/`, or `zfs rollback` a whole instance dataset while the instance is stopped), while `incus snapshot create` is for *deliberate, Incus-aware* checkpoints (before an in-container upgrade you might `incus snapshot restore`). Use `incus snapshot` for the "I'm about to do something risky in this instance" case; rely on sanoid for the always-on safety net. Keep the two purposes distinct and they don't conflict.
 
-### Replication: syncoid on `rpool/incus`
+### Replication: syncoid on `hot/incus`
 
-syncoid replicates the Incus datasets off-host exactly like any other ZFS data. Add `rpool/incus` to the replication jobs alongside the `tank` datasets:
+syncoid replicates the Incus datasets off-host exactly like any other ZFS data. Add `hot/incus` to the replication jobs alongside the `tank` datasets:
 
 ```bash
 # On-site replica of the whole Incus dataset tree
-syncoid -r rpool/incus backup-host:backup/incus
+syncoid -r hot/incus backup-host:backup/incus
 
 # Off-site over Tailscale to a remote ZFS host
-syncoid -r --sshport=22 rpool/incus tailscale-backup:backup/incus
+syncoid -r --sshport=22 hot/incus tailscale-backup:backup/incus
 ```
 
 Because syncoid sends the raw datasets (root filesystems and VM zvols and all their snapshots), a restore reconstructs the instance's storage bit-for-bit. Pair it with the preserved [preseed file](installation.md) so Incus's *configuration* (which instances exist, their profiles and devices) is reproducible too — the storage is the data, the preseed is the shape.
@@ -225,12 +225,12 @@ VM disks are zvols, which are less compressible and larger than container root d
 
 Storage is what makes the [rebuild checklist](../operations/rebuild-checklist.md) fast. On a fresh host:
 
-1. Import `rpool` — `rpool/incus` and all its instance datasets come back with it.
-2. `incus admin init --preseed < incus-preseed.yaml` — points Incus at the preserved `rpool/incus` source.
+1. Import `hot` — `hot/incus` and all its instance datasets come back with it.
+2. `incus admin init --preseed < incus-preseed.yaml` — points Incus at the preserved `hot/incus` source.
 3. Incus re-adopts the existing datasets; instances are recreated from the preseed/config.
 4. Restore any file-level data (Nextcloud, photos) from the [off-site restic backup](../operations/backup.md).
 
-The datasets never had to be rebuilt — they survived on the pool, and re-attaching Incus to `source: rpool/incus` is what re-adopts them.
+The datasets never had to be rebuilt — they survived on the pool, and re-attaching Incus to `source: hot/incus` is what re-adopts them.
 
 ## Verification
 
@@ -241,11 +241,11 @@ incus storage info default
 incus storage volume list default
 
 # ZFS's view — the same datasets
-zfs list -r rpool/incus
-zfs list -t snapshot -r rpool/incus
+zfs list -r hot/incus
+zfs list -t snapshot -r hot/incus
 
 # Confirm sanoid is snapshotting the Incus tree
-zfs list -t snapshot -r rpool/incus | grep autosnap_
+zfs list -t snapshot -r hot/incus | grep autosnap_
 ```
 
 ## Next steps

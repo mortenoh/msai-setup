@@ -191,7 +191,7 @@ incus profile create gpu
 incus profile edit gpu < gpu-profile.yaml
 ```
 
-For a full rebuild, the [preseed YAML](installation.md) plus these profile definitions (kept in version control) reconstruct the whole Incus configuration; the datasets come back with `rpool` (see [Storage](storage.md)).
+For a full rebuild, the [preseed YAML](installation.md) plus these profile definitions (kept in version control) reconstruct the whole Incus configuration; the datasets come back with `hot` (see [Storage](storage.md)).
 
 ## This build's profile summary
 

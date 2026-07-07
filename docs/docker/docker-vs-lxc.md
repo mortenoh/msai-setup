@@ -63,7 +63,7 @@ instead of on bare metal.
 | Operate via | `docker compose up`, inside a nesting container | `incus exec`, or ssh into it |
 | Update cadence | Pull a new image | `apt upgrade` inside the container |
 | Persistent data | Bind mount from the container's filesystem | Lives in the instance's ZFS dataset (or a bind mount) |
-| ZFS integration | Bind-mount a host path into the Docker container | Automatic — every Incus instance *is* a ZFS dataset under `rpool/incus` |
+| ZFS integration | Bind-mount a host path into the Docker container | Automatic — every Incus instance *is* a ZFS dataset under `hot/incus` |
 | Snapshots | Snapshot the underlying dataset | `incus snapshot` — a ZFS snapshot under the hood |
 | GPU passthrough | `--device=/dev/kfd --device=/dev/dri` in compose | Incus `gpu` device + explicit `/dev/kfd` `unix-char` device |
 | Best for | Services the upstream packages as images | A whole Linux to live in, or the host for nested Docker |
@@ -136,7 +136,7 @@ services:
 ```
 
 What's different post-pivot is that the *outer* layer is now a ZFS-native
-Incus instance: the system container itself is a dataset under `rpool/incus`,
+Incus instance: the system container itself is a dataset under `hot/incus`,
 so `incus snapshot` captures the whole thing (Docker daemon state included),
 while raw `zfs snapshot` on the inner data dataset is still available for
 per-service granularity. See [Incus storage](../incus/storage.md) and

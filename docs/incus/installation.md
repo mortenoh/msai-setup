@@ -1,6 +1,6 @@
 # Installing Incus
 
-This page installs Incus on Ubuntu Server 26.04, does the first-run initialization, and points Incus's storage backend at the `rpool/incus` dataset created during [disk partitioning](../ubuntu/installation/disk-partitioning.md).
+This page installs Incus on Ubuntu Server 26.04, does the first-run initialization, and points Incus's storage backend at the `hot/incus` dataset created during [disk partitioning](../ubuntu/installation/disk-partitioning.md).
 
 Incus must be installed **directly on the host** — it needs the real kernel's namespaces, cgroups, and KVM. It is not nested inside anything itself.
 
@@ -101,8 +101,8 @@ The interactive prompts, and the answers this build wants:
 | Do you want to configure a new storage pool? | `yes` | |
 | Name of the new storage pool | `default` | |
 | Name of the storage backend to use | `zfs` | native ZFS integration |
-| Create a new ZFS pool? | **`no`** | reuse the existing `rpool` — see below |
-| Name of the existing ZFS pool or dataset | `rpool/incus` | the dataset from disk-partitioning |
+| Create a new ZFS pool? | **`no`** | reuse the existing `hot` — see below |
+| Name of the existing ZFS pool or dataset | `hot/incus` | the dataset from disk-partitioning |
 | Would you like to create a new network bridge? | `yes` | creates `incusbr0` |
 | What IPv4 address should be used? | a fixed subnet, e.g. `10.90.90.1/24` (not `auto`) | see the warning below and [Networking](networking.md) |
 | What IPv6 address should be used? | `none` | this build is IPv4-internal for instances |
@@ -111,7 +111,7 @@ The interactive prompts, and the answers this build wants:
 | Would you like a YAML "incus admin init" preseed to be printed? | `yes` | keep it for rebuilds |
 
 !!! note "Answer `no` to 'create a new ZFS pool'"
-    This is the single most important answer. `rpool` already exists (it holds root and hot data), and the `rpool/incus` dataset was created for exactly this purpose in [disk partitioning](../ubuntu/installation/disk-partitioning.md). You are pointing Incus at an **existing dataset**, not asking it to create a new pool on a raw disk. Answering `yes` here would try to hand Incus a whole block device.
+    This is the single most important answer. `hot` already exists (it holds hot data and Incus instances), and the `hot/incus` dataset was created for exactly this purpose in [disk partitioning](../ubuntu/installation/disk-partitioning.md). You are pointing Incus at an **existing dataset**, not asking it to create a new pool on a raw disk. Answering `yes` here would try to hand Incus a whole block device.
 
 !!! warning "Prefer a fixed subnet over `auto`"
     `ipv4.address: auto` asks Incus to find an unused private subnet itself — this can fail outright with `Failed to automatically find an unused IPv4 subnet, manual configuration required`, especially non-interactively via `incus admin init --preseed` (observed in practice, not hypothetical). A fixed subnet removes the failure mode entirely and is just as easy to type. Pick something unlikely to collide with your LAN or Tailscale's CGNAT range (`100.64.0.0/10`) — e.g. `10.90.90.1/24`.
@@ -127,7 +127,7 @@ storage_pools:
   - name: default
     driver: zfs
     config:
-      source: rpool/incus
+      source: hot/incus
 networks:
   - name: incusbr0
     type: bridge
@@ -154,7 +154,7 @@ Apply it:
 cat incus-preseed.yaml | sudo incus admin init --preseed
 ```
 
-Keep this file in version control (it is the "recreate my Incus setup" artifact referenced by the [rebuild checklist](../operations/rebuild-checklist.md)). The `source: rpool/incus` line is what re-attaches Incus to its preserved datasets after a host rebuild — see [Storage](storage.md).
+Keep this file in version control (it is the "recreate my Incus setup" artifact referenced by the [rebuild checklist](../operations/rebuild-checklist.md)). The `source: hot/incus` line is what re-attaches Incus to its preserved datasets after a host rebuild — see [Storage](storage.md).
 
 !!! warning "Managing Incus over the network"
     The wizard offers to bind the Incus API to a network address (`core.https_address`). This build declines it — Incus is managed through its **local Unix socket** on the host (reachable over SSH/Tailscale), never exposed as a network API on the LAN or internet. If you ever do enable it, bind it to the Tailscale interface only and require client certificates; a wide-open Incus API is a full host takeover. See [Networking](networking.md).
@@ -166,7 +166,7 @@ Keep this file in version control (it is the "recreate my Incus setup" artifact 
 incus version
 incus info
 
-# The storage pool points at rpool/incus
+# The storage pool points at hot/incus
 incus storage list
 incus storage show default
 
@@ -180,12 +180,12 @@ incus profile show default
 incus info | grep -iA20 'kernel_features'
 ```
 
-Confirm the ZFS side agrees — Incus should have created its internal dataset layout under `rpool/incus`:
+Confirm the ZFS side agrees — Incus should have created its internal dataset layout under `hot/incus`:
 
 ```bash
-zfs list -r rpool/incus
-# Expect child datasets like rpool/incus/containers, rpool/incus/virtual-machines,
-# rpool/incus/images, rpool/incus/custom appearing as instances are created
+zfs list -r hot/incus
+# Expect child datasets like hot/incus/containers, hot/incus/virtual-machines,
+# hot/incus/images, hot/incus/custom appearing as instances are created
 ```
 
 ## Smoke test
@@ -204,5 +204,5 @@ If that round-trips cleanly, Incus, the storage pool, and the bridge all work. M
 ## Next steps
 
 - [Core concepts](concepts.md) — the mental model before you build anything real.
-- [Storage](storage.md) — how `rpool/incus` becomes per-instance datasets.
+- [Storage](storage.md) — how `hot/incus` becomes per-instance datasets.
 - [Networking](networking.md) — reconciling `incusbr0` with UFW and Netplan.

@@ -160,7 +160,7 @@ incus snapshot create win11 pre-update
 incus start win11
 ```
 
-The VM's zvol lives under `rpool/incus/virtual-machines/win11.block`; this build treats VM disk images as *optional* off-site (they're large and re-creatable) — see the [backup schedule](../operations/backup.md) and [Snapshots & backup](snapshots-backup.md). A stopped snapshot is consistent; a running one is only crash-consistent.
+The VM's zvol lives under `hot/incus/virtual-machines/win11.block`; this build treats VM disk images as *optional* off-site (they're large and re-creatable) — see the [backup schedule](../operations/backup.md) and [Snapshots & backup](snapshots-backup.md). A stopped snapshot is consistent; a running one is only crash-consistent.
 
 ## Verify
 
