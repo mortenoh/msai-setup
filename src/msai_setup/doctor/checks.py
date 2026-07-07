@@ -211,7 +211,7 @@ def check_cpu() -> CheckResult:
     lines = result.output.strip().split("\n")
     if lines:
         cpu_name = lines[0].split(":")[-1].strip()
-        if "Ryzen AI Max" in cpu_name:
+        if "ryzen ai max" in cpu_name.lower():
             return CheckResult(
                 name="CPU",
                 status=CheckStatus.OK,
@@ -372,7 +372,7 @@ def check_zfs_pool_health() -> CheckResult:
         return CheckResult(
             name="Pool health",
             status=CheckStatus.SKIP,
-            message="Could not get pool status",
+            message="Pool health: skipped (pool 'tank' not available)",
             category=Category.ZFS,
         )
 
@@ -421,7 +421,7 @@ def check_zfs_scrub() -> CheckResult:
         return CheckResult(
             name="Scrub recent",
             status=CheckStatus.SKIP,
-            message="Could not get pool status",
+            message="Scrub age: skipped (pool 'tank' not available)",
             category=Category.ZFS,
         )
 
