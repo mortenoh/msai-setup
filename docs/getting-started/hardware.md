@@ -40,10 +40,10 @@ For detailed architecture information, see [Hardware Architecture](hardware-arch
 | Cores/Threads | 16 cores / 32 threads (Zen 5) |
 | GPU | AMD Radeon 8060S (RDNA 3.5, 40 CUs) |
 | GPU ID | `gfx1151` |
-| RAM | 128GB LPDDR5X-8000 MT/s, quad-channel, soldered (~256 GB/s peak) |
+| RAM | 128GB LPDDR5X-8000 MT/s, quad-channel, soldered (~256 GB/s peak). ~121 GiB visible to the OS (`MemTotal`) with stock BIOS; the balance is the default UMA/VRAM carveout reserved for the iGPU, adjustable in BIOS (relevant for LLM work — see [GPU Memory Configuration](../ai/gpu/memory-configuration.md)). |
 | ECC Memory | No |
-| Internal NVMe (slot 1) | 4 TB installed, PCIe 4.0 x4 (M.2 2280 slot supports up to 8 TB) |
-| Secondary NVMe (slot 2) | 2 TB installed, PCIe 4.0 **x1** (M.2 2280 slot supports up to 8 TB) |
+| Internal NVMe (slot 1) | 4 TB Kingston KC3000 (`SKC3000D4096G`), PCIe 4.0 x4 (M.2 2280 slot supports up to 8 TB) |
+| Secondary NVMe (slot 2) | 2 TB Crucial P310 (`CT2000P310SSD8`, DRAM-less), PCIe 4.0 **x1** (M.2 2280 slot supports up to 8 TB) |
 | Networking | 2 x 10GbE (Realtek RTL8127) |
 | Wireless | MediaTek MT7925 (Wi-Fi + Bluetooth combo) |
 | Display | HDMI 2.1 FRL (up to 8K@60 / 4K@120) plus DisplayPort Alt Mode over all 4 USB4/USB4 V2 ports (same resolution ceiling) — up to 5 physical outputs, though this build runs headless over SSH |
@@ -54,6 +54,22 @@ For detailed architecture information, see [Hardware Architecture](hardware-arch
 
 !!! note "Asymmetric NVMe slots — the 4 TB drive gets the fast slot"
     The second M.2 slot is only PCIe 4.0 **x1**, capping it at ~2 GB/s vs the ~8 GB/s available on slot 1. This build puts the **4 TB drive in slot 1** (fast) — ext4 root plus the `hot` pool (Incus storage, databases, model files) — and the **2 TB drive in slot 2** (slow) as `tank` — media, backups, cold data. Two independent pools, not one spanning both drives — see [Disk Partitioning](../ubuntu/installation/disk-partitioning.md).
+
+!!! warning "Kernel `nvmeN` numbering does not match the physical slot"
+    Linux enumerates NVMe devices by PCIe bus address, not by the slot label, and the ordering here is **reversed** from what you would expect: the fast 4 TB Kingston KC3000 (x4) comes up as `nvme1` (`65:00.0`) and the slow 2 TB Crucial P310 (x1) as `nvme0` (`64:00.0`). Physically swapping the drives between slots does **not** renumber them. Never assume `nvme0` is the primary/fast disk — a provisioning script that does will target the wrong drive. Always resolve the disk by model or by confirming link width before partitioning:
+
+    ```bash
+    # Confirm which device is the x4 (fast) drive before touching it
+    for d in /sys/class/nvme/nvme*/device; do
+      dev=$(basename "$(dirname "$d")")
+      echo "$dev: $(cat /sys/class/nvme/$dev/model) width=x$(cat $d/current_link_width)"
+    done
+    ```
+
+    Verified on this machine: `nvme1` = KINGSTON SKC3000D4096G width=x4 (fast), `nvme0` = CT2000P310SSD8 width=x1 (slow).
+
+!!! info "Storage layout below is the target design, not the current state on every box"
+    The `hot`/`tank` pool split describes the provisioned server. A fresh or experimental install (e.g. a plain Ubuntu desktop on this hardware) may have only an ext4 root on the 4 TB drive with the rest of both drives unpartitioned and no ZFS installed — in which case `msai doctor zfs` will correctly report the pools as absent until they are created.
 
 !!! note "No ECC"
     This platform does not support ECC memory. That's not a reason to avoid ZFS here — see [ZFS Concepts -> "ZFS needs ECC RAM"](../zfs/concepts.md) for why that's mostly folklore — but it's worth knowing plainly rather than assuming it either way.
