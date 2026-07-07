@@ -14,16 +14,62 @@ llama.cpp provides:
 
 ## Installation
 
-### Linux ROCm/HIP (recommended for MS-S1 MAX)
+!!! tip "Backend choice on Strix Halo: Vulkan is faster for inference"
+    Measured on this MS-S1 MAX (Radeon 8060S / `gfx1151`), llama.cpp's **Vulkan**
+    backend beats **ROCm/HIP** for inference — most dramatically on prompt
+    processing:
 
-For the Ryzen AI Max+ 395 (Strix Halo, `gfx1151`), build with HIP for the best prompt-processing throughput. Requires ROCm 7.x installed first — see [ROCm Installation](../gpu/rocm-installation.md).
+    | Backend | pp512 (prompt) | tg128 (generation) |
+    |---------|---------------:|-------------------:|
+    | **Vulkan (RADV)** | **756 t/s** | **28.7 t/s** |
+    | ROCm/HIP          | 316 t/s     | 27.4 t/s          |
+
+    (Gemma-4-12B Q4_0, `-ngl 99`, same build commit.) Token generation is
+    memory-bandwidth-bound, so both sit near the same ~28 t/s ceiling; prompt
+    processing is compute-bound, and RADV schedules the iGPU far better here
+    (~2.4×). **Use Vulkan for llama.cpp inference.** Keep ROCm installed anyway —
+    PyTorch, vLLM and fine-tuning need it and Vulkan cannot do those; the two are
+    independent. `msai bootstrap llamacpp-vulkan` builds the Vulkan default on
+    `PATH`; `llamacpp-hip` builds the ROCm variant under `/opt/llama.cpp-hip` for
+    A/B testing.
+
+    **One caveat — addressable memory.** The two backends expose different
+    amounts of the unified pool: on this box `llama-cli --list-devices` reports
+    the Vulkan (RADV) device at ~64 GiB but the ROCm device at ~116 GiB. For a
+    model that fits under ~64 GiB, prefer Vulkan for speed; for a model too large
+    for the Vulkan device, use the ROCm/HIP build, which can address the larger
+    GTT pool. Always check `llama-cli --list-devices` for the backend you plan to
+    run.
+
+### Linux Vulkan (recommended for MS-S1 MAX inference)
+
+The fastest llama.cpp backend on Strix Halo (see the benchmark above). Needs the
+RADV driver (`mesa-vulkan-drivers`) plus the Vulkan/SPIR-V build tools
+(`libvulkan-dev spirv-headers glslang-dev glslc glslang-tools spirv-tools`).
 
 ```bash
 git clone https://github.com/ggml-org/llama.cpp
 cd llama.cpp
 
-# Build with HIP, targeting Strix Halo (gfx1151)
-cmake -B build \
+# Build with the Vulkan backend
+cmake -B build -DGGML_VULKAN=ON -DCMAKE_BUILD_TYPE=Release
+cmake --build build --config Release -j$(nproc)
+# Binaries land in build/bin/ (llama-cli, llama-server, llama-bench, ...)
+```
+
+### Linux ROCm/HIP (for the compute stack / A/B)
+
+Build with HIP when you want the ROCm path (or to benchmark it against Vulkan).
+Requires ROCm 7.x installed first — see [ROCm Installation](../gpu/rocm-installation.md).
+The distro ROCm lives in `/usr`, so point cmake at its clang via `hipconfig`.
+
+```bash
+git clone https://github.com/ggml-org/llama.cpp
+cd llama.cpp
+
+# Build with HIP, targeting Strix Halo (gfx1151).
+# HIPCXX/HIP_PATH point cmake at the distro ROCm clang in /usr.
+HIPCXX="$(hipconfig -l)/clang" HIP_PATH="$(hipconfig -R)" cmake -B build \
     -DGGML_HIP=ON \
     -DAMDGPU_TARGETS=gfx1151 \
     -DCMAKE_BUILD_TYPE=Release
@@ -54,15 +100,6 @@ cmake -B build -DGGML_METAL=ON
 cmake --build build --config Release -j$(sysctl -n hw.ncpu)
 
 ls build/bin/
-```
-
-### Linux (Vulkan)
-
-Cross-vendor fallback. On Strix Halo, prefer ROCm/HIP above — Vulkan works but is typically slower for prompt processing.
-
-```bash
-cmake -B build -DGGML_VULKAN=ON
-cmake --build build --config Release
 ```
 
 ### Linux (CUDA) — reference only, not used on the MS-S1 MAX
