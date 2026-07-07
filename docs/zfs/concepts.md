@@ -62,7 +62,7 @@ tank
 - Fine when redundancy lives elsewhere (snapshots + replication, or, for laptops/single-NVMe boxes, accepting the risk).
 - Multiple stripe vdevs in one pool = RAID-0 across them.
 
-This is what the MS-S1 MAX uses — but as **two separate single-disk pools**, not one pool striping across both drives. `rpool` is one stripe vdev on the fast 4 TB NVMe; `tank` is one stripe vdev on the slow 2 TB NVMe. Keeping them independent (rather than a single RAID-0 across both) is what lets this build *guarantee* which drive a dataset lives on — see [Pool Creation → Two pools, not one stripe](pool-creation.md#two-pools-not-one-stripe).
+This is what the MS-S1 MAX uses — but as **two separate single-disk pools**, not one pool striping across both drives. `hot` is one stripe vdev on the fast 4 TB NVMe; `tank` is one stripe vdev on the slow 2 TB NVMe. Keeping them independent (rather than a single RAID-0 across both) is what lets this build *guarantee* which drive a dataset lives on — see [Pool Creation → Two pools, not one stripe](pool-creation.md#two-pools-not-one-stripe).
 
 ### Mirror
 
@@ -306,9 +306,9 @@ Per-dataset compression for this build:
 |---|---|---|
 | `tank/media` | `lz4` | Already-compressed files store as-is; metadata still compressed. |
 | `tank/nextcloud-*` | `lz4` | Mixed content; lz4 wins most cases. |
-| `rpool/db` | `lz4` | Database pages are surprisingly compressible. |
-| `rpool/incus` | `lz4` (inherited) | Container root filesystems and VM zvols; lz4 is a safe default Incus inherits. |
-| `rpool/ai` | `off` | GGUF / safetensors are already heavily compressed; skip the test entirely. |
+| `hot/db` | `lz4` | Database pages are surprisingly compressible. |
+| `hot/incus` | `lz4` (inherited) | Container root filesystems and VM zvols; lz4 is a safe default Incus inherits. |
+| `hot/ai` | `off` | GGUF / safetensors are already heavily compressed; skip the test entirely. |
 | `tank/backups` | `zstd-3` | Cold data, CPU-for-space trade is worth it. |
 
 ## What ZFS is not

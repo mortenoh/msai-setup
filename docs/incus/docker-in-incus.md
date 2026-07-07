@@ -85,7 +85,7 @@ docker run --rm hello-world
 
 ## Step 3 — compose ZFS storage: the two-layer bind-mount chain
 
-This is the part that needs to be right. The container's own rootfs is already a ZFS dataset, so **Docker's image layers (`/var/lib/docker`) are on ZFS for free** — inside the container's root dataset under `rpool/incus/containers/media`. That is Docker's ephemeral, rebuildable state (images, container layers, build cache); it is *not* where your persistent data should live, exactly as [`zfs/docker-integration.md`](../zfs/docker-integration.md) argues for the bare-host case.
+This is the part that needs to be right. The container's own rootfs is already a ZFS dataset, so **Docker's image layers (`/var/lib/docker`) are on ZFS for free** — inside the container's root dataset under `hot/incus/containers/media`. That is Docker's ephemeral, rebuildable state (images, container layers, build cache); it is *not* where your persistent data should live, exactly as [`zfs/docker-integration.md`](../zfs/docker-integration.md) argues for the bare-host case.
 
 Your persistent data lives on the same tuned host datasets as always — `tank/containers/<svc>`, `tank/nextcloud-data`, `tank/db/postgres`, `tank/media`, and so on (canonical paths in [`zfs/datasets.md`](../zfs/datasets.md)). Getting that data to the innermost Docker container is a **chain of two bind mounts**:
 
@@ -175,7 +175,7 @@ incus launch images:ubuntu/24.04 ai \
   -d root,size=40GiB
 
 # Layer 1 bind mounts — expose both host datasets at the paths the compose file expects.
-# (rpool/ai is this build's tuned model dataset; the compose file references /mnt/tank/ai/ollama,
+# (hot/ai is this build's tuned model dataset; the compose file references /mnt/tank/ai/ollama,
 #  so mount whichever host dataset holds the models at that path — the compose file stays unchanged.)
 incus config device add ai ollama-models disk \
   source=/mnt/tank/ai/ollama path=/mnt/tank/ai/ollama
@@ -235,7 +235,7 @@ incus exec ai -- docker compose -f /opt/ollama-stack/docker-compose.yml ps
 incus exec ai -- docker exec ollama rocminfo | grep gfx1151
 ```
 
-Snapshot before risky in-container changes with `incus snapshot create ai before-upgrade`, and let sanoid cover `rpool/incus/containers/ai` on schedule (see [Storage](storage.md)). Your *data* is on the host `tank`/`rpool` datasets and is snapshotted/replicated there independently — the Incus container itself is disposable.
+Snapshot before risky in-container changes with `incus snapshot create ai before-upgrade`, and let sanoid cover `hot/incus/containers/ai` on schedule (see [Storage](storage.md)). Your *data* is on the host `tank`/`hot` datasets and is snapshotted/replicated there independently — the Incus container itself is disposable.
 
 ## Next steps
 

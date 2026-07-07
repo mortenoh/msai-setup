@@ -493,20 +493,20 @@ sudo zpool clear lab
 
 ## Lab 9 — Recreate the MS-S1 MAX layout (two pools)
 
-Final lab: build a model of the actual production layout inside the VM, so you can rehearse the partitioning, pool-creation, and dataset-setup commands you'll run for real. The real build uses **two independent pools** — `rpool` on the fast 4 TB drive (root + hot data) and `tank` on the slow 2 TB drive (bulk/cold data) — see [Datasets](datasets.md) and [Pool Creation](pool-creation.md).
+Final lab: build a model of the actual production layout inside the VM, so you can rehearse the partitioning, pool-creation, and dataset-setup commands you'll run for real. The real build uses **two independent pools** — `hot` on the fast 4 TB drive (hot data + Incus instances) and `tank` on the slow 2 TB drive (bulk/cold data) — see [Datasets](datasets.md) and [Pool Creation](pool-creation.md).
 
-!!! note "The lab mocks the pool *shapes*, not a real root-on-ZFS boot"
-    A throwaway lab VM already booted from its own `sda` disk, so you can't make `rpool` the actual boot root here without rebuilding the VM from scratch. This lab creates `rpool` and `tank` on two spare disks and mounts them under `/mnt` so you can rehearse the pool/dataset commands and property choices. The real install bootstraps `rpool/ROOT/ubuntu` as `/` via ZFSBootMenu — see [Installation Walkthrough](../ubuntu/installation/installation-walkthrough.md) for that part. Don't treat this lab's `/mnt/rpool` mock as the production mountpoint (production root is `/`, `tank` is `/tank`).
+!!! note "The lab mirrors the production pools exactly now"
+    On real hardware root is ext4 and `hot`/`tank` are plain data pools at their default mountpoints `/hot` and `/tank` — so the lab reproduces them one-for-one, no root-on-ZFS boot to fake. Create `hot` and `tank` on two spare disks and you have the production storage shape. (To rehearse the root-on-ZFS *alternative* instead, use `msai lab install-zfs-root` — see [ZFS Root (Alternative)](../ubuntu/installation/zfs-root-alternative.md).)
 
 ### Set up the disks
 
-Add two new virtual disks. The real hardware puts the **larger 4 TB drive in the fast slot as `rpool`** and the **smaller 2 TB drive in the slow slot as `tank`**, so make the `rpool` disk the bigger of the two. Ports 0-6 already hold the OS disk + six lab disks, so attach on ports 7 and 8. Run on the **host** (your Mac), substituting your VM name for `zfs-lab`:
+Add two new virtual disks. The real hardware puts the **larger 4 TB drive in the fast slot as `hot`** and the **smaller 2 TB drive in the slow slot as `tank`**, so make the `hot` disk the bigger of the two. Ports 0-6 already hold the OS disk + six lab disks, so attach on ports 7 and 8. Run on the **host** (your Mac), substituting your VM name for `zfs-lab`:
 
 ```bash
-# rpool disk — the bigger one (mocks the fast 4 TB drive)
-VBoxManage createmedium disk --filename "target/lab-rpool-4tb.vdi" --size 200000 --format VDI
+# hot disk — the bigger one (mocks the fast 4 TB drive)
+VBoxManage createmedium disk --filename "target/lab-hot-4tb.vdi" --size 200000 --format VDI
 VBoxManage storageattach zfs-lab --storagectl SATA --port 7 --device 0 \
-    --type hdd --medium "target/lab-rpool-4tb.vdi" --hotpluggable on --nonrotational on --discard on
+    --type hdd --medium "target/lab-hot-4tb.vdi" --hotpluggable on --nonrotational on --discard on
 
 # tank disk — the smaller one (mocks the slow 2 TB drive)
 VBoxManage createmedium disk --filename "target/lab-tank-2tb.vdi" --size 100000 --format VDI
@@ -514,22 +514,21 @@ VBoxManage storageattach zfs-lab --storagectl SATA --port 8 --device 0 \
     --type hdd --medium "target/lab-tank-2tb.vdi" --hotpluggable on --nonrotational on --discard on
 ```
 
-`--size` is in MB, so 200000 ≈ 200 GB and 100000 ≈ 100 GB. Only the relative sizing matters — `rpool` disk ~2x the `tank` disk, matching the 4 TB / 2 TB reality. Because the disks are `--hotpluggable`, they appear inside the running VM as two new `ata-VBOX_HARDDISK_*` entries under `/dev/disk/by-id/` (confirm with `lsblk` / `ls -la /dev/disk/by-id/ | grep -v part`).
+`--size` is in MB, so 200000 ≈ 200 GB and 100000 ≈ 100 GB. Only the relative sizing matters — `hot` disk ~2x the `tank` disk, matching the 4 TB / 2 TB reality. Because the disks are `--hotpluggable`, they appear inside the running VM as two new `ata-VBOX_HARDDISK_*` entries under `/dev/disk/by-id/` (confirm with `lsblk` / `ls -la /dev/disk/by-id/ | grep -v part`).
 
-### Partition the rpool disk (mimic the root-on-ZFS install)
+### Partition the disks
 
-The real primary is just **EFI + one ZFS partition** (no `/boot`, no ext4 root — root is ZFS). Mirror that:
+On real hardware the primary also carries the ext4 EFI/`/boot`/root partitions (Subiquity's job) with `hot` as p4; in the lab there's no OS on these spare disks, so put each pool on a single whole-disk ZFS partition:
 
 ```bash
-RPOOL_DISK=/dev/disk/by-id/ata-VBOX_HARDDISK_VB-rpool-...
+HOT_DISK=/dev/disk/by-id/ata-VBOX_HARDDISK_VB-hot-...
 TANK_DISK=/dev/disk/by-id/ata-VBOX_HARDDISK_VB-tank-...
 
-# Wipe the rpool disk and lay down EFI + ZFS member
-sudo wipefs -a "$RPOOL_DISK"
-sudo sgdisk --zap-all "$RPOOL_DISK"
-sudo sgdisk -n1:1M:+512M -t1:EF00 "$RPOOL_DISK"   # EFI (unused in the lab mock, but rehearses the layout)
-sudo sgdisk -n2:0:0      -t2:BF00 "$RPOOL_DISK"   # ZFS pool member (rest of disk)
-sudo partprobe "$RPOOL_DISK"
+# Wipe the hot disk and lay down a single ZFS member
+sudo wipefs -a "$HOT_DISK"
+sudo sgdisk --zap-all "$HOT_DISK"
+sudo sgdisk -n1:0:0 -t1:BF00 "$HOT_DISK"   # ZFS pool member (whole disk)
+sudo partprobe "$HOT_DISK"
 
 # Wipe the tank disk entirely; whole-disk pool
 sudo wipefs -a "$TANK_DISK"
@@ -541,35 +540,33 @@ sudo partprobe "$TANK_DISK"
 ### Create the two pools
 
 ```bash
-# rpool — the fast/root pool (mounted at /mnt/rpool in the lab; namespace-only in production)
+# hot — the fast pool (default mountpoint /hot, exactly as in production)
 sudo zpool create \
     -o ashift=12 -o autotrim=on \
     -O acltype=posixacl -O xattr=sa -O compression=lz4 \
     -O relatime=on \
-    -O mountpoint=/mnt/rpool \
-    rpool "${RPOOL_DISK}-part2"
+    hot "${HOT_DISK}-part1"
 
 # tank — the bulk/cold pool
 sudo zpool create \
     -o ashift=12 -o autotrim=on \
     -O acltype=posixacl -O xattr=sa -O compression=lz4 \
     -O relatime=on \
-    -O mountpoint=/mnt/tank \
     tank "${TANK_DISK}-part1"
 
 sudo zpool status
 sudo zpool list
 ```
 
-(In production `rpool` is `mountpoint=none` with `rpool/ROOT/ubuntu` providing `/`; the lab uses `/mnt/rpool` so you can see its data datasets without a real boot environment.)
+Both pools take their default mountpoints (`/hot`, `/tank`) — the same as production, since root is ext4 and neither pool holds `/`.
 
 ### Recreate the production dataset layout
 
 ```bash
-# rpool — hot data (rpool/incus is Incus's backend; on real hardware you hand it to Incus)
-sudo zfs create -o mountpoint=none        rpool/incus
-sudo zfs create -o recordsize=16K         rpool/db
-sudo zfs create -o recordsize=1M -o compression=off rpool/ai
+# hot — hot data (hot/incus is Incus's backend; on real hardware you hand it to Incus)
+sudo zfs create -o mountpoint=none        hot/incus
+sudo zfs create -o recordsize=16K         hot/db
+sudo zfs create -o recordsize=1M -o compression=off hot/ai
 
 # tank — bulk/cold data
 sudo zfs create -o recordsize=1M          tank/media
@@ -578,18 +575,18 @@ sudo zfs create                           tank/nextcloud-app
 sudo zfs create -o compression=zstd-3     tank/backups
 
 zfs list
-zfs get compression,recordsize -r rpool
+zfs get compression,recordsize -r hot
 zfs get compression,recordsize -r tank
 ```
 
-Note there is **no `tank/vm` or `tank/containers`** — on real hardware Incus creates per-instance datasets under `rpool/incus` automatically. In the lab you can simulate that with a couple of throwaway child datasets if you want to see the shape:
+Note there is **no `tank/vm` or `tank/containers`** — on real hardware Incus creates per-instance datasets under `hot/incus` automatically. In the lab you can simulate that with a couple of throwaway child datasets if you want to see the shape:
 
 ```bash
-sudo zfs create rpool/incus/containers
-sudo zfs create rpool/incus/virtual-machines
+sudo zfs create hot/incus/containers
+sudo zfs create hot/incus/virtual-machines
 ```
 
-(On the real box, never hand-create datasets under `rpool/incus` — Incus owns it. See [Incus storage](../incus/storage.md).)
+(On the real box, never hand-create datasets under `hot/incus` — Incus owns it. See [Incus storage](../incus/storage.md).)
 
 ### Cap the ARC (matches the real install)
 
@@ -616,11 +613,11 @@ sudo tee /etc/sanoid/sanoid.conf > /dev/null <<'EOF'
     autosnap = yes
     autoprune = yes
 
-[rpool/incus]
+[hot/incus]
     use_template = data
     recursive = yes
 
-[rpool/db]
+[hot/db]
     use_template = data
     recursive = yes
 
@@ -640,7 +637,7 @@ When you're done with an exercise but want to keep the VM (destroy whichever poo
 
 ```bash
 sudo zpool destroy tank
-sudo zpool destroy rpool     # if you did Lab 9's two-pool mock
+sudo zpool destroy hot     # if you did Lab 9's two-pool mock
 sudo zpool list
 ```
 

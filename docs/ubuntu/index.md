@@ -34,7 +34,7 @@ Complete installation guidance including disk encryption and secure boot.
 | [Installation Overview](installation/index.md) | Installation philosophy and planning |
 | [Preparation](installation/preparation.md) | Pre-install planning, hardware checks |
 | [Secure Boot](installation/secure-boot.md) | UEFI Secure Boot configuration |
-| [Disk Partitioning](installation/disk-partitioning.md) | Root-on-ZFS + ZFSBootMenu layout, ext4/LUKS alternatives |
+| [Disk Partitioning](installation/disk-partitioning.md) | Canonical ext4 root + two ZFS pools; ZFS-root and LUKS alternatives |
 | [Installation Walkthrough](installation/installation-walkthrough.md) | Step-by-step installer guide |
 | [Post-Install Checklist](installation/post-install-checklist.md) | First boot essentials |
 
@@ -133,7 +133,7 @@ Quick reference materials and checklists.
 
 For experienced administrators who want to get started quickly:
 
-1. **Install** - Follow [Installation Walkthrough](installation/installation-walkthrough.md) (root-on-ZFS + ZFSBootMenu)
+1. **Install** - Follow [Installation Walkthrough](installation/installation-walkthrough.md) (ext4 root + GRUB, guided installer)
 2. **Initial Hardening** - Complete [Post-Install Checklist](installation/post-install-checklist.md)
 3. **Verify** - Run through [Hardening Checklist](reference/checklist.md)
 

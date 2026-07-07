@@ -120,36 +120,36 @@ Full GPU walkthrough: [GPU passthrough](gpu-passthrough.md).
 incus info <instance> --show-log
 sudo journalctl -u incus --since '5 min ago' | grep -i zfs
 
-# Does the pool still resolve to rpool/incus?
+# Does the pool still resolve to hot/incus?
 incus storage show default
-zfs list -r rpool/incus
-zpool status rpool                               # pool healthy / imported?
+zfs list -r hot/incus
+zpool status hot                               # pool healthy / imported?
 ```
 
-If `rpool` isn't imported, nothing under `rpool/incus` works — import it (`sudo zpool import rpool`) before touching Incus.
+If `hot` isn't imported, nothing under `hot/incus` works — import it (`sudo zpool import hot`) before touching Incus.
 
 ### Incus database desynced from ZFS
 
-Symptom: `incus list` shows an instance but its dataset is gone (or vice versa) — usually after someone ran raw `zfs destroy`/`rename` under `rpool/incus`.
+Symptom: `incus list` shows an instance but its dataset is gone (or vice versa) — usually after someone ran raw `zfs destroy`/`rename` under `hot/incus`.
 
 ```bash
-zfs list -r rpool/incus                          # what's actually there
+zfs list -r hot/incus                          # what's actually there
 incus list                                       # what Incus believes
 ```
 
-Prevention is the rule from [Storage](storage.md): **never** manually restructure datasets under `rpool/incus`. Recovery depends on the specifics — restore the dataset from a sanoid snapshot or syncoid replica if it was deleted, or `incus delete --force` the orphaned instance record if the data is truly gone. Don't hand-edit Incus's database.
+Prevention is the rule from [Storage](storage.md): **never** manually restructure datasets under `hot/incus`. Recovery depends on the specifics — restore the dataset from a sanoid snapshot or syncoid replica if it was deleted, or `incus delete --force` the orphaned instance record if the data is truly gone. Don't hand-edit Incus's database.
 
 ### Out of space
 
 ```bash
 incus storage info default
-zfs list -o name,used,avail,refer rpool/incus
-zpool list rpool
+zfs list -o name,used,avail,refer hot/incus
+zpool list hot
 # Prune old snapshots (sanoid autoprune handles scheduled ones; check manual/Incus ones)
-zfs list -t snapshot -r rpool/incus -s used | tail
+zfs list -t snapshot -r hot/incus -s used | tail
 ```
 
-Remember `rpool` also holds root, `rpool/ai` models, and `rpool/db` — Incus shares the pool. See [capacity planning](../operations/capacity-planning.md).
+Remember `hot` also holds `hot/ai` models and `hot/db` — Incus shares the pool. See [capacity planning](../operations/capacity-planning.md).
 
 ## Networking / UFW
 
@@ -273,7 +273,7 @@ Restarting the `incus` daemon does **not** stop running instances (they keep run
 
 - [Containers](containers.md) — nesting setup.
 - [GPU passthrough](gpu-passthrough.md) — the full device story.
-- [Storage](storage.md) — dataset rules (what not to do to `rpool/incus`).
+- [Storage](storage.md) — dataset rules (what not to do to `hot/incus`).
 - [Networking](networking.md) — the UFW/bridge integration.
 - [ROCm installation](../ai/gpu/rocm-installation.md) — host-side GPU stack.
 - [ZFS troubleshooting](../zfs/troubleshooting.md) — pool-level problems.

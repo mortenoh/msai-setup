@@ -5,36 +5,30 @@ Turning identified, prepped devices into a working pool. This page covers the ac
 ## Prerequisites
 
 - ZFS userland installed (`sudo apt install -y zfsutils-linux`).
-- Devices identified and prepped per [Partitioning](partitioning.md): the primary 4 TB drive's `-part2` is empty (after its 512 MB EFI partition), the secondary 2 TB drive's `-part1` is wiped clean.
+- Devices identified and prepped per [Partitioning](partitioning.md): the primary 4 TB drive's `-part4` is empty (after its EFI, `/boot`, and ext4-root partitions), the secondary 2 TB drive's `-part1` is wiped clean.
 - ARC cap planned (see below).
 - Decision made on encryption (see [Encryption](encryption.md)) — easier to set at create time than to retrofit.
 
 !!! note "This build creates two pools, not one"
-    `rpool` (root + hot data) on the fast 4 TB primary and `tank` (bulk/cold data) on the slow 2 TB secondary. The **canonical, authoritative `zpool create` invocations live in [Disk Partitioning](../ubuntu/installation/disk-partitioning.md#create-rpool-primary-fast-drive)** — this page reproduces them for the ZFS-mechanics context and explains every flag. If the two ever drift, the installation docs win.
+    `hot` (hot data + Incus instances) on the fast 4 TB primary and `tank` (bulk/cold data) on the slow 2 TB secondary. The **canonical, authoritative `zpool create` invocations live in [Disk Partitioning](../ubuntu/installation/disk-partitioning.md#creating-the-layout)** — this page reproduces them for the ZFS-mechanics context and explains every flag. If the two ever drift, the installation docs win.
 
 ## The actual `zpool create` for this build
 
-`rpool` is created first (it holds root and is bootstrapped into during install), then `tank`. Both use `-R /mnt` as an altroot during the live-environment install so datasets mount under `/mnt` while bootstrapping; after the first real boot they mount at their natural paths (`/`, `/home`, `/tank`, …).
+Both pools are created **post-install, from the running system** — root is already up on ext4 (Subiquity + GRUB), so there's no live-environment bootstrap and no `-R /mnt` altroot. `hot` is created first, then `tank`; each mounts at its natural path immediately (`/hot`, `/tank`).
 
-### `rpool` — primary, fast 4 TB drive
+### `hot` — primary, fast 4 TB drive
 
 ```bash
-PRIMARY_PART=/dev/disk/by-id/nvme-Samsung_SSD_990_PRO_4TB_<serial>-part2
+PRIMARY_PART=/dev/disk/by-id/nvme-Samsung_SSD_990_PRO_4TB_<serial>-part4
 
 sudo zpool create \
     -o ashift=12 -o autotrim=on \
     -O acltype=posixacl -O xattr=sa -O compression=lz4 \
-    -O relatime=on -O canmount=off -O mountpoint=none \
-    -R /mnt \
-    rpool "$PRIMARY_PART"
-
-# The boot-environment container and the first boot environment
-sudo zfs create -o canmount=off -o mountpoint=none rpool/ROOT
-sudo zfs create -o canmount=noauto -o mountpoint=/ rpool/ROOT/ubuntu
-sudo zfs create -o mountpoint=/home rpool/home
+    -O relatime=on \
+    hot "$PRIMARY_PART"
 ```
 
-`rpool/ROOT/ubuntu` is `canmount=noauto` on purpose — with more than one boot environment present, ZFS must not auto-mount all of them; ZFSBootMenu (or an explicit `zfs mount`) picks which one becomes `/` at boot. The remaining hot-data datasets (`rpool/incus`, `rpool/db`, `rpool/ai`) are created in [Datasets](datasets.md).
+There's no `ROOT` tree, no `canmount=noauto` boot-environment dance, and no altroot — root is ext4, not a dataset on this pool. The hot-data datasets (`hot/incus`, `hot/db`, `hot/ai`) are created in [Datasets](datasets.md); `hot/incus` is set `mountpoint=none` (Incus manages the tree beneath it), while the pool root mounts at `/hot` by default, mirroring `/tank`.
 
 ### `tank` — secondary, slow 2 TB drive
 
@@ -45,21 +39,20 @@ sudo zpool create \
     -o ashift=12 -o autotrim=on \
     -O acltype=posixacl -O xattr=sa -O compression=lz4 \
     -O relatime=on \
-    -R /mnt \
     tank "$SECONDARY_PART"
 ```
 
-`tank` needs no `canmount=off` / `ROOT` dance — it holds no boot environments, just data datasets (`tank/media`, `tank/nextcloud-*`, `tank/backups` — see [Datasets](datasets.md)). It mounts at `/tank` after boot.
+Neither pool needs a `canmount=off` / `ROOT` dance — there are no boot environments on this build. `tank` holds only data datasets (`tank/media`, `tank/nextcloud-*`, `tank/backups` — see [Datasets](datasets.md)) and mounts at `/tank`.
 
 That's it. Two independent pools, each a single-disk top-level vdev, with sensible defaults set at create time so they're inherited by all child datasets.
 
 Verify both:
 
 ```bash
-sudo zpool status rpool
+sudo zpool status hot
 sudo zpool status tank
 sudo zpool list
-zfs get compression,relatime,xattr,acltype rpool tank
+zfs get compression,relatime,xattr,acltype hot tank
 ```
 
 The rest of this page is "why those flags, what to do differently if your situation differs".
@@ -101,7 +94,7 @@ These set the **defaults** for the root dataset (`tank`); child datasets inherit
 
 ### `compression=lz4`
 
-See [Concepts -> Compression](concepts.md#compression). `lz4` is the right default; safe everywhere, cheap on Zen 5. Set at create time on both pools, and override per-dataset only when you know better (e.g. `compression=off` for `rpool/ai` where GGUF files are already compressed; `compression=zstd-3` for `tank/backups`).
+See [Concepts -> Compression](concepts.md#compression). `lz4` is the right default; safe everywhere, cheap on Zen 5. Set at create time on both pools, and override per-dataset only when you know better (e.g. `compression=off` for `hot/ai` where GGUF files are already compressed; `compression=zstd-3` for `tank/backups`).
 
 ### `atime=off`
 
@@ -124,16 +117,16 @@ Enables POSIX ACLs (`setfacl`/`getfacl`). Off by default for historical reasons.
 
 The size of a directory-node (inode equivalent). `auto` lets ZFS choose larger dnodes when needed for things like SA-stored xattrs. Pairs naturally with `xattr=sa`.
 
-### `mountpoint` — `none` on `rpool`, default `/tank` on `tank`
+### `mountpoint` — default `/hot` and `/tank`
 
-`rpool` is created `mountpoint=none` (its root dataset never mounts; only its children — `/`, `/home`, `/tank`'s datasets, etc. — do). This is the root-on-ZFS convention: the pool root is a namespace container, and `rpool/ROOT/ubuntu` provides `/`.
+Both pool roots take their default mountpoint: `hot` mounts at `/hot`, `tank` at `/tank`, and their datasets land beneath (`/hot/db`, `/hot/ai`, `/tank/media`, …) after boot. There's no `-R /mnt` altroot and no `mountpoint=none` on the pool roots — root is ext4, so neither pool provides `/`, and both are created live from the running system at their final paths.
 
-`tank` takes the default mountpoint (`/tank`), so its datasets land at `/tank/media`, `/tank/backups`, and so on after boot. The `-R /mnt` altroot only shifts these during the live-environment install (`/mnt/tank/...`); it is not persisted. Runtime paths in the rest of these docs are `/tank/...` and `/rpool/...` (for the handful of `rpool` data datasets like `/rpool/ai`), never `/mnt/tank/...`.
+Only `hot/incus` is set `mountpoint=none`: Incus owns the tree beneath it and mounts instances itself. Runtime paths in the rest of these docs are `/hot/...` and `/tank/...`, never `/mnt/...`.
 
 Other values you'll see:
 
-- `mountpoint=legacy` — don't auto-mount; use `/etc/fstab`. Only the EFI partition uses fstab on this build.
-- `mountpoint=none` — a namespace-only dataset (like `rpool` and `rpool/ROOT`).
+- `mountpoint=legacy` — don't auto-mount; use `/etc/fstab`. Only the ext4 `/`, `/boot`, and EFI partitions use fstab on this build.
+- `mountpoint=none` — a namespace-only dataset (like `hot/incus`).
 
 ### Options to consider per-dataset, not pool-wide
 
@@ -156,7 +149,7 @@ Set a hard cap **before** the pool gets heavy use:
 # /etc/modprobe.d/zfs.conf
 echo 'options zfs zfs_arc_max=17179869184' | sudo tee /etc/modprobe.d/zfs.conf
 
-# Apply on next boot (initramfs needs updating because zfs is in there)
+# Apply on next boot (rebuild the initramfs too if zfs has been pulled into it)
 sudo update-initramfs -u
 
 # Set it live without rebooting (matches modprobe.d on next boot)
@@ -179,11 +172,11 @@ See [Tuning](tuning.md) for ARC internals (`primarycache`, prefetch tuning, `arc
 ## Verify the pools
 
 ```bash
-sudo zpool status -v rpool
+sudo zpool status -v hot
 sudo zpool status -v tank
 sudo zpool list -v
 zfs list -o name,used,available,referenced,mountpoint
-zfs get all rpool | head -40
+zfs get all hot | head -40
 ```
 
 You should see:
@@ -191,7 +184,7 @@ You should see:
 - both pools' state `ONLINE`
 - one leaf device per pool, `ONLINE` with no errors
 - ARC stats sane (`cat /proc/spl/kstat/zfs/arcstats | grep '^size'`)
-- `rpool` root unmounted (`mountpoint=none`); `rpool/ROOT/ubuntu` at `/`; `tank` at `/tank`
+- `hot` at `/hot` and `tank` at `/tank`; `hot/incus` unmounted (`mountpoint=none`); root (`/`) is ext4, not a ZFS dataset
 
 ## Pool features (compatibility level)
 
@@ -233,28 +226,28 @@ Common pitfalls:
 You **can** attach a mirror partner to either single-disk pool's vdev, if you ever add a third drive:
 
 ```bash
-sudo zpool attach rpool "$PRIMARY_PART" /dev/disk/by-id/<new-disk>
+sudo zpool attach hot "$PRIMARY_PART" /dev/disk/by-id/<new-disk>
 ```
 
 This converts the single-disk vdev into a 2-way mirror. The new disk resilvers from the existing one. The MS-S1 MAX only has two M.2 slots, so in practice there's no spare drive to do this with — snapshots + replication are the redundancy story instead.
 
 ## Setting the pools to auto-import at boot
 
-`rpool` is imported by the initramfs/ZFSBootMenu path (it *is* root — the system can't boot otherwise). `tank` is imported by Ubuntu's `zfs-import-cache.service` + `zfs-mount.service` units once created. Verify:
+Both `hot` and `tank` are imported by Ubuntu's `zfs-import-cache.service` + `zfs-mount.service` units after boot — root is ext4 and comes up independently, so neither pool is on the boot-critical path. Verify:
 
 ```bash
 systemctl status zfs-import-cache.service zfs-mount.service zfs.target
 sudo zpool export tank && sudo zpool import tank   # round-trip to confirm tank imports cleanly
 ```
 
-Do **not** casually export `rpool` on a running system — it's your root. If a pool isn't imported after boot, see [Troubleshooting → Pool Import Failures](troubleshooting.md#pool-import-failures).
+Do **not** casually export `hot` on a running system — Incus and its services run from it (`hot/incus`). If a pool isn't imported after boot, see [Troubleshooting → Pool Import Failures](troubleshooting.md#pool-import-failures).
 
 ## Two pools, not one stripe
 
 It's worth re-stating the trade-offs explicitly:
 
-- **Neither pool is redundant.** Each is a single-disk vdev — a failed drive means that whole pool is gone (`rpool` = root + hot data, `tank` = bulk data). Mitigated by snapshots + off-host replication, not RAID.
-- **Two pools instead of one striped across both — a deliberate choice.** The 4 TB drive is on PCIe 4.0 x4 (~8 GB/s); the 2 TB is on x1 (~2 GB/s ceiling). An earlier draft folded both drives into one striped `tank` pool, but ZFS's allocator spreads writes across all top-level vdevs by free space — there is no per-dataset device pinning, so "keep hot data on the fast drive" was unenforceable. **Two independent pools give a real guarantee**: anything on `rpool` is on the fast drive, full stop; anything on `tank` is on the slow drive. That's why databases and model files moved to `rpool` and only bulk/cold data stays on `tank`. See [Datasets → A note on device placement](datasets.md#a-note-on-device-placement).
+- **Neither pool is redundant.** Each is a single-disk vdev — a failed drive means that whole pool is gone (`hot` = hot data + Incus instances, `tank` = bulk data). Mitigated by snapshots + off-host replication, not RAID.
+- **Two pools instead of one striped across both — a deliberate choice.** The 4 TB drive is on PCIe 4.0 x4 (~8 GB/s); the 2 TB is on x1 (~2 GB/s ceiling). An earlier draft folded both drives into one striped `tank` pool, but ZFS's allocator spreads writes across all top-level vdevs by free space — there is no per-dataset device pinning, so "keep hot data on the fast drive" was unenforceable. **Two independent pools give a real guarantee**: anything on `hot` is on the fast drive, full stop; anything on `tank` is on the slow drive. That's why databases and model files moved to `hot` and only bulk/cold data stays on `tank`. See [Datasets → A note on device placement](datasets.md#a-note-on-device-placement).
 - **Each pool sizes to its one disk.** No proportional-allocation surprises across mismatched vdevs, because there's only one vdev per pool.
 
 ## What to do next

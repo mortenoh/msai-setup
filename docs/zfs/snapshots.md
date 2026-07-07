@@ -111,20 +111,20 @@ The `-r` flag is irreversible — newer snapshots are gone. Use sparingly. Usual
 A clone is a writable filesystem forked from a snapshot. Initially shares all blocks with the snapshot; diverges as you write.
 
 ```bash
-sudo zfs snapshot rpool/db@golden
-sudo zfs clone rpool/db@golden rpool/db-experiment
+sudo zfs snapshot hot/db@golden
+sudo zfs clone hot/db@golden hot/db-experiment
 
-# Make changes in rpool/db-experiment without touching rpool/db
+# Make changes in hot/db-experiment without touching hot/db
 
 # When done:
-sudo zfs destroy rpool/db-experiment       # destroy the clone
-sudo zfs destroy rpool/db@golden           # destroy the snapshot (if no clones remain)
+sudo zfs destroy hot/db-experiment       # destroy the clone
+sudo zfs destroy hot/db@golden           # destroy the snapshot (if no clones remain)
 ```
 
 Clones depend on their parent snapshot. You can't destroy the snapshot while a clone exists — `zfs destroy` will refuse.
 
 !!! note "For Incus instances, clone through Incus, not raw `zfs`"
-    The clone/promote mechanics below apply to any dataset you own — but **don't raw-clone datasets under `rpool/incus`**. Instance copies go through `incus copy` (which uses ZFS clones under the hood and keeps Incus's database consistent) — see [Incus storage → clones](../incus/storage.md#clones). Raw `zfs clone` is for datasets you manage directly (`rpool/db`, `tank/media`, …).
+    The clone/promote mechanics below apply to any dataset you own — but **don't raw-clone datasets under `hot/incus`**. Instance copies go through `incus copy` (which uses ZFS clones under the hood and keeps Incus's database consistent) — see [Incus storage → clones](../incus/storage.md#clones). Raw `zfs clone` is for datasets you manage directly (`hot/db`, `tank/media`, …).
 
 ### Promote
 
@@ -132,17 +132,17 @@ Swap parent and clone roles. Useful when the clone is the new canonical:
 
 ```bash
 # Before promote:
-#   rpool/db            (original) - has snapshot @golden
-#   rpool/db-new        (clone of @golden)
+#   hot/db            (original) - has snapshot @golden
+#   hot/db-new        (clone of @golden)
 
-sudo zfs promote rpool/db-new
+sudo zfs promote hot/db-new
 
 # After promote:
-#   rpool/db-new        now holds @golden
-#   rpool/db            is now the "clone" of @golden on rpool/db-new
+#   hot/db-new        now holds @golden
+#   hot/db            is now the "clone" of @golden on hot/db-new
 
 # Now you can destroy the original:
-sudo zfs destroy rpool/db
+sudo zfs destroy hot/db
 ```
 
 Promote is how you "graduate" an experimental clone to be the new primary.
@@ -344,22 +344,12 @@ sudo tee /etc/sanoid/sanoid.conf > /dev/null <<'EOF'
     autosnap = yes
     autoprune = yes
 
-[template_os]
-    daily = 14
-    weekly = 4
-    monthly = 2
-    autosnap = yes
-    autoprune = yes
-
-# rpool — root + hot data + Incus instances
-[rpool/ROOT/ubuntu]
-    use_template = os
-
-[rpool/incus]
+# hot — hot data + Incus instances (root is ext4, not snapshotted here)
+[hot/incus]
     use_template = data
     recursive = yes
 
-[rpool/db]
+[hot/db]
     use_template = db
     recursive = yes
 
@@ -369,7 +359,7 @@ sudo tee /etc/sanoid/sanoid.conf > /dev/null <<'EOF'
 EOF
 ```
 
-This mirrors the canonical [backup config](../operations/backup.md#zfs-snapshots) — sanoid owns the schedule for `rpool/incus` too (leave Incus's own `snapshots.schedule` unset). See [Incus storage → composing with sanoid](../incus/storage.md#composing-with-sanoid-and-syncoid).
+This mirrors the canonical [backup config](../operations/backup.md#zfs-snapshots) — sanoid owns the schedule for `hot/incus` too (leave Incus's own `snapshots.schedule` unset). See [Incus storage → composing with sanoid](../incus/storage.md#composing-with-sanoid-and-syncoid).
 
 sanoid's systemd timers handle the rest:
 
@@ -405,7 +395,7 @@ cp /tank/nextcloud-data/.zfs/snapshot/autosnap_2026-05-17_03:00:00_hourly/path/t
 
 ### "I borked a service's data; roll the dataset back"
 
-Services run as Docker stacks nested inside an Incus container, but their persistent data lives on host datasets (`tank/nextcloud-data`, `rpool/db`, …). Stop the consuming service, roll the host dataset back, restart:
+Services run as Docker stacks nested inside an Incus container, but their persistent data lives on host datasets (`tank/nextcloud-data`, `hot/db`, …). Stop the consuming service, roll the host dataset back, restart:
 
 ```bash
 # Stop the compose stack inside the Docker-in-Incus container
@@ -421,7 +411,7 @@ sudo zfs rollback -r tank/nextcloud-data@autosnap_2026-05-17_03:00:00_hourly
 incus exec docker-host -- sh -c 'cd /opt/compose/nextcloud && docker compose up -d'
 ```
 
-For an Incus *instance's own* dataset (a container rootfs or VM zvol under `rpool/incus`), stop the instance first (`incus stop <name>`) before any `zfs rollback` — see the [stop-before-you-receive warning](../incus/storage.md#composing-with-sanoid-and-syncoid).
+For an Incus *instance's own* dataset (a container rootfs or VM zvol under `hot/incus`), stop the instance first (`incus stop <name>`) before any `zfs rollback` — see the [stop-before-you-receive warning](../incus/storage.md#composing-with-sanoid-and-syncoid).
 
 ### "The whole pool is dead; restore from backup-host"
 

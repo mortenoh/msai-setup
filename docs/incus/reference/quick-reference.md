@@ -120,7 +120,7 @@ sudo ufw allow from 192.168.0.0/24 to any port 8080 proto tcp
 
 ```bash
 incus config device add web library disk source=/tank/media path=/srv/media
-incus config device add web models  disk source=/rpool/ai path=/models readonly=true
+incus config device add web models  disk source=/hot/ai path=/models readonly=true
 ```
 
 ## Profiles
@@ -144,14 +144,14 @@ incus launch images:ubuntu/24.04 web --profile default --profile gpu --profile d
 incus storage list
 incus storage show default
 incus storage info default
-incus storage create <name> zfs source=rpool/incus     # existing dataset
+incus storage create <name> zfs source=hot/incus     # existing dataset
 incus storage volume list default
 incus storage volume create default <vol> [--type=block]
 incus config device add web data disk pool=default source=<vol> path=/data
 
 # ZFS view of the same data
-zfs list -r rpool/incus
-zfs list -t snapshot -r rpool/incus
+zfs list -r hot/incus
+zfs list -t snapshot -r hot/incus
 ```
 
 ## Networking
@@ -190,7 +190,7 @@ incus export web /tank/backups/web-$(date +%F).tar.gz [--instance-only]
 incus import /tank/backups/web-2026-07-06.tar.gz
 
 # Replication (instances are ZFS datasets)
-syncoid -r rpool/incus backup-host:backup/incus
+syncoid -r hot/incus backup-host:backup/incus
 ```
 
 ## Images & Remotes

@@ -137,15 +137,18 @@ def install_zfs_root(
     ] = None,
     verbose: _VerboseOption = False,
 ) -> None:
-    """Fresh-install root-on-ZFS + ZFSBootMenu, rehearsing the real MS-S1 MAX process.
+    """Fresh-install root-on-ZFS + ZFSBootMenu, rehearsing the documented ZFS-root ALTERNATIVE.
 
-    Boots the current instance's VM into the live-server ISO, opens SSH into the
-    LIVE environment via autoinstall early-commands, then debootstraps a fresh
-    Ubuntu into rpool/ROOT/ubuntu, installs ZFSBootMenu, and (in the lab) proves
-    boot-environment rollback across a real reboot. Create the instance first
-    with `msai create <name>` is NOT required — this provisions its own live VM;
-    just pick the current instance name with `msai use <name>` or let it use the
-    default. Use a fresh instance name to avoid clashing with an ext4 VM.
+    This rehearses the documented root-on-ZFS *alternative* — NOT the canonical
+    MS-S1 MAX install, which is Subiquity + ext4 (see
+    docs/ubuntu/installation/zfs-root-alternative.md). Boots the current instance's
+    VM into the live-server ISO, opens SSH into the LIVE environment via autoinstall
+    early-commands, then debootstraps a fresh Ubuntu into rpool/ROOT/ubuntu, installs
+    ZFSBootMenu, and (in the lab) proves boot-environment rollback across a real
+    reboot. Create the instance first with `msai create <name>` is NOT required —
+    this provisions its own live VM; just pick the current instance name with
+    `msai use <name>` or let it use the default. Use a fresh instance name to avoid
+    clashing with an ext4 VM.
     """
     _configure_logging(verbose)
     extras: list[str] = []

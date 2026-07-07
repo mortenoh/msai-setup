@@ -194,7 +194,7 @@ incus config set web boot.autostart.priority 10      # higher starts first
 incus config set web boot.autostart.delay 5          # seconds to wait after starting
 ```
 
-The [rebuild checklist](../operations/rebuild-checklist.md) relies on autostart so that, after `rpool` is imported and Incus re-adopts its datasets, the service containers come back without manual `incus start` for each.
+The [rebuild checklist](../operations/rebuild-checklist.md) relies on autostart so that, after `hot` is imported and Incus re-adopts its datasets, the service containers come back without manual `incus start` for each.
 
 ## A worked example: the media stack container
 
@@ -217,7 +217,7 @@ incus file push -r ./media-stack/ media/opt/media-stack/
 incus exec media -- bash -c 'cd /opt/media-stack && docker compose up -d'
 ```
 
-The container is disposable; the *data* lives on `tank/media` (host dataset, bind-mounted) and the compose files are in version control. Snapshot the container before changes with `incus snapshot create media before-upgrade`, and let sanoid cover `rpool/incus/containers/media` on schedule (see [Storage](storage.md)).
+The container is disposable; the *data* lives on `tank/media` (host dataset, bind-mounted) and the compose files are in version control. Snapshot the container before changes with `incus snapshot create media before-upgrade`, and let sanoid cover `hot/incus/containers/media` on schedule (see [Storage](storage.md)).
 
 ## Verification
 

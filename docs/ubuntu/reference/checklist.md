@@ -9,7 +9,7 @@ Comprehensive checklist for hardening Ubuntu Server 26.04 LTS. Use this as a ver
 - [ ] ISO checksum verified
 - [ ] ISO GPG signature verified
 - [ ] Boot media created and tested
-- [ ] Disk partitioning plan determined (root-on-ZFS: EFI + `rpool` on the 4 TB primary NVMe, `tank` on the 2 TB secondary — see [Disk Partitioning](../installation/disk-partitioning.md))
+- [ ] Disk partitioning plan determined (ext4 root on the 4 TB primary NVMe, plus `hot` on its leftover space and `tank` on the 2 TB secondary — see [Disk Partitioning](../installation/disk-partitioning.md))
 - [ ] Network configuration planned
 
 ## BIOS/UEFI Settings
@@ -24,15 +24,14 @@ Comprehensive checklist for hardening Ubuntu Server 26.04 LTS. Use this as a ver
 
 ## Installation
 
-This build uses **root-on-ZFS via [ZFSBootMenu](https://zfsbootmenu.org/), no LUKS, no LVM, no GRUB** — Subiquity's guided installer has no ZFS-root path, so this is the manual [installation walkthrough](../installation/installation-walkthrough.md). Two independent pools, one per drive:
+This build uses **plain ext4 root + GRUB, no LUKS, no LVM** via Ubuntu's guided installer (Subiquity) — see the [installation walkthrough](../installation/installation-walkthrough.md). The data lives on two independent ZFS pools, created post-install, one per drive:
 
-- [ ] Manual root-on-ZFS install followed (not the guided installer)
-- [ ] Primary 4 TB NVMe (slot 1, fast x4): EFI partition + `rpool` pool member
-  - [ ] /boot/efi (512 MB, FAT32 — holds the ZFSBootMenu EFI binary; no separate `/boot`)
-  - [ ] `rpool` with `ROOT/ubuntu` (`mountpoint=/`, `canmount=noauto`), `home`, `incus`, `db`, `ai`
+- [ ] Guided ext4 install followed (Custom storage layout, not entire-disk)
+- [ ] Primary 4 TB NVMe (slot 1, fast x4): EFI + `/boot` + ext4 `/`, leftover reserved for the `hot` pool member
+  - [ ] /boot/efi (512 MB, FAT32), /boot (1 GB, ext4), / (500 GB, ext4)
+  - [ ] `hot` created post-install with `incus` (`mountpoint=none`), `db`, `ai`
 - [ ] Secondary 2 TB NVMe (slot 2, slow x1): entire disk as the separate `tank` pool (`media`, `nextcloud-data`, `nextcloud-app`, `backups`)
-- [ ] ZFSBootMenu EFI binary installed and `efibootmgr` entry registered (first in boot order)
-- [ ] `VMLINUZ-BACKUP.EFI` copy of the ZFSBootMenu binary present on the ESP
+- [ ] GRUB installed to the primary disk (`grub-install /dev/nvme0n1`) and boots to login
 - [ ] SSH server installed
 - [ ] SSH keys imported
 
@@ -125,12 +124,13 @@ sysctl settings in `/etc/sysctl.d/99-security.conf`:
 
 ## Mount Options
 
-Root and all data are ZFS datasets that mount natively — the **only** `/etc/fstab` entry on this build is the EFI partition, so the classic fstab hardening surface is small. Apply security options where they exist, and use per-dataset ZFS properties elsewhere:
+Root, `/boot`, and `/boot/efi` are classic filesystems with `/etc/fstab` entries; the ZFS pools mount natively. Harden the fstab mounts, and use per-dataset ZFS properties for the pools:
 
-- [ ] /boot/efi (the sole fstab entry) mounted with umask=0077,fmask=0077,dmask=0077
+- [ ] /boot/efi mounted with umask=0077,fmask=0077,dmask=0077
+- [ ] /boot mounted with nodev,nosuid,noexec
 - [ ] /dev/shm mounted with nodev,nosuid,noexec
 - [ ] /tmp mounted as tmpfs with nodev,nosuid,noexec (optional — see [Disk Partitioning](../installation/disk-partitioning.md))
-- [ ] ZFS datasets on `rpool` and `tank` carry appropriate per-dataset properties (`atime=off`, `setuid`/`exec`/`devices` where a dataset warrants tightening)
+- [ ] ZFS datasets on `hot` and `tank` carry appropriate per-dataset properties (`atime=off`, `setuid`/`exec`/`devices` where a dataset warrants tightening)
 
 ## Automatic Updates
 
@@ -191,13 +191,13 @@ Root and all data are ZFS datasets that mount natively — the **only** `/etc/fs
 ## Disk Encryption
 
 !!! note "Only applicable if you chose an encrypted alternative"
-    This build's default layout is **unencrypted root-on-ZFS** (the host lives on a private network behind UFW/Tailscale; encryption adds a remote-unlock problem on a headless box). Skip this section unless you followed an encrypted path in [Disk Partitioning](../installation/disk-partitioning.md#encrypted-alternative-zfs-native-encryption-or-luks-lvm). ZFS native encryption is the modern equivalent here — it composes with ZFSBootMenu, which prompts for the passphrase at the boot menu when a boot environment's dataset is encrypted.
+    This build's default layout is **unencrypted ext4 root** (the host lives on a private network behind UFW/Tailscale; encryption adds a remote-unlock problem on a headless box). Skip this section unless you followed an encrypted path in [Disk Partitioning](../installation/disk-partitioning.md#encrypted-alternative-zfs-native-encryption-or-luks-lvm). ZFS native encryption covers the `hot`/`tank` data pools; LUKS+LVM covers the ext4 root if you need root encrypted too.
 
-- [ ] Encryption active (ZFS native encryption on the pool/dataset, or LUKS if you chose that path)
+- [ ] Encryption active (ZFS native encryption on the data pools, or LUKS on root if you chose that path)
 - [ ] Strong passphrase used
 - [ ] Recovery key / raw key stored securely
 - [ ] ZFS `keylocation` / `keyformat` recorded (or LUKS header backed up)
-- [ ] Unlock mechanism planned (ZFSBootMenu passphrase prompt / dropbear-initramfs / walk-up)
+- [ ] Unlock mechanism planned (`zfs load-key` at boot / dropbear-initramfs / walk-up)
 
 ## Backup
 
@@ -210,25 +210,23 @@ Root and all data are ZFS datasets that mount natively — the **only** `/etc/fs
 - [ ] Backup restoration tested
 - [ ] Off-site backup configured
 
-## ZFS Pools (`rpool` + `tank`)
+## ZFS Pools (`hot` + `tank`)
 
-- [ ] Root pool `rpool` `ONLINE`, no errors: `zpool status -v rpool`
-- [ ] Data pool `tank` `ONLINE`, no errors: `zpool status -v tank`
-- [ ] Root is a boot environment: `zfs list rpool/ROOT/ubuntu` mounts `/` (`canmount=noauto`)
-- [ ] `rpool` datasets present per layout (`ROOT/ubuntu`, `home`, `incus`, `db`, `ai`) and `tank` datasets present (`media`, `nextcloud-data`, `nextcloud-app`, `backups`): `zfs list`
+- [ ] Hot data pool `hot` `ONLINE`, no errors: `zpool status -v hot`
+- [ ] Cold data pool `tank` `ONLINE`, no errors: `zpool status -v tank`
+- [ ] `hot` datasets present per layout (`incus`, `db`, `ai`) and `tank` datasets present (`media`, `nextcloud-data`, `nextcloud-app`, `backups`): `zfs list`
 - [ ] Scrub scheduled on **both** pools, last scrub clean: `zpool status | grep scrub`
 - [ ] ARC capped (e.g. 16 GiB, shared across both pools) so Incus VMs and Ollama have predictable memory: `cat /sys/module/zfs/parameters/zfs_arc_max`
 - [ ] sanoid snapshot schedule present and running: `systemctl status sanoid.timer`
-- [ ] Snapshots being taken on both pools incl. `rpool/ROOT` and `rpool/incus`: `zfs list -t snapshot | head`
+- [ ] Snapshots being taken on both pools incl. `hot/incus`: `zfs list -t snapshot | head`
 - [ ] syncoid / restic off-host replication configured and tested (see [Backup](../../operations/backup.md))
 
-## ZFSBootMenu / Boot Environments
+## Bootloader (GRUB, ext4 root)
 
-- [ ] ZFSBootMenu is first in the EFI boot order: `sudo efibootmgr -v`
-- [ ] Interrupting the boot countdown shows the boot-environment list (rollback path works)
-- [ ] At least one prior boot environment / `rpool/ROOT` snapshot exists to roll back to: `zfs list -t snapshot -r rpool/ROOT`
-- [ ] Kernel command line set via ZFS property (no GRUB): `zfs get org.zfsbootmenu:commandline rpool/ROOT/ubuntu`
-- [ ] ZFSBootMenu EFI binary backed up off the ESP (see [Boot Issues](../troubleshooting/boot-issues.md#back-up-the-efi-binary-and-boot-entries))
+- [ ] GRUB installed to the primary disk and boots to login: `sudo efibootmgr -v`
+- [ ] At least one previous kernel kept for GRUB "Advanced options" recovery: `dpkg --list | grep linux-image`
+- [ ] GRUB config and EFI boot entries backed up (see [Boot Issues](../troubleshooting/boot-issues.md#back-up-grub-and-the-esp))
+- [ ] (Alternative build only) If you took the [ZFS Root alternative](../installation/zfs-root-alternative.md), ZFSBootMenu is first in the EFI boot order and a prior boot environment exists to roll back to
 
 ## GPU / AI Stack
 
@@ -241,9 +239,9 @@ Root and all data are ZFS datasets that mount natively — the **only** `/etc/fs
 
 Incus is the single virtualization/container layer — Docker nests inside an Incus container, VMs are Incus VM instances. See the [Incus deep-dive](../../incus/index.md).
 
-- [ ] Incus healthy and its ZFS backend points at `rpool/incus`: `incus storage show default` (`driver: zfs`, `source: rpool/incus`)
+- [ ] Incus healthy and its ZFS backend points at `hot/incus`: `incus storage show default` (`driver: zfs`, `source: hot/incus`)
 - [ ] Instances present and running as expected: `incus list`
-- [ ] Instance storage is native ZFS datasets under `rpool/incus` (not opaque named volumes): `zfs list -r rpool/incus`
+- [ ] Instance storage is native ZFS datasets under `hot/incus` (not opaque named volumes): `zfs list -r hot/incus`
 - [ ] Docker workloads run **inside** an Incus system container (`security.nesting=true`), with important data on host datasets bind-mounted in — not Docker named volumes ([docker-in-incus](../../incus/docker-in-incus.md))
 - [ ] Incus bridge (`incusbr0`) forwarding filtered by UFW — same treatment `ufw-docker` gave bare Docker ([networking](../../incus/networking.md))
 - [ ] VMs are Incus VM instances (`incus list --type=virtual-machine`); no bare libvirt/`virsh` on the host

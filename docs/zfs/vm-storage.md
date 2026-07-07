@@ -1,15 +1,15 @@
 # VM Storage on ZFS
 
-On this build, **VMs are Incus VM instances**, and their disks are ZFS **zvols that Incus creates and manages automatically** under `rpool/incus/virtual-machines/`. There is no hand-rolled `tank/vm` dataset, no `virsh`/`virt-install`, and no `.qcow2` files on a `dir` pool. Incus's ZFS storage driver does the block-device plumbing for you.
+On this build, **VMs are Incus VM instances**, and their disks are ZFS **zvols that Incus creates and manages automatically** under `hot/incus/virtual-machines/`. There is no hand-rolled `tank/vm` dataset, no `virsh`/`virt-install`, and no `.qcow2` files on a `dir` pool. Incus's ZFS storage driver does the block-device plumbing for you.
 
 So this page is now mostly **background**: it explains *why* zvol-backed VM disks behave the way they do, so the properties you set through Incus make sense. For the mechanics of creating VMs and managing their storage, the source-of-truth pages are:
 
-- [Incus storage — the ZFS driver in depth](../incus/storage.md) — how `rpool/incus` becomes Incus's pool, per-instance zvols, sizing, snapshots, clones.
+- [Incus storage — the ZFS driver in depth](../incus/storage.md) — how `hot/incus` becomes Incus's pool, per-instance zvols, sizing, snapshots, clones.
 - [Incus VMs](../incus/vms.md) — launching and configuring VM instances.
 - [Windows VM](../incus/windows-vm.md) — the Windows 11 instance (TPM, Secure Boot, virtio).
 
 !!! note "What changed from the old design"
-    The original design ran VMs under bare libvirt/QEMU with qcow2 files (or manual zvols) on a `tank/vm` dataset. That's gone. Incus is the single virtualization layer, KVM/QEMU runs under it, and every VM's disk is a ZFS zvol Incus manages on `rpool/incus`. The ZFS *concepts* below still apply — Incus just owns the create/destroy/snapshot lifecycle now.
+    The original design ran VMs under bare libvirt/QEMU with qcow2 files (or manual zvols) on a `tank/vm` dataset. That's gone. Incus is the single virtualization layer, KVM/QEMU runs under it, and every VM's disk is a ZFS zvol Incus manages on `hot/incus`. The ZFS *concepts* below still apply — Incus just owns the create/destroy/snapshot lifecycle now.
 
 ## Why a zvol (and not a file on a dataset)
 
@@ -23,9 +23,9 @@ ZFS can back a virtual disk two ways, and it's worth understanding the choice In
 Incus gives each VM a small config filesystem dataset plus a `.block` zvol for the disk:
 
 ```bash
-zfs list -t all -r rpool/incus/virtual-machines
-# rpool/incus/virtual-machines/win11         (a small config filesystem)
-# rpool/incus/virtual-machines/win11.block   (the zvol — the VM's disk)
+zfs list -t all -r hot/incus/virtual-machines
+# hot/incus/virtual-machines/win11         (a small config filesystem)
+# hot/incus/virtual-machines/win11.block   (the zvol — the VM's disk)
 ```
 
 You never run `zfs create -V` for these by hand — `incus launch ... --vm` does it. (See [Incus storage → VMs](../incus/storage.md#vms).)
@@ -84,7 +84,7 @@ incus snapshot create win11 before-update
 incus snapshot restore win11 before-update
 ```
 
-Under the hood this is a ZFS snapshot on `rpool/incus/virtual-machines/win11.block` — see [Incus storage → snapshots](../incus/storage.md#snapshots-and-clones-incus-vs-raw-zfs).
+Under the hood this is a ZFS snapshot on `hot/incus/virtual-machines/win11.block` — see [Incus storage → snapshots](../incus/storage.md#snapshots-and-clones-incus-vs-raw-zfs).
 
 For **application-consistent** snapshots (databases especially), quiesce inside the guest first — stop the DB, or use the guest agent to freeze the filesystem — before taking the snapshot. For most homelab uses, crash-consistent "before-update" snapshots are enough.
 
@@ -114,9 +114,9 @@ When a guest deletes files, the freed space isn't reclaimed on the host unless T
 Verify by watching zvol space before/after a guest `fstrim`:
 
 ```bash
-zfs list -t all rpool/incus/virtual-machines/win11.block
+zfs list -t all hot/incus/virtual-machines/win11.block
 incus exec win11 -- fstrim -av        # Linux guest
-zfs list -t all rpool/incus/virtual-machines/win11.block   # should show freed space
+zfs list -t all hot/incus/virtual-machines/win11.block   # should show freed space
 ```
 
 ## Why VM disks on ZFS is still the whole point { #when-the-vm-corrupts-its-filesystem }
@@ -137,7 +137,7 @@ VMs on this build get **no GPU passthrough by default** — the iGPU stays with 
 
 ## Next steps
 
-- [Incus storage](../incus/storage.md) — the authoritative page for VM/container storage on `rpool/incus`.
+- [Incus storage](../incus/storage.md) — the authoritative page for VM/container storage on `hot/incus`.
 - [Incus VMs](../incus/vms.md) / [Windows VM](../incus/windows-vm.md) — creating and running VM instances.
 - [Docker Integration](docker-integration.md) — the container-side bind-mount pattern.
 - [Backup & Recovery](../operations/backup.md) — replicating instance datasets off-host.

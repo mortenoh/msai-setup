@@ -6,8 +6,8 @@ When things go wrong. Symptom-first, ordered by frequency.
 
 ### "I rebooted and `tank` isn't there" { #i-rebooted-and-the-pool-isnt-there }
 
-!!! note "`rpool` vs `tank` at boot"
-    `rpool` is imported by the initramfs / [ZFSBootMenu](https://zfsbootmenu.org/) path — if *it* fails to import, the system doesn't boot at all, which is a [ZFSBootMenu recovery](../ubuntu/troubleshooting/boot-issues.md#zfsbootmenu-recovery) problem, not a userspace one. The symptoms below (a pool missing after an otherwise-normal boot) almost always concern **`tank`**, imported later by `zfs-import-cache.service`.
+!!! note "Neither pool is needed to boot"
+    Root is ext4, so neither `hot` nor `tank` is imported during boot — both come up after userspace via `zfs-import-cache.service`. A pool missing after an otherwise-normal boot (the symptoms below) is always a userspace import problem, never something that blocks the machine from booting. The steps below apply equally to `hot` and `tank`.
 
 Most common cause: the `zfs-import-cache` or `zfs-mount` service didn't run, or the cache file is stale.
 
@@ -376,8 +376,8 @@ zfs get keylocation,keyformat tank/secrets
 
 Symptom: `zfs.ko` failed to build, modprobe fails, pool can't import.
 
-!!! danger "On this build that means the box won't boot"
-    Root is on `rpool`, so a ZFS module that won't load leaves the system unbootable — not just missing a data pool. Recover by booting a previous [ZFSBootMenu boot environment](../ubuntu/troubleshooting/boot-issues.md#zfsbootmenu-recovery) (which pairs the older, working kernel with its matching module), then fix DKMS from there. This is exactly the scenario boot environments exist for.
+!!! warning "On this build that means Incus and all pool data go offline"
+    Root is ext4, so the host still boots — but `zfs.ko` failing to load means neither `hot` nor `tank` imports, so Incus (its storage backend is `hot/incus`), the databases, and everything on the pools are unavailable until the module is fixed. Fix DKMS from the booted host with the commands below. (Under the [ZFS Root alternative](../ubuntu/installation/zfs-root-alternative.md#zfsbootmenu-recovery), where root *is* on ZFS, this instead leaves the box unbootable and is recovered by booting a previous boot environment.)
 
 ```bash
 # Diagnose
@@ -418,7 +418,7 @@ sudo systemctl restart zfs.target
 
 ## "I broke `/etc/zfs/zpool.cache`"
 
-The cache file holds the list of pools to auto-import. If it's corrupted, `tank` won't auto-mount but you can still import it manually (`rpool` is imported by the initramfs, not the cache, so root still comes up):
+The cache file holds the list of pools to auto-import. If it's corrupted, `tank` (and `hot`) won't auto-mount but you can still import manually (root is ext4 and doesn't depend on either pool, so the box boots fine regardless — only the pool data is absent until re-imported):
 
 ```bash
 sudo zpool export tank

@@ -1,6 +1,7 @@
 ---
 # Fresh root-on-ZFS + ZFSBootMenu install, driven from the LIVE installer
-# environment over SSH — the real MS-S1 MAX process, rehearsed.
+# environment over SSH — the documented ZFS-root ALTERNATIVE, rehearsed
+# (the canonical MS-S1 MAX install is Subiquity + ext4).
 #
 # This runs against the Ubuntu Server live ISO booted with an autoinstall whose
 # `early-commands` only opened SSH into the live session (see
@@ -8,7 +9,7 @@
 # src/msai_setup/lab/zfsroot.py). Subiquity is paused at its interactive storage
 # screen and never touches a disk; ALL install work happens here.
 #
-# It mirrors docs/ubuntu/installation/installation-walkthrough.md step for step.
+# It mirrors docs/ubuntu/installation/zfs-root-alternative.md step for step.
 # The ONLY meaningful difference from the (removed) zfs-root-migrate.yml is the
 # system source: instead of `rsync`-ing an already-running system into
 # rpool/ROOT/ubuntu, it `debootstrap`s a fresh Ubuntu base system in. Partition
@@ -184,7 +185,7 @@
       failed_when: false
       changed_when: false
 
-    # -- Partition both disks (docs: disk-partitioning.md) ---------------------
+    # -- Partition both disks (docs: zfs-root-alternative.md) ---------------------
 
     - name: install — partition and prep the target disks
       when: rpool_check.rc != 0
@@ -228,7 +229,7 @@
             - "{{ slow_disk }}-part1"
           changed_when: true
 
-    # -- Create rpool + datasets (docs: disk-partitioning.md) ------------------
+    # -- Create rpool + datasets (docs: zfs-root-alternative.md) ------------------
 
     - name: install — create rpool and its root/home datasets
       when: rpool_check.rc != 0
@@ -268,7 +269,7 @@
         zfs mount | grep -q " {{ target_mnt }}/home$"  || zfs mount {{ rpool_name }}/home
       changed_when: true
 
-    # -- Create tank (docs: disk-partitioning.md) ------------------------------
+    # -- Create tank (docs: zfs-root-alternative.md) ------------------------------
 
     - name: install — zpool create tank (slow drive)
       when: tank_check.rc != 0
@@ -500,7 +501,7 @@
         '
       changed_when: true
 
-    # -- Register the EFI boot entry (docs: installation-walkthrough.md) ------
+    # -- Register the EFI boot entry (docs: zfs-root-alternative.md) ------
 
     # On real hardware this is THE mechanism that makes the box boot ZFSBootMenu.
     # In VirtualBox, NVRAM persistence is unreliable, so this is best-effort (the

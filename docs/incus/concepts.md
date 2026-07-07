@@ -107,9 +107,9 @@ This build defines a handful of purpose-built profiles — a GPU profile, a Dock
 
 ## Storage pools
 
-A **storage pool** is where instance data lives. On this build there is one pool, backed by the **ZFS driver**, pointed at the existing `rpool/incus` dataset.
+A **storage pool** is where instance data lives. On this build there is one pool, backed by the **ZFS driver**, pointed at the existing `hot/incus` dataset.
 
-- Each instance's root disk is a **dataset** inside the pool (`rpool/incus/containers/<name>`, `rpool/incus/virtual-machines/<name>`).
+- Each instance's root disk is a **dataset** inside the pool (`hot/incus/containers/<name>`, `hot/incus/virtual-machines/<name>`).
 - Snapshots and clones are native ZFS operations.
 - You can also create **custom storage volumes** for shared data between instances.
 

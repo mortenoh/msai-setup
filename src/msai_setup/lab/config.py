@@ -108,7 +108,7 @@ class LabConfig:
     lab_disk_size_mb: int = _env_int("LAB_DISK_SIZE_MB", 8000)
 
     # Root-on-ZFS install disks, standing in for the MS-S1 MAX's two physical
-    # NVMe drives (see docs/ubuntu/installation/disk-partitioning.md).
+    # NVMe drives (see docs/ubuntu/installation/zfs-root-alternative.md).
     #
     # These are the two dedicated stand-in drives the root-on-ZFS install flow
     # (`msai lab install-zfs-root`) partitions into rpool + tank. On the ext4

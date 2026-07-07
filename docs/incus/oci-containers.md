@@ -40,7 +40,7 @@ incus launch docker:nginx my-nginx
 incus launch docker:hello-world --ephemeral --console
 ```
 
-The instance shows up in `incus list` like any other, gets a `incusbr0` IP, and is a ZFS dataset under `rpool/incus` — all the [Storage](storage.md) and [Networking](networking.md) machinery applies unchanged.
+The instance shows up in `incus list` like any other, gets a `incusbr0` IP, and is a ZFS dataset under `hot/incus` — all the [Storage](storage.md) and [Networking](networking.md) machinery applies unchanged.
 
 ### Environment variables
 

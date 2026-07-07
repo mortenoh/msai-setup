@@ -53,7 +53,7 @@ For detailed architecture information, see [Hardware Architecture](hardware-arch
 | BIOS Reset | Physical reset hole on the rear I/O (CMOS clear) — see [BIOS Setup](bios-setup.md#recovering-from-a-bad-bios-state) |
 
 !!! note "Asymmetric NVMe slots — the 4 TB drive gets the fast slot"
-    The second M.2 slot is only PCIe 4.0 **x1**, capping it at ~2 GB/s vs the ~8 GB/s available on slot 1. This build puts the **4 TB drive in slot 1** (fast) as `rpool` — root, Incus storage, databases, model files — and the **2 TB drive in slot 2** (slow) as `tank` — media, backups, cold data. Two independent pools, not one spanning both drives — see [Disk Partitioning](../ubuntu/installation/disk-partitioning.md).
+    The second M.2 slot is only PCIe 4.0 **x1**, capping it at ~2 GB/s vs the ~8 GB/s available on slot 1. This build puts the **4 TB drive in slot 1** (fast) — ext4 root plus the `hot` pool (Incus storage, databases, model files) — and the **2 TB drive in slot 2** (slow) as `tank` — media, backups, cold data. Two independent pools, not one spanning both drives — see [Disk Partitioning](../ubuntu/installation/disk-partitioning.md).
 
 !!! note "No ECC"
     This platform does not support ECC memory. That's not a reason to avoid ZFS here — see [ZFS Concepts -> "ZFS needs ECC RAM"](../zfs/concepts.md) for why that's mostly folklore — but it's worth knowing plainly rather than assuming it either way.
@@ -88,28 +88,27 @@ See [BIOS Setup](bios-setup.md) for optimizing APU performance and [GPU Setup](.
 
 ### Storage Layout
 
-#### Internal NVMe (4 TB, PCIe 4.0 x4) — root + hot data (`rpool`)
+#### Internal NVMe (4 TB, PCIe 4.0 x4) — ext4 root + hot data (`hot`)
 
 | Partition | Size | Filesystem | Mount |
 |-----------|------|------------|-------|
-| EFI | 512 MB | FAT32 | `/boot/efi` (holds the ZFSBootMenu EFI binary) |
-| Pool member | ~4 TB | (ZFS) | `rpool` |
+| EFI | 512 MB | FAT32 | `/boot/efi` |
+| Boot | 1 GB | ext4 | `/boot` |
+| Root | 500 GB | ext4 | `/` |
+| Pool member | ~3.4 TB | (ZFS) | `hot` |
 
-Root, home, Incus's storage backend, databases, and AI model files all live on `rpool` — everything that benefits from the fast x4 link and, for root specifically, from ZFS snapshots as boot environments.
+The OS root, `/boot`, and `/home` are plain ext4; the leftover ~3.4 TB becomes the `hot` ZFS pool — Incus's storage backend, databases, and AI model files — everything stateful that benefits from the fast x4 link and ZFS snapshots.
 
 #### Secondary NVMe (2 TB, PCIe 4.0 x1) — bulk cold data (`tank`)
 
-Entire disk allocated as its own independent ZFS pool — not striped with `rpool`. The x1 link is the bottleneck, so this drive holds media, backups, and other read-heavy or cold data that doesn't need the fast pool's bandwidth.
+Entire disk allocated as its own independent ZFS pool — not striped with `hot`. The x1 link is the bottleneck, so this drive holds media, backups, and other read-heavy or cold data that doesn't need the fast pool's bandwidth.
 
 See [Disk Partitioning](../ubuntu/installation/disk-partitioning.md) for the full layout and creation commands.
 
-### Why ZFS for Root?
+### Why ext4 for Root?
 
-- **Boot environments**: every OS update is a snapshot; a bad kernel or `apt upgrade` is a boot-environment rollback via [ZFSBootMenu](https://zfsbootmenu.org/), not a reinstall.
-- **Checksums and compression** apply to the OS itself, not just data.
-- **One filesystem to operate**, not two — the same `zfs`/`zpool` toolchain covers root and data alike.
+- **Boring, well-understood recovery**: `e2fsck`, GRUB, and a stable separate `/boot` — no surprises on the critical boot path.
+- **The host is disposable**: a broken OS is a quick reinstall; everything stateful lives on the ZFS pools with snapshots and off-host replication.
+- **ZFS where it earns its keep**: containers, VMs, databases, and media get checksums, compression, and snapshots on `hot`/`tank`, without putting ZFS on the boot path.
 
-Ext4 root remains documented as a simpler alternative if you'd rather skip ZFSBootMenu's boot-environment machinery — see [Disk Partitioning -> Ext4 Root](../ubuntu/installation/disk-partitioning.md#ext4-root-documented-alternative).
-
-!!! note
-    There's no separate `/boot` partition with ZFSBootMenu — it finds the kernel/initramfs pair directly inside a dataset, unlike GRUB.
+Root-on-ZFS with ZFSBootMenu boot environments remains documented as an alternative if you want the OS layer snapshotted too — see [Disk Partitioning -> ZFS Root](../ubuntu/installation/disk-partitioning.md#zfs-root-documented-alternative) and the [ZFS Root (Alternative)](../ubuntu/installation/zfs-root-alternative.md) page.

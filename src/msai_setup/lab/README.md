@@ -208,14 +208,16 @@ echo 17179869184 | sudo tee /sys/module/zfs/parameters/zfs_arc_max
 
 ---
 
-## 3. Root on ZFS — rehearsing the real install
+## 3. Root on ZFS — rehearsing the documented alternative
 
-Sections 1–2 gave you an ext4-rooted VM with ZFS *data* pools. The real MS-S1 MAX
-goes further: **the OS itself lives on ZFS**, booted by [ZFSBootMenu](https://zfsbootmenu.org/),
-so a bad upgrade is a snapshot rollback instead of a reinstall. Subiquity has no
+Sections 1–2 gave you an ext4-rooted VM with ZFS *data* pools — which **is** the
+canonical MS-S1 MAX layout (ext4 root via Subiquity + GRUB, plus two ZFS data
+pools). This section rehearses the **documented alternative** instead: putting
+**the OS itself on ZFS**, booted by [ZFSBootMenu](https://zfsbootmenu.org/), so a
+bad upgrade is a snapshot rollback instead of a reinstall. Subiquity has no
 root-on-ZFS path, so this is a **fresh, manual install**: boot a live environment
 and `debootstrap` straight into `rpool/ROOT/ubuntu` — there is no ext4 stage at
-any point (see the [installation walkthrough](../../../docs/ubuntu/installation/installation-walkthrough.md)).
+any point (see the [ZFS Root alternative](../../../docs/ubuntu/installation/zfs-root-alternative.md)).
 
 This one command rehearses that whole process against a throwaway VM:
 
@@ -280,10 +282,8 @@ msai lab install-zfs-root --do-reboot
 When you're done, clean up like any lab VM (`msai lab destroy`). The same
 `msai list` / `msai ssh` / `msai lab snapshot` commands work on it.
 
-> **Deeper reading**:
-> - [installation-walkthrough.md](../../../docs/ubuntu/installation/installation-walkthrough.md) — the manual process this command automates, step for step
-> - [disk-partitioning.md](../../../docs/ubuntu/installation/disk-partitioning.md) — the canonical two-pool partition scheme it follows
-> - [boot-issues.md](../../../docs/ubuntu/troubleshooting/boot-issues.md) — ZFSBootMenu recovery, hotkeys, boot environments
+> **Deeper reading** — all in the one alternative page:
+> - [zfs-root-alternative.md](../../../docs/ubuntu/installation/zfs-root-alternative.md) — the documented alternative this command rehearses: the manual install walkthrough it automates step for step, the root-on-ZFS partition/pool scheme it follows, and ZFSBootMenu recovery, hotkeys, and boot environments
 
 ---
 

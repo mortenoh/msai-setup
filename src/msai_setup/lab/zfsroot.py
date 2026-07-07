@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Fresh root-on-ZFS install driver — ``msai lab install-zfs-root``.
 
-Rehearses the EXACT process the real MS-S1 MAX follows (see
-docs/ubuntu/installation/installation-walkthrough.md): boot the Ubuntu Server
+Rehearses the documented root-on-ZFS ALTERNATIVE — not the canonical MS-S1 MAX
+install, which is Subiquity + ext4 (see
+docs/ubuntu/installation/zfs-root-alternative.md): boot the Ubuntu Server
 live ISO, get a root shell in the LIVE environment, then partition + create both
 pools, ``debootstrap`` a fresh Ubuntu into ``rpool/ROOT/ubuntu``, chroot to
 configure it, install ZFSBootMenu, and register the EFI boot entry — never an

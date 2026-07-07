@@ -14,7 +14,7 @@ Incus manages two kinds of instance from one CLI and one API:
 
 It also runs **OCI application containers** — launch a Docker/OCI image directly as an Incus instance without a nested Docker daemon (`incus launch docker:...`). That is a newer, less-proven path documented separately (see [OCI application containers](oci-containers.md)).
 
-Under the hood Incus leans on the same primitives this build already uses elsewhere: Linux namespaces and cgroups for containers, KVM for VMs, and **ZFS** for storage — every instance is a native ZFS dataset under `rpool/incus`.
+Under the hood Incus leans on the same primitives this build already uses elsewhere: Linux namespaces and cgroups for containers, KVM for VMs, and **ZFS** for storage — every instance is a native ZFS dataset under `hot/incus`.
 
 ## Why Incus replaced Docker-direct plus bare KVM/libvirt
 
@@ -34,7 +34,7 @@ The wins that matter here:
 - **One consistent management model** for "a thing that runs a workload," whether that thing is a container or a VM.
 - **ZFS-native storage per instance** with zero bind-mount choreography — snapshots, clones, and `zfs send`/`receive` work per instance, composing directly with this build's sanoid/syncoid backup story.
 - **The host stays clean.** No Docker daemon running as root on the host; Docker (when needed) is confined inside a nesting-enabled container. VMs are managed the same way as containers instead of via a second toolchain.
-- **Rebuild is declarative.** Instance configuration is stored in Incus's database and reproducible from a preseed file; the datasets survive on `rpool/incus`.
+- **Rebuild is declarative.** Instance configuration is stored in Incus's database and reproducible from a preseed file; the datasets survive on `hot/incus`.
 
 Docker itself is not abandoned — the many services that ship as `docker-compose.yml` stacks keep running under Docker, just *inside* an Incus container. Incus is the host-level layer; Docker is a guest-level detail.
 
@@ -56,7 +56,7 @@ Practically, if you already know LXD, Incus is the same tool: the CLI is `incus`
 Read roughly in order — each page assumes the mental model built by the ones before it.
 
 ### Getting started
-- [Installation](installation.md) — installing Incus on Ubuntu 26.04, `incus admin init`, pointing storage at `rpool/incus`.
+- [Installation](installation.md) — installing Incus on Ubuntu 26.04, `incus admin init`, pointing storage at `hot/incus`.
 - [Core concepts](concepts.md) — containers vs VMs, images, profiles, storage pools, networks, projects. Read this before anything below.
 
 ### The building blocks

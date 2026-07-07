@@ -1,6 +1,9 @@
 # Boot Issues
 
-This page covers diagnosing and resolving boot problems on Ubuntu Server 26.04 LTS. This build boots **root-on-ZFS via [ZFSBootMenu](https://zfsbootmenu.org/)** (see [Disk Partitioning](../installation/disk-partitioning.md)) — there is no GRUB anywhere in this architecture. If you followed the ext4 alternative instead, the GRUB-based recovery in this page's git history applies to you.
+This page covers diagnosing and resolving boot problems on Ubuntu Server 26.04 LTS. This build boots **plain ext4 root via GRUB** (see [Disk Partitioning](../installation/disk-partitioning.md)) — the data lives on two ZFS pools (`hot`, `tank`), but root itself is boring ext4.
+
+!!! note "Took the ZFS Root alternative?"
+    If you followed the [ZFS Root (Alternative)](../installation/zfs-root-alternative.md), your box boots via **ZFSBootMenu**, not GRUB — recovery is different (boot environments, `efibootmgr`, no `grub-install`). The full ZFSBootMenu recovery flow, hotkeys, and reinstall/repair steps live on that page. This page's GRUB recovery is for the canonical ext4 build.
 
 ## Boot Process Overview
 
@@ -14,20 +17,20 @@ This page covers diagnosing and resolving boot problems on Ubuntu Server 26.04 L
                               │
                               v
 ┌─────────────────────────────────────────────────────────────┐
-│                    2. ZFSBootMenu (EFI binary)               │
-│        Import rpool, find kernel/initramfs in a dataset      │
+│                    2. GRUB Bootloader                        │
+│            Load kernel and initramfs                         │
 └─────────────────────────────────────────────────────────────┘
                               │
                               v
 ┌─────────────────────────────────────────────────────────────┐
-│                    3. Kernel + initramfs (dracut)            │
-│        Load drivers, mount rpool/ROOT/ubuntu as root         │
+│                    3. Kernel + initramfs                     │
+│            Load drivers, mount ext4 root                     │
 └─────────────────────────────────────────────────────────────┘
                               │
                               v
 ┌─────────────────────────────────────────────────────────────┐
 │                    4. systemd (PID 1)                        │
-│            Start services, reach target                      │
+│            Start services, import ZFS pools, reach target    │
 └─────────────────────────────────────────────────────────────┘
                               │
                               v
@@ -37,8 +40,6 @@ This page covers diagnosing and resolving boot problems on Ubuntu Server 26.04 L
 └─────────────────────────────────────────────────────────────┘
 ```
 
-ZFSBootMenu replaces GRUB entirely: the firmware launches the ZFSBootMenu EFI executable directly, it imports `rpool`, and it kexecs the kernel/initramfs pair it finds inside the selected boot environment (`rpool/ROOT/ubuntu` by default).
-
 ## Identifying Boot Stage
 
 ### Where Did It Fail?
@@ -46,166 +47,160 @@ ZFSBootMenu replaces GRUB entirely: the firmware launches the ZFSBootMenu EFI ex
 | Symptom | Stage | See Section |
 |---------|-------|-------------|
 | No POST, no display | Hardware/BIOS | [BIOS reset](../../getting-started/bios-setup.md#recovering-from-a-bad-bios-state) |
-| Firmware boots to nothing / falls through to next device | ZFSBootMenu not found | ZFSBootMenu Recovery |
-| ZFSBootMenu appears but can't import the pool | ZFS pool import | ZFSBootMenu Recovery |
-| Selected boot environment fails to boot | Boot environment / kernel | ZFSBootMenu Recovery, Kernel Issues |
+| GRUB menu not shown | GRUB | GRUB Recovery |
+| "GRUB rescue>" prompt | GRUB config | GRUB Recovery |
 | Kernel panic | Kernel | Kernel Issues |
 | systemd errors | Init | systemd Issues |
+| A ZFS pool missing after boot | ZFS pool import | Filesystem / Pool Issues |
 | Services fail | Services | Service Recovery |
 
-## ZFSBootMenu Recovery
+## Accessing Recovery Mode
 
-ZFSBootMenu *is* the bootloader. When it launches it shows a short countdown, then boots the default boot environment. Press any key (**Esc**, **Space**, or an arrow key) during the countdown to stay in the menu.
+### From GRUB Menu
 
-### ZFSBootMenu Hotkeys
+1. At boot, hold **Shift** (BIOS) or **Esc** (UEFI) to show GRUB
+2. Select **Advanced options for Ubuntu**
+3. Select **Ubuntu with Linux x.x.x (recovery mode)**
 
-From the ZFSBootMenu screen:
+### Recovery Menu Options
 
-| Key | Action |
-|-----|--------|
-| `Enter` | Boot the selected boot environment |
-| Arrow keys / `j` `k` | Navigate the boot-environment list |
-| `Ctrl+E` | Edit the kernel command line for this one boot |
-| `Ctrl+K` | Select a different kernel within the environment |
-| `Ctrl+S` | Snapshot menu (create / clone / **roll back** a boot environment) |
-| `Ctrl+A` | Set the selected environment as the default (`bootfs`) |
-| `Ctrl+P` | Show `zpool status` |
-| `Ctrl+R` | Drop to the ZFSBootMenu **recovery shell** |
-| `Ctrl+H` | Help / full key list |
+| Option | Use For |
+|--------|---------|
+| resume | Continue normal boot |
+| clean | Free up disk space |
+| dpkg | Repair broken packages |
+| fsck | Check filesystem |
+| grub | Update GRUB |
+| network | Enable networking |
+| root | Drop to root shell |
+| system-summary | Show system info |
 
-### Boot a Different (Working) Boot Environment
+### Drop to Root Shell
 
-If the current root is broken (bad upgrade, bad kernel), select a previous boot environment or snapshot instead:
+From recovery menu:
 
-1. At the ZFSBootMenu screen, use the arrow keys to highlight a healthy environment or an older snapshot of `rpool/ROOT/ubuntu`.
-2. Press `Enter` to boot it once, or `Ctrl+A` to make it the persistent default.
-3. To roll a snapshot back into a bootable environment, press `Ctrl+S`, pick the snapshot, and choose clone/rollback.
-
-This snapshot-rollback path is the whole point of boot environments — a bad `apt upgrade` is a one-keystroke recovery, not a reinstall.
-
-### Drop to the Emergency Shell
-
-Press `Ctrl+R` at the ZFSBootMenu screen to get a recovery shell with the ZFS tools available. From there you can inspect and repair the pool:
+1. Select **root**
+2. Press Enter for maintenance shell
+3. Remount filesystem as read-write:
 
 ```bash
-# See what pools are visible
-zpool import
-
-# Force-import the root pool read-write into /mnt
-zpool import -f -R /mnt rpool
-
-# Mount the boot environment explicitly if it did not auto-mount
-zfs mount rpool/ROOT/ubuntu
-
-# Inspect, then chroot if you need to run commands against the installed system
-chroot /mnt
+mount -o remount,rw /
 ```
 
-### ZFSBootMenu Doesn't Appear At All
+## GRUB Recovery
 
-If the firmware skips ZFSBootMenu (falls through to the next boot device or a "no bootable device" message), the EFI boot entry is missing or misordered. From a live/rescue environment:
+### "GRUB rescue>" Prompt
+
+System can't find GRUB configuration:
 
 ```bash
-# List EFI entries and boot order
-sudo efibootmgr -v
+# List available partitions
+grub rescue> ls
+# (hd0) (hd0,gpt1) (hd0,gpt2) (hd0,gpt3)
 
-# ZFSBootMenu missing? See "Reinstall / Repair ZFSBootMenu" below.
-# Present but not first? Reorder it to the front (use the real hex IDs):
-sudo efibootmgr -o 0003,0000,2001
+# Find partition with /boot (the 1 GB ext4 /boot on the primary)
+grub rescue> ls (hd0,gpt2)/
+# Should list vmlinuz, initrd.img, grub/
+
+# Set prefix and load normal module
+grub rescue> set prefix=(hd0,gpt2)/grub
+grub rescue> insmod normal
+grub rescue> normal
 ```
 
-## Reinstall / Repair ZFSBootMenu
+### Reinstall GRUB
 
-There is no `grub-install` here — recovery means re-placing the EFI binary and re-registering the `efibootmgr` entry. Boot a live/rescue environment, import the pool, and mount the EFI partition:
+Boot from live USB, then (device paths for this build's ext4 layout — see [Disk Partitioning](../installation/disk-partitioning.md); the primary 4 TB NVMe is `nvme0n1`):
 
 ```bash
-# Import the root pool into /mnt (by-id paths are the most reliable)
-sudo zpool import -f -d /dev/disk/by-id -R /mnt rpool
-sudo zfs mount rpool/ROOT/ubuntu
+# Mount root filesystem (nvme0n1p3 = 500 GB ext4 root)
+sudo mount /dev/nvme0n1p3 /mnt
 
-# Identify and mount the EFI partition (part1 of the 4 TB primary NVMe)
-export PRIMARY_DISK=/dev/disk/by-id/nvme-<4TB-model-and-serial>
-sudo mkdir -p /mnt/boot/efi
-sudo mount "${PRIMARY_DISK}-part1" /mnt/boot/efi
+# Mount /boot (nvme0n1p2) and EFI (nvme0n1p1)
+sudo mount /dev/nvme0n1p2 /mnt/boot
+sudo mount /dev/nvme0n1p1 /mnt/boot/efi
+
+# Mount virtual filesystems
+sudo mount --bind /dev /mnt/dev
+sudo mount --bind /proc /mnt/proc
+sudo mount --bind /sys /mnt/sys
+
+# Chroot into system
+sudo chroot /mnt
+
+# Reinstall GRUB (target the whole disk, not a partition)
+grub-install /dev/nvme0n1
+update-grub
+
+# Exit and reboot
+exit
+sudo reboot
 ```
 
-Re-fetch the prebuilt ZFSBootMenu image (or re-run `generate-zbm` inside a chroot if you build from source):
+### Fix GRUB Configuration
+
+From recovery shell or chroot:
 
 ```bash
-sudo mkdir -p /mnt/boot/efi/EFI/ZBM
-sudo curl -o /mnt/boot/efi/EFI/ZBM/VMLINUZ.EFI -L https://get.zfsbootmenu.org/efi
-sudo cp /mnt/boot/efi/EFI/ZBM/VMLINUZ.EFI /mnt/boot/efi/EFI/ZBM/VMLINUZ-BACKUP.EFI
+# Update GRUB config
+update-grub
+
+# Verify config
+cat /boot/grub/grub.cfg | grep menuentry
 ```
 
-Re-register the EFI boot entry:
+### GRUB Boot Parameters
 
-```bash
-sudo efibootmgr --create \
-    --disk "$PRIMARY_DISK" --part 1 \
-    --label "ZFSBootMenu" \
-    --loader '\EFI\ZBM\VMLINUZ.EFI'
-
-sudo efibootmgr -v      # confirm it is present and first in the order
-```
-
-### Fix the Kernel Command Line
-
-ZFSBootMenu reads the kernel command line for a boot environment from a ZFS property, not a `grub.cfg`. To change it permanently:
-
-```bash
-# From the running system or a chroot
-sudo zfs set org.zfsbootmenu:commandline="quiet loglevel=4" rpool/ROOT/ubuntu
-
-# Verify
-zfs get org.zfsbootmenu:commandline rpool/ROOT/ubuntu
-```
-
-To override the command line for a single boot only, press `Ctrl+E` at the ZFSBootMenu screen and edit it inline.
-
-### ZFSBootMenu Emergency Command Line Parameters
-
-Add these to the command line (via `Ctrl+E`, or the `org.zfsbootmenu:commandline` property) to reach a minimal system:
+At GRUB menu, press **e** to edit, then modify the `linux` line:
 
 | Parameter | Purpose |
 |-----------|---------|
-| `single` | Single-user mode |
-| `systemd.unit=rescue.target` | Rescue target |
-| `systemd.unit=emergency.target` | Emergency target |
-| `init=/bin/bash` | Boot directly to bash |
-| `nomodeset` | Disable kernel mode setting |
-| `zbm.show` | Force ZFSBootMenu to stop at the menu instead of auto-booting |
+| single | Single-user mode |
+| init=/bin/bash | Boot directly to bash |
+| systemd.unit=rescue.target | Rescue target |
+| systemd.unit=emergency.target | Emergency target |
+| nomodeset | Disable kernel mode setting |
+| quiet splash | Hide boot messages |
+| nosplash | Show boot messages |
 
-## LUKS / Encryption Issues
+Press **Ctrl+X** or **F10** to boot with modified parameters.
+
+## LUKS Encryption Issues
 
 !!! note "Not applicable to this build's default layout"
-    This build uses an **unencrypted root-on-ZFS** pool (no LUKS, no ZFS native encryption). Passphrase unlock, recovery keys, and header backup/restore only apply if you chose an encrypted path — see [Encrypted Alternative](../installation/disk-partitioning.md#encrypted-alternative-zfs-native-encryption-or-luks-lvm) in Disk Partitioning. ZFS native encryption composes with ZFSBootMenu, which prompts for the passphrase at the boot menu when a boot environment's dataset is encrypted.
+    This build uses an **unencrypted plain ext4 root** (no LUKS). LUKS unlock, recovery keys, and header backup/restore only apply if you followed the "Encrypted Alternative — LUKS + LVM" path in [Disk Partitioning](../installation/disk-partitioning.md#encrypted-alternative-zfs-native-encryption-or-luks-lvm); the `cryptsetup` man pages cover that path. (ZFS native encryption on the `hot`/`tank` data pools, if used, is unlocked with `zfs load-key` after the pool imports — it does not gate boot.)
 
 ## Kernel Issues
 
 ### Kernel Panic
 
-With boot environments, a bad kernel is almost never worth debugging in place — the fast fix is to boot a previous, known-good environment or snapshot:
+If system panics on boot:
 
-1. Interrupt the ZFSBootMenu countdown (press a key).
-2. Highlight a previous boot environment or an older snapshot of `rpool/ROOT/ubuntu`.
-3. Press `Enter` to boot it, or `Ctrl+S` to roll a snapshot back.
+1. Boot previous kernel from GRUB
+2. At GRUB menu, select **Advanced options**
+3. Select older kernel version
 
-### Why not just remove the kernel package?
+### Remove Problematic Kernel
 
-On ext4 you would `apt remove` the bad kernel and `update-grub`. Inside a ZFS boot environment that is the wrong instinct: the failing kernel lives in the *same* dataset you would have to boot to remove it, and removing packages doesn't undo whatever else the bad upgrade changed. **Rolling back to a previous boot environment is the correct move** — it reverts the kernel and everything else in one atomic step.
-
-If you do need to manage kernels from a known-good environment:
+From recovery mode or live USB:
 
 ```bash
 # List installed kernels
 dpkg --list | grep linux-image
 
-# Reinstall the current kernel (rebuilds the dracut initramfs ZFSBootMenu reads)
-sudo apt install --reinstall linux-generic
-sudo update-initramfs -c -k all
+# Remove specific kernel
+sudo apt remove linux-image-x.x.x-generic
+
+# Update GRUB
+sudo update-grub
 ```
 
-There is no `update-grub` step — ZFSBootMenu finds the kernel/initramfs inside the dataset directly at boot.
+### Reinstall Current Kernel
+
+```bash
+sudo apt install --reinstall linux-image-$(uname -r)
+sudo update-grub
+```
 
 ## systemd Issues
 
@@ -221,7 +216,10 @@ systemctl --failed
 systemctl status failed-unit.service
 journalctl -u failed-unit.service
 
-# Try to reach multi-user
+# Try to start graphical target
+systemctl isolate graphical.target
+
+# Or multi-user
 systemctl isolate multi-user.target
 ```
 
@@ -237,7 +235,7 @@ systemctl list-jobs
 
 ### Skip Failed Services
 
-Temporarily disable a problematic service:
+Temporarily disable problematic service:
 
 ```bash
 # Mask service (prevents start)
@@ -252,54 +250,76 @@ systemctl unmask problematic.service
 
 ## Filesystem / Pool Issues
 
-ZFS does **not** use `fsck` — there is no `zpool fsck`. Integrity is checked and repaired with `zpool scrub` and read back with `zpool status`; ZFS self-heals corrupted blocks it can reconstruct from checksums.
+### fsck the ext4 Root
 
-### Detect and Repair Corruption
+The root, `/boot`, and `/boot/efi` are classic filesystems — a corrupted root is an `fsck`, not a ZFS operation:
 
 ```bash
-# Health and error counters for both pools
-zpool status -v rpool
-zpool status -v tank
+# Boot to recovery mode or live USB
 
-# Start a scrub (verifies every block against its checksum)
-sudo zpool scrub rpool
-sudo zpool scrub tank
+# Check the root filesystem (unmount first if from live USB)
+sudo umount /dev/nvme0n1p3
+sudo fsck -y /dev/nvme0n1p3
 
-# Watch progress
-zpool status rpool
-
-# If a scrub reports repaired/permanent errors, clear the counters after review
-sudo zpool clear rpool
+# For the running root, use recovery mode — it runs fsck automatically,
+# or force one on next boot:
+sudo touch /forcefsck
 ```
 
-!!! note "No redundancy on this build — scrub detects, it can't always repair"
-    Each pool is a single-disk vdev (snapshots + off-host replication substitute for RAID). A scrub will *detect* corruption via checksums, but with no redundant copy it can only repair blocks that have `copies>1` or ditto metadata. Permanent errors mean restoring the affected dataset from a snapshot or backup — see [ZFS Datasets](../../zfs/datasets.md) and the [rebuild checklist](../../operations/rebuild-checklist.md).
+### Fix fstab Errors
 
-### A Pool Won't Import
+A bad fstab entry can prevent boot:
+
+```bash
+# From recovery mode with remounted root
+mount -o remount,rw /
+
+# Edit fstab
+nano /etc/fstab
+
+# Common issues:
+# - Wrong UUID (check with blkid)
+# - Missing partition
+# - Typo in mount point
+
+# Comment out problematic line with #, reboot, fix properly
+```
+
+Get correct UUIDs with `sudo blkid`. Note the ZFS pools (`hot`, `tank`) have **no fstab entries** — they mount natively via ZFS, so a broken fstab can only affect the ext4/FAT mounts (`/`, `/boot`, `/boot/efi`).
+
+### A ZFS Data Pool Won't Import
+
+ZFS does **not** use `fsck` — there is no `zpool fsck`. Integrity is checked and repaired with `zpool scrub` and read back with `zpool status`; ZFS self-heals corrupted blocks it can reconstruct from checksums. The data pools (`hot`, `tank`) are imported by `zfs-import-cache.service` after root is already up, so a pool problem does not stop boot — you land at a login prompt with a pool missing.
 
 ```bash
 # See importable pools (scan by-id for stability)
 sudo zpool import -d /dev/disk/by-id
 
 # Force-import a pool that was not cleanly exported
-sudo zpool import -f -d /dev/disk/by-id rpool
+sudo zpool import -f -d /dev/disk/by-id hot
 sudo zpool import -f -d /dev/disk/by-id tank
 
 # Last resort: roll back the last few transactions of a damaged pool
-sudo zpool import -F -f rpool
+sudo zpool import -F -f hot
 ```
 
-### Fix a Bad EFI fstab Entry
-
-The only fstab entry in this build is the EFI partition (ZFS datasets mount natively, so a broken fstab can only affect `/boot/efi`, not root). From a working boot environment or the ZFSBootMenu recovery shell:
+### Detect and Repair Pool Corruption
 
 ```bash
-# Get the EFI partition UUID
-sudo blkid | grep -i vfat
+# Health and error counters for both pools
+zpool status -v hot
+zpool status -v tank
 
-# Fix or comment out the /boot/efi line
-sudo nano /etc/fstab
+# Start a scrub (verifies every block against its checksum)
+sudo zpool scrub hot
+sudo zpool scrub tank
+
+# If a scrub reports repaired/permanent errors, clear the counters after review
+sudo zpool clear hot
 ```
+
+!!! note "No redundancy on this build — scrub detects, it can't always repair"
+    Each pool is a single-disk vdev (snapshots + off-host replication substitute for RAID). A scrub will *detect* corruption via checksums, but with no redundant copy it can only repair blocks that have `copies>1` or ditto metadata. Permanent errors mean restoring the affected dataset from a snapshot or backup — see [ZFS Datasets](../../zfs/datasets.md) and the [rebuild checklist](../../operations/rebuild-checklist.md).
 
 ## Network Prevents Boot
 
@@ -311,13 +331,18 @@ If boot hangs waiting for network:
 # Temporarily disable network wait
 systemctl mask systemd-networkd-wait-online.service
 
-# Boot, then fix network config, then unmask
+# Boot, then fix network config
+# Then unmask
 systemctl unmask systemd-networkd-wait-online.service
 ```
 
 ### Fix Netplan
 
+From recovery:
+
 ```bash
+mount -o remount,rw /
+
 # Check netplan config (networkd renderer for this build)
 cat /etc/netplan/*.yaml
 
@@ -332,113 +357,108 @@ netplan apply
 
 ### Boot from Live USB
 
-1. Create an Ubuntu live USB.
-2. Boot from it and reach a root shell (Try Ubuntu, or the Server ISO's shell).
-3. Install ZFS tools if the live image lacks them: `sudo apt install -y zfsutils-linux`.
+1. Create Ubuntu live USB
+2. Boot from USB
+3. Select "Try Ubuntu", or the Server ISO's shell
 
-### Import the Pool and Chroot
-
-There are no `mount /dev/nvme0n1p3 /mnt` device mounts here — the root filesystem is a ZFS dataset. Import the pool with an alternate root and the dataset mounts itself:
+### Chroot into System
 
 ```bash
-# Import rpool into /mnt (by-id paths survive enumeration reshuffles)
-sudo zpool import -f -d /dev/disk/by-id -R /mnt rpool
+# Find your partitions
+lsblk
 
-# rpool/ROOT/ubuntu is canmount=noauto — mount it explicitly
-sudo zfs mount rpool/ROOT/ubuntu
-sudo zfs mount rpool/home
+# Mount root (nvme0n1p3 = 500 GB ext4 root on the primary)
+sudo mount /dev/nvme0n1p3 /mnt
 
-# Mount the EFI partition (part1 of the 4 TB primary NVMe) for bootloader work
-export PRIMARY_DISK=/dev/disk/by-id/nvme-<4TB-model-and-serial>
-sudo mount "${PRIMARY_DISK}-part1" /mnt/boot/efi
+# Mount /boot (nvme0n1p2) and EFI (nvme0n1p1)
+sudo mount /dev/nvme0n1p2 /mnt/boot
+sudo mount /dev/nvme0n1p1 /mnt/boot/efi
 
-# Bind-mount virtual filesystems and chroot
-sudo mount --rbind /dev  /mnt/dev
-sudo mount --rbind /proc /mnt/proc
-sudo mount --rbind /sys  /mnt/sys
+# Mount virtual filesystems
+sudo mount --bind /dev /mnt/dev
+sudo mount --bind /proc /mnt/proc
+sudo mount --bind /sys /mnt/sys
+
+# Chroot
 sudo chroot /mnt
 
-# ... run repairs (reinstall kernel, re-run efibootmgr, fix netplan) ...
-
+# Now run repairs as if on actual system (reinstall kernel/GRUB, fix netplan)
+# Exit when done
 exit
-sudo zpool export rpool
 sudo reboot
 ```
 
-If you also need `tank`, `sudo zpool import -f -d /dev/disk/by-id tank`.
+If you also need the data pools from the live environment: `sudo apt install -y zfsutils-linux` then `sudo zpool import -f -d /dev/disk/by-id hot` (and `tank`).
+
+!!! note "LUKS+LVM alternative"
+    If you followed the encrypted alternative from [Disk Partitioning](../installation/disk-partitioning.md#encrypted-alternative-zfs-native-encryption-or-luks-lvm), unlock first with `sudo cryptsetup open /dev/nvme0n1p3 cryptroot` and mount the resulting `/dev/mapper/...` root device instead of `nvme0n1p3`.
 
 ## Quick Reference
 
-### ZFSBootMenu Hotkeys (at the boot screen)
+### Boot to Different Targets
+
+From GRUB, add to linux line:
 
 ```
-Enter     Boot selected environment
-Ctrl+E    Edit kernel command line for this boot
-Ctrl+S    Snapshot menu (roll back a boot environment)
-Ctrl+A    Set selected environment as default
-Ctrl+R    Recovery shell
-Ctrl+P    zpool status
+systemd.unit=rescue.target      # Rescue mode
+systemd.unit=emergency.target   # Emergency mode
+systemd.unit=multi-user.target  # No GUI
+init=/bin/bash                  # Direct bash
 ```
 
 ### Key Commands
 
 ```bash
-# EFI boot entries
-efibootmgr -v                       # List entries + boot order
-efibootmgr -o 0003,0000             # Reorder (ZFSBootMenu first)
+# Recovery mode
+mount -o remount,rw /        # Remount root writable
 
-# ZFSBootMenu binary + kernel command line
-curl -o /boot/efi/EFI/ZBM/VMLINUZ.EFI -L https://get.zfsbootmenu.org/efi
-zfs set org.zfsbootmenu:commandline="quiet loglevel=4" rpool/ROOT/ubuntu
+# GRUB
+grub-install /dev/nvme0n1    # Reinstall GRUB (whole disk)
+update-grub                  # Update config
 
-# Pools
-zpool status -v rpool               # Health + errors
-zpool scrub rpool                   # Verify/repair (ZFS has no fsck)
-zpool import -f -d /dev/disk/by-id -R /mnt rpool   # Recovery import
+# Kernel
+dpkg --list | grep linux-image  # List kernels
 
-# Kernel / initramfs
-dpkg --list | grep linux-image      # List kernels
-update-initramfs -c -k all          # Rebuild dracut initramfs
+# ext4 filesystem
+fsck -y /dev/nvme0n1p3       # Fix root filesystem
+blkid                        # Show UUIDs
+
+# ZFS data pools
+zpool status -v hot          # Health + errors
+zpool scrub hot              # Verify/repair (ZFS has no fsck)
+zpool import -f -d /dev/disk/by-id hot   # Recovery import
 
 # systemd
-systemctl --failed                  # Show failures
-systemctl mask service              # Prevent start
-systemctl isolate target            # Switch target
+systemctl --failed           # Show failures
+systemctl mask service       # Prevent start
+systemctl isolate target     # Switch target
 ```
 
 ## Prevention
 
-### Keep Boot Environments (instead of backup kernels)
-
-Boot environments are this build's rollback mechanism. Keep a few around and snapshot before risky changes:
+### Keep Backup Kernels
 
 ```bash
-# Snapshot root before an upgrade
-sudo zfs snapshot rpool/ROOT/ubuntu@pre-upgrade-$(date +%F)
+# Don't autoremove all old kernels — keep at least one previous version
+# so a bad kernel is a GRUB "Advanced options" pick, not a reinstall
 
-# List boot-environment snapshots (rollback targets in ZFSBootMenu)
-zfs list -t snapshot -r rpool/ROOT
+# Check how many to keep
+grep -r "APT::NeverAutoRemove" /etc/apt/
 ```
 
-`sanoid` automates this retention on `rpool/ROOT` — see [Backups](../../operations/rebuild-checklist.md).
-
-### Back Up the EFI Binary and Boot Entries
-
-There is no GRUB config to back up. What matters is the ZFSBootMenu EFI binary (already duplicated as `VMLINUZ-BACKUP.EFI` during install) and the `efibootmgr` entries:
+### Back Up GRUB and the ESP
 
 ```bash
-# Record the current EFI boot entries and order
+# Copy current GRUB config and record the EFI boot entries
+sudo cp -r /boot/grub /safe/location/grub-backup
 sudo efibootmgr -v > ~/efi-boot-entries.txt
-
-# Keep a copy of the ZFSBootMenu image off the ESP
-sudo cp /boot/efi/EFI/ZBM/VMLINUZ.EFI /safe/location/zbm-VMLINUZ.EFI
 ```
 
 ### Scrub On A Schedule
 
 ```bash
-# A monthly scrub catches silent corruption before it spreads
-sudo zpool scrub rpool
+# A monthly scrub catches silent corruption on the data pools before it spreads
+sudo zpool scrub hot
 sudo zpool scrub tank
 ```
 

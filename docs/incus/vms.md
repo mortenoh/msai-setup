@@ -56,7 +56,7 @@ incus config set builder limits.cpu.pin '0-3'
 
 ## Storage — the VM disk is a zvol
 
-A VM's root disk is a ZFS **zvol** under `rpool/incus/virtual-machines/<name>.block` (see [Storage](storage.md)). Resize it:
+A VM's root disk is a ZFS **zvol** under `hot/incus/virtual-machines/<name>.block` (see [Storage](storage.md)). Resize it:
 
 ```bash
 incus config device set builder root size=100GiB

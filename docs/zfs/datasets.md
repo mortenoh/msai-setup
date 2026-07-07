@@ -4,13 +4,10 @@ A dataset is a ZFS filesystem (or zvol) inside a pool. Datasets are cheap, can b
 
 ## The dataset layout for this build
 
-Two independent pools, one per physical drive. `rpool` (fast 4 TB NVMe) holds root and everything performance-sensitive; `tank` (slow 2 TB NVMe) holds bulk/cold data. See [Pool Creation](pool-creation.md) for how each pool is created and [Disk Partitioning](../ubuntu/installation/disk-partitioning.md) for the device layout.
+Two independent pools, one per physical drive. `hot` (fast 4 TB NVMe) holds everything performance-sensitive; `tank` (slow 2 TB NVMe) holds bulk/cold data. Root is not here — it lives on a small ext4 partition on the same primary NVMe (see [Disk Partitioning](../ubuntu/installation/disk-partitioning.md)). See [Pool Creation](pool-creation.md) for how each pool is created and the device layout.
 
 ```
-rpool/                   # fast 4 TB NVMe (slot 1, PCIe 4.0 x4) — root + hot data
-+-- ROOT/                # boot-environment container (canmount=off)
-|   +-- ubuntu/          # the OS root; mountpoint=/, canmount=noauto (a boot environment)
-+-- home/                # user home directories
+hot/                   # fast 4 TB NVMe (slot 1, PCIe 4.0 x4) — hot data + Incus instances
 +-- incus/              # Incus's ZFS storage backend — DO NOT hand-carve; Incus owns it
 |   +-- containers/...   #   one child per container (created automatically by Incus)
 |   +-- virtual-machines/... #   one child per VM (a zvol; created automatically by Incus)
@@ -25,35 +22,35 @@ tank/                    # slow 2 TB NVMe (slot 2, PCIe 4.0 x1) — bulk/cold da
 +-- backups/             # cold archive target; compression=zstd-3
 ```
 
-!!! danger "`rpool/incus` is Incus's — do not create datasets under it by hand"
-    Every container and VM is a ZFS dataset that **Incus** creates and manages beneath `rpool/incus`. Do not `zfs create`, rename, or `zfs destroy` anything under `rpool/incus` yourself — you'll desynchronize Incus's database from on-disk reality. Manage instance storage through `incus` commands; use raw `zfs` under `rpool/incus` only for *reading* (inspecting, sending snapshots for backup). This is the [Incus storage backend](../incus/storage.md) — that page is the source of truth for it. The other `rpool` datasets (`ROOT`, `home`, `db`, `ai`) are yours to manage normally.
+!!! danger "`hot/incus` is Incus's — do not create datasets under it by hand"
+    Every container and VM is a ZFS dataset that **Incus** creates and manages beneath `hot/incus`. Do not `zfs create`, rename, or `zfs destroy` anything under `hot/incus` yourself — you'll desynchronize Incus's database from on-disk reality. Manage instance storage through `incus` commands; use raw `zfs` under `hot/incus` only for *reading* (inspecting, sending snapshots for backup). This is the [Incus storage backend](../incus/storage.md) — that page is the source of truth for it. The other `hot` datasets (`db`, `ai`) are yours to manage normally.
 
-There is intentionally **no `tank/containers/<svc>` or `tank/vm` tree** anymore. Under the old single-pool design those held Docker bind-mount targets and raw qcow2/zvol VM disks; both are superseded — per-instance storage is Incus's job now (`rpool/incus`), and `db`/`ai` moved to the fast `rpool`. Services that still want a *bind-mounted host dataset* (media, model files, Nextcloud data) use the datasets above, mounted into the instance — see [Docker Integration](docker-integration.md) and [Incus storage](../incus/storage.md#bind-mounting-host-datasets-into-containers).
+There is intentionally **no `tank/containers/<svc>` or `tank/vm` tree** anymore. Under the old single-pool design those held Docker bind-mount targets and raw qcow2/zvol VM disks; both are superseded — per-instance storage is Incus's job now (`hot/incus`), and `db`/`ai` moved to the fast `hot`. Services that still want a *bind-mounted host dataset* (media, model files, Nextcloud data) use the datasets above, mounted into the instance — see [Docker Integration](docker-integration.md) and [Incus storage](../incus/storage.md#bind-mounting-host-datasets-into-containers).
 
 ## A note on device placement
 
 Datasets are units of *policy* (compression, recordsize, quotas), **not** units of *device placement* — but this build sidesteps the usual limitation by using **two pools instead of one**. Placement is therefore a real, enforceable guarantee here:
 
-- Anything on **`rpool`** is on the fast 4 TB drive (PCIe 4.0 x4). That's why root, `rpool/incus` (all instance storage), `rpool/db`, and `rpool/ai` live there.
+- Anything on **`hot`** is on the fast 4 TB drive (PCIe 4.0 x4). That's why `hot/incus` (all instance storage), `hot/db`, and `hot/ai` live there.
 - Anything on **`tank`** is on the slow 2 TB drive (PCIe 4.0 x1). Media, Nextcloud data, and cold backups tolerate the slower link.
 
 An earlier draft of this project used a *single* pool striped across both drives. In that design you genuinely couldn't pin a dataset to a device — ZFS's allocator spreads writes across all top-level vdevs by free space, with no per-dataset device knob. The two-pool split is precisely what makes "hot data on the fast drive" a guarantee rather than a hope. See [Pool Creation → Two pools, not one stripe](pool-creation.md#two-pools-not-one-stripe).
 
 ## Create the datasets
 
-`rpool/ROOT/ubuntu` and `rpool/home` are created during [Pool Creation](pool-creation.md) / the install. The remaining hot-data datasets on `rpool`, and the data datasets on `tank`, are created here. **`rpool/incus` is created empty and then handed to Incus** — you do not create the per-instance children; Incus does.
+The hot-data datasets on `hot` and the data datasets on `tank` are created here — **post-install, from the running system** (root is already up on ext4, so there's no live-environment bootstrap for these). **`hot/incus` is created empty and then handed to Incus** — you do not create the per-instance children; Incus does.
 
 ```bash
-# --- rpool (fast drive) ---
+# --- hot (fast drive) ---
 
 # Incus storage backend — created once, then Incus owns everything beneath it
-sudo zfs create -o mountpoint=none rpool/incus
+sudo zfs create -o mountpoint=none hot/incus
 
 # Databases — small random IO
-sudo zfs create -o recordsize=16K rpool/db
+sudo zfs create -o recordsize=16K hot/db
 
 # AI models — already-compressed binary blobs; big sequential reads
-sudo zfs create -o recordsize=1M -o compression=off rpool/ai
+sudo zfs create -o recordsize=1M -o compression=off hot/ai
 
 # --- tank (slow drive) ---
 
@@ -68,13 +65,13 @@ sudo zfs create tank/nextcloud-app
 sudo zfs create -o compression=zstd-3 tank/backups
 ```
 
-Then point Incus at `rpool/incus` (during [Incus installation](../incus/installation.md)) so it builds and manages its own `containers/`, `virtual-machines/`, `images/`, … children — see [Incus storage](../incus/storage.md#how-rpoolincus-becomes-incuss-pool).
+Then point Incus at `hot/incus` (during [Incus installation](../incus/installation.md)) so it builds and manages its own `containers/`, `virtual-machines/`, `images/`, … children — see [Incus storage](../incus/storage.md#how-hotincus-becomes-incuss-pool).
 
 Verify:
 
 ```bash
 zfs list
-zfs get compression,recordsize -r rpool
+zfs get compression,recordsize -r hot
 zfs get compression,recordsize -r tank
 ```
 
@@ -83,7 +80,7 @@ zfs get compression,recordsize -r tank
 Properties cascade from parent to child unless explicitly overridden. The `SOURCE` column in `zfs get` tells you where a value comes from:
 
 ```bash
-zfs get -o name,property,value,source compression rpool tank tank/media rpool/ai
+zfs get -o name,property,value,source compression hot tank tank/media hot/ai
 ```
 
 Possible sources:
@@ -97,8 +94,8 @@ Possible sources:
 To unset a local value and re-inherit from parent:
 
 ```bash
-sudo zfs inherit recordsize rpool/db
-sudo zfs inherit -r recordsize rpool/db   # recursive
+sudo zfs inherit recordsize hot/db
+sudo zfs inherit -r recordsize hot/db   # recursive
 ```
 
 This is essential for cleanup — if you experiment with properties and want to "reset to defaults", `zfs inherit -r` is the way.
@@ -112,7 +109,7 @@ ZFS has many properties. The ones that matter most:
 ```bash
 zfs set compression=lz4 tank/foo
 zfs set compression=zstd-3 tank/backups
-zfs set compression=off rpool/ai
+zfs set compression=off hot/ai
 ```
 
 See [Concepts -> Compression](concepts.md#compression). Options:
@@ -129,18 +126,18 @@ See [Concepts -> Compression](concepts.md#compression). Options:
 
 ```bash
 zfs set recordsize=1M tank/media
-zfs set recordsize=16K rpool/db
-zfs set recordsize=1M rpool/ai
+zfs set recordsize=16K hot/db
+zfs set recordsize=1M hot/ai
 ```
 
 See [Tuning -> `recordsize` per workload](tuning.md#recordsize-per-workload). Only affects writes after the change; existing data keeps its block size until rewritten.
 
-VM disks are zvols managed by Incus under `rpool/incus/virtual-machines/` — you don't set their `volblocksize` by hand; tune it through Incus's `zfs.blocksize` storage-volume knob instead. See [VM Storage](vm-storage.md) and [Incus storage → sizing and properties](../incus/storage.md#sizing-and-properties).
+VM disks are zvols managed by Incus under `hot/incus/virtual-machines/` — you don't set their `volblocksize` by hand; tune it through Incus's `zfs.blocksize` storage-volume knob instead. See [VM Storage](vm-storage.md) and [Incus storage → sizing and properties](../incus/storage.md#sizing-and-properties).
 
 ### Atime, relatime
 
 ```bash
-zfs set relatime=on rpool     # both pools are created with -O relatime=on
+zfs set relatime=on hot     # both pools are created with -O relatime=on
 zfs set relatime=on tank
 ```
 
@@ -149,7 +146,7 @@ Both pools are created with `relatime=on` (see [Pool Creation](pool-creation.md)
 If a specific dataset must never update atime at all:
 
 ```bash
-zfs set atime=off rpool/some-dataset
+zfs set atime=off hot/some-dataset
 ```
 
 ### Mountpoint, mounted
@@ -171,13 +168,13 @@ zfs inherit mountpoint tank/baz                  # inherit from parent
 zfs set quota=500G tank/nextcloud-data
 
 # refquota — hard upper bound on this dataset only (NOT including snapshots or children)
-zfs set refquota=200G rpool/db
+zfs set refquota=200G hot/db
 
 # Reservation — guarantee minimum free space (this dataset and children)
-zfs set reservation=50G rpool/db
+zfs set reservation=50G hot/db
 
 # refreservation — guarantee minimum free for the dataset itself, excluding snapshots
-zfs set refreservation=10G rpool/ai
+zfs set refreservation=10G hot/ai
 ```
 
 | Setting | What it counts |
@@ -203,7 +200,7 @@ zfs set sync=always tank/critical
 
 ```bash
 zfs set primarycache=metadata tank/media
-zfs set primarycache=all rpool/db        # default
+zfs set primarycache=all hot/db        # default
 ```
 
 What ARC (`primary`) and L2ARC (`secondary`) cache for this dataset:
@@ -267,13 +264,13 @@ ZFS doesn't interpret these. Use them for annotations, automation hooks, tooling
 ## Per-dataset properties for this build
 
 ```bash
-# AI models (rpool) — read-mostly, sequential, already compressed
-sudo zfs set recordsize=1M rpool/ai
-sudo zfs set compression=off rpool/ai
-sudo zfs set primarycache=metadata rpool/ai     # models are mmap'd; ARC won't help much
+# AI models (hot) — read-mostly, sequential, already compressed
+sudo zfs set recordsize=1M hot/ai
+sudo zfs set compression=off hot/ai
+sudo zfs set primarycache=metadata hot/ai     # models are mmap'd; ARC won't help much
 
-# Databases (rpool) — small random IO, ARC hits matter
-sudo zfs set recordsize=16K rpool/db
+# Databases (hot) — small random IO, ARC hits matter
+sudo zfs set recordsize=16K hot/db
 
 # Media archives (tank)
 sudo zfs set recordsize=1M tank/media
@@ -287,19 +284,19 @@ sudo zfs set primarycache=metadata tank/backups
 # Defaults are fine for everything else
 ```
 
-VM-disk and container-root recordsize/blocksize are set through Incus on `rpool/incus`, not here — see [Incus storage → sizing and properties](../incus/storage.md#sizing-and-properties).
+VM-disk and container-root recordsize/blocksize are set through Incus on `hot/incus`, not here — see [Incus storage → sizing and properties](../incus/storage.md#sizing-and-properties).
 
 Verify (both pools):
 
 ```bash
-zfs get -r recordsize,compression,primarycache rpool tank | grep -v default
+zfs get -r recordsize,compression,primarycache hot tank | grep -v default
 ```
 
 This shows only the explicitly-set values, which is a useful audit.
 
 ## Permissions on host datasets bind-mounted into instances
 
-The persistent-data datasets above (`tank/nextcloud-data`, `tank/media`, `rpool/db`, `rpool/ai`) are **bind-mounted from the host into an Incus instance**, and from there into the nested Docker compose service — the two-layer chain documented in [Docker Integration](docker-integration.md) and [Docker inside Incus](../incus/docker-in-incus.md). The final consumer (the Docker container) runs as a non-root user, so the host dataset must be owned by the UID/GID that user maps to.
+The persistent-data datasets above (`tank/nextcloud-data`, `tank/media`, `hot/db`, `hot/ai`) are **bind-mounted from the host into an Incus instance**, and from there into the nested Docker compose service — the two-layer chain documented in [Docker Integration](docker-integration.md) and [Docker inside Incus](../incus/docker-in-incus.md). The final consumer (the Docker container) runs as a non-root user, so the host dataset must be owned by the UID/GID that user maps to.
 
 Typical service UIDs (the container-internal user):
 
@@ -317,8 +314,8 @@ Set ownership on each host dataset to match:
 # Nextcloud (tank)
 sudo chown -R 33:33 /tank/nextcloud-data /tank/nextcloud-app
 
-# Postgres database (rpool)
-sudo chown -R 999:999 /rpool/db
+# Postgres database (hot)
+sudo chown -R 999:999 /hot/db
 
 # Media library consumed by a PUID/PGID=1000 service (tank)
 sudo chown -R 1000:1000 /tank/media
@@ -334,7 +331,7 @@ sudo chown -R 1000:1000 /tank/media
 zfs list -o name,used,available,referenced,mountpoint,compression,recordsize
 
 # Filter
-zfs list -r rpool/incus                        # inspect Incus's instance datasets (read-only!)
+zfs list -r hot/incus                        # inspect Incus's instance datasets (read-only!)
 zfs list -t all                                # include snapshots and bookmarks
 zfs list -t filesystem,volume                  # exclude snapshots
 
@@ -379,5 +376,5 @@ That's its own page.
 - [Snapshots](snapshots.md) — manage point-in-time copies, clones, holds, send/receive.
 - [VM Storage](vm-storage.md) — how Incus backs VM disks with ZFS zvols.
 - [Docker Integration](docker-integration.md) — bind-mounting host datasets into the Docker-in-Incus stack.
-- [Incus storage](../incus/storage.md) — the `rpool/incus` backend in depth.
+- [Incus storage](../incus/storage.md) — the `hot/incus` backend in depth.
 - [Operations](operations.md) — scrubs, replace, expand.

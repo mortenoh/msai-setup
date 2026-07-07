@@ -11,11 +11,11 @@ ZFS can consume **whole disks** or **partitions**. Both work, but they have mean
 
 For the MS-S1 MAX build (see [Disk Partitioning](../ubuntu/installation/disk-partitioning.md) for the canonical, authoritative layout — this page is the ZFS-mechanics companion, not a second source of truth):
 
-- **Primary 4 TB NVMe (slot 1, PCIe 4.0 x4)**: partitioned. A 512 MB EFI System partition (holds the ZFSBootMenu EFI binary), then the entire remainder as one ZFS partition → `rpool`. **Root itself is ZFS** (`rpool/ROOT/ubuntu`), not ext4 — there is no separate `/boot` or ext4 root partition on this build's default layout.
-- **Secondary 2 TB NVMe (slot 2, PCIe 4.0 x1)**: whole disk → `tank`, a fully independent pool. Not striped with `rpool`.
+- **Primary 4 TB NVMe (slot 1, PCIe 4.0 x4)**: partitioned four ways — a 512 MB EFI System partition, a 1 GB `/boot` (ext4), a 500 GB ext4 root (`/`), then the entire remainder (~3.4 TB) as one ZFS partition → `hot`. **Root itself is ext4** (Subiquity + GRUB), not ZFS — see [Disk Partitioning](../ubuntu/installation/disk-partitioning.md) for the canonical layout.
+- **Secondary 2 TB NVMe (slot 2, PCIe 4.0 x1)**: whole disk → `tank`, a fully independent pool. Not striped with `hot`.
 
-!!! note "Drives swapped, root is now ZFS — this is the reverse of an earlier draft"
-    An earlier draft of this project put the *2 TB* drive in slot 1 with an ext4 root, and the *4 TB* drive whole-disk. That is outdated on every count. The **4 TB** drive now sits in the fast x4 slot (`rpool`, root + hot data), the **2 TB** in the slow x1 slot (`tank`, bulk data), and root lives on ZFS via ZFSBootMenu. The [ext4-root layout](../ubuntu/installation/disk-partitioning.md#ext4-root-documented-alternative) is preserved only as a documented alternative.
+!!! note "Drives swapped from an earlier draft"
+    An earlier draft of this project put the *2 TB* drive in slot 1 and the *4 TB* drive whole-disk. That is outdated: the **4 TB** drive now sits in the fast x4 slot (`hot`, plus the EFI/`/boot`/ext4-root partitions), the **2 TB** in the slow x1 slot (`tank`, bulk data). Root is ext4 on the primary; root-on-ZFS via ZFSBootMenu is preserved only as a [documented alternative](../ubuntu/installation/zfs-root-alternative.md).
 
 Even on a whole-disk install, modern OpenZFS will write a GPT with a single ZFS partition spanning the disk — it's *effectively* still a partition, just one created and managed automatically.
 
@@ -36,10 +36,10 @@ sudo smartctl -i /dev/nvme0n1   # confirm serial vs. label
 sudo lshw -class disk -short
 ```
 
-A clean snippet for the MS-S1 MAX (yours will differ on serials; the 4 TB drive is the fast slot-1 `rpool` disk, the 2 TB is the slow slot-2 `tank` disk):
+A clean snippet for the MS-S1 MAX (yours will differ on serials; the 4 TB drive is the fast slot-1 `hot` disk, the 2 TB is the slow slot-2 `tank` disk):
 
 ```
-nvme-Samsung_SSD_990_PRO_4TB_S7XXXXXXXX -> ../../nvme0n1   # slot 1, x4 -> rpool
+nvme-Samsung_SSD_990_PRO_4TB_S7XXXXXXXX -> ../../nvme0n1   # slot 1, x4 -> hot
 nvme-Samsung_SSD_990_PRO_2TB_S6XXXXXXXX -> ../../nvme1n1   # slot 2, x1 -> tank
 ```
 
@@ -108,21 +108,17 @@ sudo blkdiscard /dev/nvme1n1      # NVMe / SATA SSD trim/discard all blocks
 !!! danger "blkdiscard is irreversible"
     `blkdiscard /dev/X` flat-out throws away the contents of the whole device. Triple-check the path.
 
-## Creating the partition layout — primary NVMe (root-on-ZFS)
+## Creating the partition layout — primary NVMe
 
-This is the root-on-ZFS partition table from [Disk Partitioning](../ubuntu/installation/disk-partitioning.md) — the canonical source; reproduced here for the ZFS-mechanics context. Just **two** partitions on the 4 TB primary: a 512 MB EFI System partition (holding the ZFSBootMenu EFI binary) and the entire remainder as the `rpool` member. No `/boot`, no ext4 root partition.
+This is the partition table from [Disk Partitioning](../ubuntu/installation/disk-partitioning.md) — the canonical source; reproduced here for the ZFS-mechanics context. **Four** partitions on the 4 TB primary: a 512 MB EFI System partition, a 1 GB `/boot`, a 500 GB ext4 root, and the entire remainder (~3.4 TB) as the `hot` pool member. Ubuntu's guided installer (Subiquity) creates the first three; you add the fourth (`hot`) afterward **from the running system**.
 
 ```bash
-# Identify primary NVMe (4 TB, slot 1, fast x4 link -> rpool)
+# Identify primary NVMe (4 TB, slot 1, fast x4 link -> hot)
 DISK=/dev/disk/by-id/nvme-Samsung_SSD_990_PRO_4TB_<your-serial>
 
-# Wipe
-sudo wipefs -a "$DISK"
-sudo sgdisk --zap-all "$DISK"
-
-# Two partitions: EFI + the rest for rpool
-sudo sgdisk -n1:1M:+512M -t1:EF00 "$DISK"   # EFI System
-sudo sgdisk -n2:0:0      -t2:BF00 "$DISK"   # ZFS pool member (rest of disk)
+# Subiquity has already laid down p1 (EFI), p2 (/boot), p3 (ext4 root),
+# leaving ~3.4 TB of free space. Add the ZFS member spanning that free space:
+sudo sgdisk -n4:0:0 -t4:BF00 "$DISK"   # ZFS pool member (rest of disk)
 
 # Reload partition table
 sudo partprobe "$DISK"
@@ -131,20 +127,20 @@ sudo partprobe "$DISK"
 lsblk "$DISK"
 ```
 
-`sgdisk` is the scriptable form of `gdisk`. `-n1:1M:+512M` starts the EFI partition at 1 MiB and sizes it 512 MiB; `-n2:0:0` means "next available start through end of disk". The secondary 2 TB drive is whole-disk (one BF00 partition spanning it) — see [Disk Partitioning](../ubuntu/installation/disk-partitioning.md#partition-and-create-tank-secondary-slow-drive).
+`sgdisk` is the scriptable form of `gdisk`. `-n4:0:0` means "next available start through end of disk", so it consumes exactly the free space Subiquity left after the three ext4/FAT partitions. The secondary 2 TB drive is whole-disk (one BF00 partition spanning it) — see [Disk Partitioning](../ubuntu/installation/disk-partitioning.md#partition-and-create-tank-secondary-slow-drive).
 
 After this, the paths you'll pass to `zpool create` (see [Pool Creation](pool-creation.md)) are:
 
 ```
-/dev/disk/by-id/nvme-Samsung_SSD_990_PRO_4TB_<serial>-part2   (rpool member)
+/dev/disk/by-id/nvme-Samsung_SSD_990_PRO_4TB_<serial>-part4   (hot member)
 /dev/disk/by-id/nvme-Samsung_SSD_990_PRO_2TB_<serial>-part1   (tank member)
 ```
 
-## Why use `-part2` not `nvme0n1p2`
+## Why use `-part4` not `nvme0n1p4`
 
 When you reboot, kernel device names can swap (`nvme0n1` and `nvme1n1` may switch based on enumeration order). Partition IDs under `/dev/disk/by-id/` are stable across reboots because they're derived from the disk's serial number plus partition index.
 
-If a pool was created with `nvme0n1p2` and that name moves at next boot, ZFS will still find the device by scanning labels — but the pool will show as `UNAVAIL` until it does. Starting with `by-id` avoids that brief panic. This matters doubly on a root-on-ZFS build: `rpool` must import cleanly at boot for the system to come up at all.
+If a pool was created with `nvme0n1p4` and that name moves at next boot, ZFS will still find the device by scanning labels — but the pool will show as `UNAVAIL` until it does. Starting with `by-id` avoids that brief panic. Root is ext4 and boots independently, so a slow `hot` import doesn't block the system — but you still want the pool (and thus Incus) up cleanly on every boot.
 
 ## Partition naming sanity checks
 
@@ -156,7 +152,7 @@ sudo parted /dev/nvme0n1 unit GiB print
 ls -la /dev/disk/by-id/ | grep nvme | grep part
 
 # Inspect ZFS label, if any (should be empty on a freshly partitioned device)
-sudo zdb -l /dev/disk/by-id/nvme-Samsung_SSD_990_PRO_4TB_<serial>-part2
+sudo zdb -l /dev/disk/by-id/nvme-Samsung_SSD_990_PRO_4TB_<serial>-part4
 ```
 
 `zdb -l` reads the four ZFS labels at the start and end of a vdev. On an empty partition it returns "no label", which is what you want before `zpool create`.
@@ -168,7 +164,7 @@ sudo zdb -l /dev/disk/by-id/nvme-Samsung_SSD_990_PRO_4TB_<serial>-part2
 `zpool create -f` will force, but cleaner to wipe first:
 
 ```bash
-sudo wipefs -a /dev/disk/by-id/nvme-...-part2
+sudo wipefs -a /dev/disk/by-id/nvme-...-part4
 sudo zpool create ...
 ```
 
