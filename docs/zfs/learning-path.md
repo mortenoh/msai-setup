@@ -15,8 +15,8 @@ the real MS-S1 MAX yet.
 
   ```bash
   uv sync
-  uv run msai create zfs-lab    # ~3-4 min
-  uv run msai ssh               # opens a shell on it
+  uv run msai lab create zfs-lab    # ~3-4 min
+  uv run msai lab ssh               # opens a shell on it
   ```
 
   Comes up with 6 spare SATA disks on `/dev/sdb-g` — see
@@ -159,7 +159,7 @@ VBoxManage snapshot zfs-lab restorecurrent
 
 # Nuclear — start over
 uv run msai lab destroy
-uv run msai create zfs-lab
+uv run msai lab create zfs-lab
 ```
 
 ## See also

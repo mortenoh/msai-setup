@@ -255,7 +255,7 @@ Useful for testing bandwidth-sensitive software in degraded conditions.
 
 ## Lab network setup (reference)
 
-`msai create` configures the simplest workable setup:
+`msai lab create` configures the simplest workable setup:
 
 ```
 NIC 1:  NAT
@@ -266,7 +266,7 @@ NIC 2-8: not configured
 This is enough for everything the lab does. The VM can:
 
 - Reach the internet (apt update, docker pull, anything).
-- Be reached on host port 2222 for SSH (the `msai ssh` command).
+- Be reached on host port 2222 for SSH (the `msai lab ssh` command).
 - NOT be reached from your LAN (intentional — lab VMs are throwaway, don't expose them).
 
 If you wanted to test "real" services from your LAN, switch NIC 1 to bridged. The Ansible playbooks don't care which mode you use — they target whatever the inventory says the host IP is.

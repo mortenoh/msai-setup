@@ -80,11 +80,11 @@ def docs() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Lab-instance lifecycle (top-level convenience commands)
+# Lab-instance lifecycle (grouped under `msai lab`)
 # ---------------------------------------------------------------------------
 
 
-@app.command()
+@lab_app.command()
 def create(
     name: Annotated[str, typer.Argument(help="Instance name (lowercase, hyphens).")],
 ) -> None:
@@ -105,13 +105,13 @@ def create(
     lab_provision()
 
 
-@app.command(name="list")
-@app.command(name="ls", hidden=True)
+@lab_app.command(name="list")
+@lab_app.command(name="ls", hidden=True)
 def list_instances() -> None:
     """List lab instances visible in target/."""
     items = lab_instance.list_instances()
     if not items:
-        typer.echo("no instances yet. Create one: msai create <name>")
+        typer.echo("no instances yet. Create one: msai lab create <name>")
         return
 
     table = Table(title="Lab instances", show_lines=False)
@@ -138,10 +138,10 @@ def list_instances() -> None:
             vbox_status,
         )
     console.print(table)
-    console.print("[dim]* = current instance (msai use <name> to switch)[/dim]")
+    console.print("[dim]* = current instance (msai lab use <name> to switch)[/dim]")
 
 
-@app.command()
+@lab_app.command()
 def use(
     name: Annotated[str, typer.Argument(help="Instance name to switch to.")],
 ) -> None:
@@ -157,7 +157,7 @@ def use(
     typer.echo(f"current instance is now '{name}'")
 
 
-@app.command()
+@lab_app.command()
 def start(
     name: Annotated[
         str | None,
@@ -167,7 +167,7 @@ def start(
     """Power on a lab instance (headless)."""
     target = name or lab_instance.require_current()
     if not lab_vbox.vm_exists(target):
-        typer.echo(f"VM '{target}' not present. Create it: msai create {target}", err=True)
+        typer.echo(f"VM '{target}' not present. Create it: msai lab create {target}", err=True)
         raise typer.Exit(code=1)
     if lab_vbox.vm_running(target):
         typer.echo(f"VM '{target}' is already running.")
@@ -176,7 +176,7 @@ def start(
     typer.echo(f"started '{target}' headless")
 
 
-@app.command()
+@lab_app.command()
 def stop(
     name: Annotated[
         str | None,
@@ -206,11 +206,11 @@ def stop(
         )
 
 
-@app.command(
+@lab_app.command(
     name="ssh",
     context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
 )
-@app.command(
+@lab_app.command(
     name="login",
     hidden=True,
     context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
@@ -227,7 +227,7 @@ def ssh_login(
     """SSH into a lab instance using the lab keypair.
 
     Pass a remote command after `--` to run it non-interactively instead of
-    opening a shell, e.g. `msai ssh myvm -- uname -a`. NAME must be given
+    opening a shell, e.g. `msai lab ssh myvm -- uname -a`. NAME must be given
     explicitly when passing a command (it can't be inferred from "current"
     in that case, since the parser can't tell a command apart from a name).
     """
@@ -237,7 +237,7 @@ def ssh_login(
     cfg = load_config(vm_name=target)
     priv_key = cfg.ssh_public_key_path.with_suffix("")
     if not priv_key.exists():
-        typer.echo(f"lab key missing at {priv_key}; run `msai create <name>` first.", err=True)
+        typer.echo(f"lab key missing at {priv_key}; run `msai lab create <name>` first.", err=True)
         raise typer.Exit(code=1)
     cmd = [
         "ssh",

@@ -101,7 +101,7 @@ The pattern this build encourages, driven entirely through the `msai` CLI (see t
 
 ```bash
 # 1. create a fresh VM (VirtualBox — the only supported provisioner)
-msai create test
+msai lab create test
 
 # 2. apply a single playbook
 msai lab apply bootstrap

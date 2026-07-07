@@ -1,6 +1,6 @@
 # VirtualBox
 
-VirtualBox is the hypervisor this build's lab automation uses. These docs cover everything from "what is a hypervisor" through the practical bits we hit in the lab — VBoxManage CLI, headless operation, unattended installs, snapshots — to the Apple-Silicon-specific quirks that bit us during the `msai create` integration.
+VirtualBox is the hypervisor this build's lab automation uses. These docs cover everything from "what is a hypervisor" through the practical bits we hit in the lab — VBoxManage CLI, headless operation, unattended installs, snapshots — to the Apple-Silicon-specific quirks that bit us during the `msai lab create` integration.
 
 If you only want to **use** the lab, `src/msai_setup/lab/README.md` in the repo is the right starting point. If you want to **understand** what's happening under the hood (or you want to script VirtualBox yourself), this is where to look.
 

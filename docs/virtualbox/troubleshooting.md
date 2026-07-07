@@ -60,7 +60,7 @@ VBoxManage createvm \
 
 **Cause**: VBoxManage's bundled unattended-install templates only know about Ubuntu releases that shipped before the VirtualBox release. VBox 7.2.8 knows up to 25.04; 26.04 ISOs return "supported = no".
 
-**Fix**: don't use VBoxManage's unattended install. Build a cloud-init CIDATA ISO + remaster the install ISO with `autoinstall` in GRUB yourself. See [Unattended install](unattended.md) for the full procedure, or use `msai create` which does it for you.
+**Fix**: don't use VBoxManage's unattended install. Build a cloud-init CIDATA ISO + remaster the install ISO with `autoinstall` in GRUB yourself. See [Unattended install](unattended.md) for the full procedure, or use `msai lab create` which does it for you.
 
 ## "Connection timed out during banner exchange"
 

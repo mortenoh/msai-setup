@@ -1,6 +1,6 @@
 # Headless operation
 
-A headless VM runs in the background without opening a window. This is how `msai create` runs the lab VM, and how anything serious uses VirtualBox.
+A headless VM runs in the background without opening a window. This is how `msai lab create` runs the lab VM, and how anything serious uses VirtualBox.
 
 ## Starting headless
 
@@ -93,7 +93,7 @@ I use this mostly for verifying boot progress during VM creation — `screenshot
 
 ## Watching boot progress
 
-The lab uses this pattern during `msai create`:
+The lab uses this pattern during `msai lab create`:
 
 ```bash
 # Start the VM
@@ -158,26 +158,26 @@ until ! VBoxManage list runningvms | grep -q "\"test\""; do sleep 1; done
 VBoxManage controlvm test poweroff
 ```
 
-`acpipowerbutton` is what `msai stop` does. `poweroff` is what `msai stop --force` does. The first is always safer; the second is for when the VM is unresponsive.
+`acpipowerbutton` is what `msai lab stop` does. `poweroff` is what `msai lab stop --force` does. The first is always safer; the second is for when the VM is unresponsive.
 
 ## Running multiple VMs
 
 Headless VMs are cheap (just background processes). You can have several lab instances up at once:
 
 ```bash
-msai create lab1     # creates + boots
-msai create lab2     # creates + boots; lab1 stays running
-msai list            # both shown, both running
+msai lab create lab1     # creates + boots
+msai lab create lab2     # creates + boots; lab1 stays running
+msai lab list            # both shown, both running
 VBoxManage list runningvms
 # "lab1" {...}
 # "lab2" {...}
 ```
 
-Each has its own port-forward; the lab uses 2222 for the **current** instance. If you want lab2 reachable too, override `SSH_FORWARD_PORT` before `msai create`:
+Each has its own port-forward; the lab uses 2222 for the **current** instance. If you want lab2 reachable too, override `SSH_FORWARD_PORT` before `msai lab create`:
 
 ```bash
-msai use lab1
-SSH_FORWARD_PORT=2223 msai create lab2    # would conflict with lab1 on 2222 otherwise
+msai lab use lab1
+SSH_FORWARD_PORT=2223 msai lab create lab2    # would conflict with lab1 on 2222 otherwise
 ```
 
 (In practice, the lab automation always uses 2222 because most workflows only need to talk to one instance at a time. Multi-instance is the user-driven case.)
@@ -197,5 +197,5 @@ Setting up VRDE password auth is well-documented in the VirtualBox manual. For l
 ## See also
 
 - [VBoxManage CLI](vboxmanage.md) — full subcommand reference
-- [Unattended install](unattended.md) — the headless install flow `msai create` uses
+- [Unattended install](unattended.md) — the headless install flow `msai lab create` uses
 - [Networking](networking.md) — NAT port-forwarding for SSH access

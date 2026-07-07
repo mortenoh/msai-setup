@@ -3,7 +3,7 @@
 How Ansible fits with the VirtualBox lab in `src/msai_setup/lab/` and how the same playbooks run against the real MS-S1 MAX once it's provisioned.
 
 !!! tip "See also — the hands-on walkthrough"
-    [`src/msai_setup/lab/README.md`](https://github.com/mortenoh/msai-setup/blob/main/src/msai_setup/lab/README.md) is the concrete, working, do-this-see-this walkthrough of everything on this page: `msai create`, `msai lab apply`, snapshots, and the "From lab to real MS-S1 MAX" handoff. This page explains the design; the README shows it running.
+    [`src/msai_setup/lab/README.md`](https://github.com/mortenoh/msai-setup/blob/main/src/msai_setup/lab/README.md) is the concrete, working, do-this-see-this walkthrough of everything on this page: `msai lab create`, `msai lab apply`, snapshots, and the "From lab to real MS-S1 MAX" handoff. This page explains the design; the README shows it running.
 
 !!! note "VirtualBox only"
     VirtualBox is the only supported provisioner in this repo. There is no Multipass support anywhere in the codebase — earlier drafts mentioned it, but it was never implemented.
@@ -42,7 +42,7 @@ uv sync                                            # installs the `msai` CLI
 ansible-galaxy collection install -r src/msai_setup/lab/ansible/requirements.yml
 
 # 1. create the lab VM (downloads ISO, creates VM, waits for SSH)
-msai create test
+msai lab create test
 
 # 2. apply playbooks (default chain: bootstrap, ssh-hardening, ufw)
 msai lab apply
@@ -73,7 +73,7 @@ src/msai_setup/lab/
   iso.py                 # Ubuntu ISO download + SHA256 verify + autoinstall remaster
   cloudinit.py           # builds the CIDATA cloud-init ISO
   ssh.py                 # SSH wait + key push helpers
-  instance.py            # current-instance pointer (msai create / use / list)
+  instance.py            # current-instance pointer (msai lab create / use / list)
   provision.py           # provision phase: create the VM, wait for SSH
   apply.py               # writes the generated inventory, runs ansible-playbook
   pipeline.py            # chains provision -> apply (`msai lab all`)

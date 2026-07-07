@@ -192,7 +192,7 @@ VBoxManage startvm "$NAME" --type headless
 
 Skip those four ARM-specific items (`--platform-architecture arm`, `--graphicscontroller qemuramfb`, SATA-not-IDE, omit USB flags) and the VM either won't boot or will crash with `VERR_*` errors.
 
-The lab automation (`msai create`) handles all of this for you. This page documents the underlying reasons so you can debug if something goes sideways or build similar workflows yourself.
+The lab automation (`msai lab create`) handles all of this for you. This page documents the underlying reasons so you can debug if something goes sideways or build similar workflows yourself.
 
 ## See also
 

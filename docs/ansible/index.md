@@ -51,7 +51,7 @@ The full lab path:
 
 ```bash
 # 1. create the VM (downloads ISO, creates VM, waits for SSH)
-msai create test
+msai lab create test
 
 # 2. configure it with Ansible
 msai lab apply                       # default chain: bootstrap, ssh-hardening, ufw

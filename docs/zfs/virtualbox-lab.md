@@ -20,9 +20,9 @@ The repo ships a small Python CLI (`msai`) that wraps `VBoxManage` so you can cr
 ```bash
 # From the msai-setup repo root
 uv sync                       # one-time install of the msai CLI
-uv run msai create zfs-lab    # ~3-4 minutes: builds VM, installs Ubuntu 26.04, comes up with SSH key-auth
-uv run msai list              # confirm it's running
-uv run msai ssh               # opens a shell on the lab VM
+uv run msai lab create zfs-lab    # ~3-4 minutes: builds VM, installs Ubuntu 26.04, comes up with SSH key-auth
+uv run msai lab list              # confirm it's running
+uv run msai lab ssh               # opens a shell on the lab VM
 ```
 
 That's enough to start Lab 1 below. You don't need the Ansible playbook for the exercises — they walk through `zpool create` by hand, on purpose.
@@ -31,8 +31,8 @@ That's enough to start Lab 1 below. You don't need the Ansible playbook for the 
 
 ```bash
 # Power
-uv run msai stop zfs-lab
-uv run msai start zfs-lab
+uv run msai lab stop zfs-lab
+uv run msai lab start zfs-lab
 
 # Snapshot the VirtualBox VM between experiments
 VBoxManage snapshot zfs-lab take pre-experiment --pause
@@ -126,7 +126,7 @@ VBoxManage unregistervm <vm> --delete
 
 ## Inside the VM — install ZFS and identify the lab disks
 
-SSH in (`uv run msai ssh`) and prepare the toolchain:
+SSH in (`uv run msai lab ssh`) and prepare the toolchain:
 
 ```bash
 sudo apt update

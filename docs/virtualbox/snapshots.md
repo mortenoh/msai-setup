@@ -186,7 +186,7 @@ The `msai lab snapshot <name>` and `msai lab restore <name>` commands wrap exact
 
 ### "Fresh-install snapshot as the baseline"
 
-After `msai create test` completes:
+After `msai lab create test` completes:
 
 ```bash
 msai lab snapshot fresh-install

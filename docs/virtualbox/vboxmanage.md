@@ -214,7 +214,7 @@ VBoxManage storageattach test \
 
 ### Lab convention
 
-The `msai create` flow attaches:
+The `msai lab create` flow attaches:
 
 ```
 SATA port 0      primary disk (OS)

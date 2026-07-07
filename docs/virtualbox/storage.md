@@ -269,7 +269,7 @@ Useful for simulating disk failure (detach), then bringing the disk back (re-att
 
 ## Lab disk layout (reference)
 
-What `msai create` ends up with for one instance named `test`:
+What `msai lab create` ends up with for one instance named `test`:
 
 ```
 SATA controller (30 ports)
