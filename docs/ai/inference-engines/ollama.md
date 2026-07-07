@@ -2,6 +2,19 @@
 
 Docker-like simplicity for running local LLMs with built-in model management.
 
+!!! warning "Not the default on this build — superseded by llama.cpp"
+    This project's inference layer is [llama.cpp](llama-cpp.md) built with the ROCm/HIP backend for gfx1151 (`msai bootstrap llamacpp`), and `msai doctor inference` checks for that, not Ollama. Ollama is kept here as reference/alternative only. The reason is format: Ollama copies models into its own content-addressed blob store (`Modelfile`s + sha256 digests) rather than reading plain GGUF files on disk, so it can't share a model library with llama.cpp or LM Studio.
+
+    If Ollama was installed previously (its `install.sh` leaves a systemd service and an `ollama` user/group), remove it with:
+
+    ```bash
+    sudo systemctl disable --now ollama
+    sudo rm -f /etc/systemd/system/ollama.service /usr/local/bin/ollama
+    sudo rm -rf /usr/share/ollama          # model store + service-user home
+    sudo systemctl daemon-reload
+    sudo userdel ollama 2>/dev/null; sudo groupdel ollama 2>/dev/null
+    ```
+
 ## Overview
 
 Ollama provides:
