@@ -48,6 +48,7 @@ This section covers diagnosing and resolving common issues on Ubuntu Server 26.0
 |------|-------------|
 | [Boot Issues](boot-issues.md) | Boot failures, GRUB, recovery mode |
 | [Network Issues](network-issues.md) | Connectivity, DNS, firewall problems |
+| [Audio Static Noise](audio-noise.md) | Idle hiss/pop from the codec power-save quirk |
 | [Security Incidents](security-incidents.md) | Incident response basics |
 
 ## Quick Diagnostics

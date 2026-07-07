@@ -275,6 +275,60 @@ def check_ssh_hardened() -> CheckResult:
     )
 
 
+_AUDIO_POWERSAVE_FIX = (
+    "echo 'options snd_hda_intel power_save=0 power_save_controller=N' "
+    "| sudo tee /etc/modprobe.d/audio-disable-powersave.conf"
+)
+
+
+@register_check(Category.SYSTEM, "Audio power save")
+def check_audio_powersave() -> CheckResult:
+    """Check the snd_hda_intel codec power save is disabled persistently.
+
+    The MS-S1 MAX emits idle static/pop when the HD-audio codec suspends. The
+    fix is a modprobe drop-in setting power_save=0; a runtime-only value does
+    not survive reboot. See docs/ubuntu/troubleshooting/audio-noise.md.
+    """
+    param = Path("/sys/module/snd_hda_intel/parameters/power_save")
+    if not param.exists():
+        return CheckResult(
+            name="Audio power save",
+            status=CheckStatus.SKIP,
+            message="snd_hda_intel not loaded (no HD-audio codec)",
+            category=Category.SYSTEM,
+        )
+
+    # A persistent drop-in is the only thing that survives reboot.
+    persistent = run_command(
+        "grep -rlE 'snd_hda_intel.*power_save[[:space:]]*=[[:space:]]*0' /etc/modprobe.d/"
+    )
+    if persistent.success and persistent.output.strip():
+        return CheckResult(
+            name="Audio power save",
+            status=CheckStatus.OK,
+            message=f"Disabled persistently ({persistent.output.splitlines()[0].strip()})",
+            category=Category.SYSTEM,
+        )
+
+    runtime = param.read_text().strip()
+    if runtime == "0":
+        return CheckResult(
+            name="Audio power save",
+            status=CheckStatus.WARN,
+            message="Disabled at runtime only, not persistent (static noise returns on reboot)",
+            category=Category.SYSTEM,
+            fix=_AUDIO_POWERSAVE_FIX,
+        )
+
+    return CheckResult(
+        name="Audio power save",
+        status=CheckStatus.WARN,
+        message=f"Enabled (power_save={runtime}); codec suspend causes idle static noise",
+        category=Category.SYSTEM,
+        fix=_AUDIO_POWERSAVE_FIX,
+    )
+
+
 # =============================================================================
 # ZFS Checks
 # =============================================================================

@@ -124,6 +124,7 @@ nav:
         - ubuntu/troubleshooting/index.md
         - Boot Issues: ubuntu/troubleshooting/boot-issues.md
         - Network Issues: ubuntu/troubleshooting/network-issues.md
+        - Audio Static Noise: ubuntu/troubleshooting/audio-noise.md
         - Security Incidents: ubuntu/troubleshooting/security-incidents.md
       - Reference:
         - Quick Reference: ubuntu/reference/quick-reference.md
