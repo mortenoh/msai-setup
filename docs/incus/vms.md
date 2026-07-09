@@ -101,22 +101,144 @@ incus config set builder security.secureboot false  # disable if a guest needs i
 
 Both verified against the current Incus [TPM device](https://linuxcontainers.org/incus/docs/main/reference/devices_tpm/) and [instance options](https://linuxcontainers.org/incus/docs/main/reference/instance_options/) docs — `security.secureboot` is a bool defaulting to `true`, VM-only.
 
+More detail on both:
+
+- The emulated TPM is backed by **swtpm** (present on this host); Incus wires it to the VM's firmware so the guest sees a TPM 2.0. TPM devices **cannot be hot-plugged** — add the `tpm` device while the VM is **stopped**.
+- `security.secureboot=true` enforces UEFI Secure Boot with the default Microsoft keys, which is exactly what a stock Windows 11 install wants. A common mistake is copying a Linux recipe that turns it *off* and then wondering why the Win11 installer rejects the machine — leave it at its `true` default unless a specific unsigned bootloader needs it off.
+- These two features are the whole reason Windows 11 is installable here; the [Windows VM](windows-vm.md) page walks the full `vtpm` + Secure Boot + autounattend flow.
+
 !!! note "No GPU passthrough to VMs on this build"
     Incus VMs *can* take a `gpu` device, but this build keeps the iGPU on the host for ROCm and passes it to **containers** ([GPU passthrough](gpu-passthrough.md)), never to a VM. GPU-in-a-VM here would mean losing host ROCm, which defeats the box's purpose. VMs run headless/virtio-graphics only.
 
 ### Other devices
 
 ```bash
-# Attach an ISO for installation (a disk device pointing at an image)
-incus config device add builder install disk source=/path/to/os.iso boot.priority=10
-
 # Pass a host directory into a Linux VM (shared via virtiofs)
-incus config device add builder shared disk source=/tank/media path=/mnt/media
+#   NOTE: blocked in the restricted user-1000 project — see the ISO/storage
+#   caveat below; share via a managed volume instead of a raw host path.
+incus config device add builder shared disk source=/data/media path=/mnt/media
 ```
+
+Attaching an **install ISO** is also a `disk` device, but in this build's restricted project it needs the managed-volume route — see the next section.
+
+## Installing a VM from an ISO
+
+The community `images:` remote gives you ready-to-boot Linux VM images, but for a Windows guest, a custom distro, or anything not on `images:`, you create a **blank** VM and boot it from an installation ISO.
+
+```bash
+# A blank VM with no OS — just firmware, a disk, and (soon) an ISO to boot
+incus init installer-vm --vm --empty \
+  -c limits.cpu=4 -c limits.memory=8GiB -d root,size=60GiB
+```
+
+### The restricted-project ISO gotcha (managed volumes)
+
+This build runs instances in the **`user-1000` project**, a restricted unprivileged project. Restricted projects **forbid raw host-path disk devices** — you cannot do `incus config device add vm install disk source=/data/iso/foo.iso` and have it attach; the project policy rejects a host path as a disk source. Instead, **import the ISO as a managed storage volume** of type `iso`, then attach *that volume*:
+
+```bash
+# 1. Import the ISO file into the 'lab' pool as an iso-type storage volume
+incus storage volume import lab /data/iso/ubuntu-24.04.iso ubuntu-iso --type=iso
+
+# 2. Attach the managed ISO volume as a boot device, boot.priority high so it boots first
+incus config device add installer-vm install disk \
+  pool=lab source=ubuntu-iso boot.priority=10
+
+# 3. Start and open the graphical console to run the installer
+incus start installer-vm
+incus console installer-vm --type=vga
+```
+
+!!! warning "`--type=iso` matters, and so does the pool name"
+    The volume must be imported `--type=iso` — a plain custom volume won't be treated as bootable optical media. The pool here is **`lab`** (this build's ZFS pool, source dataset `lab/incus`), not `default`. List imported ISOs with `incus storage volume list lab type=iso`. This managed-volume path is *mandatory* in the `user-1000` project — the raw-host-path `source=/path/to.iso` form you'll see in generic Incus guides simply will not attach here.
+
+### `boot.priority` — booting the ISO before the disk
+
+`boot.priority` sets device boot order (higher boots first). Give the install ISO a high priority (e.g. `10`) so firmware boots the installer, not the empty disk:
+
+```bash
+incus config device set installer-vm install boot.priority 10
+```
+
+### Detach the ISO after install
+
+Once the OS is installed to the root disk, **remove the install ISO** so the VM boots from disk on the next start (otherwise it may re-enter the installer):
+
+```bash
+incus stop installer-vm
+incus config device remove installer-vm install
+incus start installer-vm
+
+# Optionally reclaim the imported ISO volume once no VM needs it
+incus storage volume delete lab ubuntu-iso
+```
+
+## Unattended / autoinstall
+
+Clicking through an installer over the SPICE console is fine once; for reproducibility you want a **fully unattended** install. For Ubuntu that means **autoinstall** (the Subiquity/cloud-init-driven installer) fed a `user-data` seed.
+
+### The one-confirmation-prompt problem
+
+There is a specific trap: Ubuntu's autoinstall, when it finds an autoinstall config, still shows a **single interactive confirmation prompt** ("this will erase the disk, continue?") *unless* you pass `autoinstall` on the kernel command line. Providing the seed alone is not enough — without the `autoinstall` kernel arg you get one prompt that defeats the whole point of an unattended install. The fix is to boot the installer with `autoinstall` on the kernel cmdline, which suppresses that confirmation.
+
+Because you cannot easily edit the kernel cmdline of a managed ISO volume at boot in a headless flow, the robust pattern is to **repack the ISO** with the `autoinstall` kernel argument baked into the bootloader config, plus a **NoCloud** seed carrying the `user-data`.
+
+### A minimal Ubuntu autoinstall `user-data`
+
+```yaml
+#cloud-config
+autoinstall:
+  version: 1
+  locale: en_US.UTF-8
+  keyboard:
+    layout: us
+  identity:
+    hostname: ubuntu-vm
+    # password hash: `mkpasswd --method=SHA-512` (do not commit a real hash to git)
+    username: morten
+    password: "$6$rounds=4096$REPLACE_WITH_A_REAL_HASH"
+  ssh:
+    install-server: true
+    allow-pw: false
+    authorized-keys:
+      - "ssh-ed25519 AAAA... your-key"
+  storage:
+    layout:
+      name: direct          # whole-disk, single root — simplest for a VM
+  packages:
+    - qemu-guest-agent
+  late-commands:
+    # Ensure the incus-agent / cloud-init finalization runs; install a desktop later if wanted
+    - curtin in-target --target=/target -- systemctl enable ssh
+  user-data:
+    disable_root: true
+```
+
+### Wiring the seed to the ISO (NoCloud + kernel arg)
+
+Two moving parts: the **NoCloud datasource** (where the installer reads `user-data`) and the **kernel argument** (which suppresses the confirmation prompt).
+
+- **NoCloud seed**: place `user-data` and an empty `meta-data` where the installer looks. The common repack approach embeds a seed directory on the ISO and points the kernel at it with `ds=nocloud;s=/cdrom/server/` (or serves it over HTTP with `ds=nocloud-net;s=http://.../`).
+- **Kernel argument**: add `autoinstall` (and the `ds=` above) to the GRUB/isolinux kernel line inside the repacked ISO.
+
+A common toolchain for the repack is `cloud-localds` (to build the seed) plus a manual ISO remaster, or Incus's `distrobuilder` for image builds. Sketch:
+
+```bash
+# Build a NoCloud seed image from user-data + meta-data
+cloud-localds seed.iso user-data meta-data
+
+# Repack the Ubuntu ISO: extract, edit GRUB to add:
+#   linux /casper/vmlinuz ... autoinstall ds=nocloud;s=/cdrom/nocloud/
+# then rebuild the ISO (xorriso), import it as a managed volume, and boot it.
+incus storage volume import lab ubuntu-autoinstall.iso ubuntu-auto --type=iso
+incus config device add installer-vm install disk pool=lab source=ubuntu-auto boot.priority=10
+```
+
+!!! note "Why the kernel arg, not just the seed"
+    Repeating the crux because it wastes the most time: a NoCloud seed *alone* still triggers the interactive "continue and erase?" confirmation. The `autoinstall` **kernel argument** is what makes the install truly hands-off. If your unattended install hangs on one prompt at the SPICE console, the missing kernel arg is why. For Windows, the equivalent fully-unattended mechanism is `autounattend.xml` — see [Windows VM](windows-vm.md).
 
 ## Console and graphical access
 
-VMs have no `incus exec` (there's no shared kernel to inject a process into) — you reach them via console or the network.
+VMs have no namespace-injected `incus exec` (there's no shared kernel) — you reach them via the console channels, the agent, or the network. The full treatment — the SPICE stack, local vs remote access, virtual GPU options, clipboard/resolution/USB, and troubleshooting — is its own page: **[Graphical access](graphical-access.md)**. The essentials:
 
 ### Text console
 
@@ -124,7 +246,7 @@ VMs have no `incus exec` (there's no shared kernel to inject a process into) —
 # Attach to the VM's serial console (boot messages, a getty login)
 incus console builder
 
-# Detach: press Ctrl-a then q
+# Detach: press Ctrl-a then q  (this does NOT stop the VM)
 ```
 
 ### VGA / graphical console
@@ -132,20 +254,22 @@ incus console builder
 For a graphical console (a Linux desktop, or Windows before RDP is up):
 
 ```bash
-incus console builder --type=vga
+incus console builder --type=vga     # opens a local remote-viewer/SPICE window
 ```
 
-This opens a graphical console via the local `remote-viewer`/SPICE viewer if available. On this headless host you'll usually drive the VM over the network once it's booted — SSH for Linux, [RDP for Windows](windows-vm.md) — rather than the VGA console day to day. The VGA console's main job is initial install and rescue.
+On this headless host you'll usually drive the VM over the network once it's booted — SSH for Linux, [RDP for Windows](windows-vm.md) — rather than the VGA console day to day. The VGA console's main jobs are **initial install** and **rescue**. See [Graphical access](graphical-access.md) for reaching it remotely (SSH socket-forwarding or a remote Incus client), the virtual-GPU/no-hardware-accel reality on this box, and every graphics knob.
 
-### Agent-based exec (Linux guests)
+### The incus agent (Linux guests)
 
-Linux VM images that ship the **incus-agent** do support a limited `incus exec` over a virtio-vsock channel:
+Linux VM images from `images:` ship the **incus-agent**, a guest daemon that talks to the host over **virtio-vsock**. It is what makes `incus exec` and `incus file` work on a VM (unlike a container, there's no shared kernel to inject into — the agent is the bridge):
 
 ```bash
-incus exec builder -- uname -a      # works if the guest runs incus-agent
+incus exec builder -- uname -a               # works only if incus-agent is running
+incus exec builder -- systemctl status incus-agent
+incus file push ./file builder/root/file     # agent-backed file transfer
 ```
 
-Community Ubuntu/Debian VM images include the agent. Custom or Windows guests won't have it — use console/SSH/RDP instead.
+Community Ubuntu/Debian VM images include the agent; custom-built and Windows guests won't have the Linux agent (Windows has its own agent in spice-guest-tools). If `incus exec` fails but `incus console` works, the agent is missing/stopped — that split is diagnostic. The agent is **separate from the graphical console**: you can have a working desktop and a dead agent, or vice versa ([Graphical access -> the incus agent](graphical-access.md#the-incus-agent-in-vms)).
 
 ## Lifecycle (same as containers)
 
@@ -173,7 +297,8 @@ incus console builder               # reach the console
 
 ## Next steps
 
-- [Windows 11 VM](windows-vm.md) — TPM, Secure Boot, virtio drivers, RDP.
+- [Graphical access](graphical-access.md) — the SPICE/VGA console in depth, remote desktop access, virtual GPU, clipboard/resolution, troubleshooting.
+- [Windows 11 VM](windows-vm.md) — TPM, Secure Boot, virtio drivers, autounattend, RDP.
 - [Storage](storage.md) — how VM zvols are laid out and snapshotted.
 - [Networking](networking.md) — exposing VM services.
 - [Snapshots & backup](snapshots-backup.md) — VM snapshot/export workflow.

@@ -193,6 +193,7 @@ nav:
     - OCI Containers: incus/oci-containers.md
     - GPU Passthrough: incus/gpu-passthrough.md
     - Virtual Machines: incus/vms.md
+    - Graphical Access: incus/graphical-access.md
     - Windows 11 VM: incus/windows-vm.md
     - Profiles: incus/profiles.md
     - Snapshots & Backup: incus/snapshots-backup.md

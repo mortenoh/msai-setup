@@ -66,8 +66,9 @@ Read roughly in order — each page assumes the mental model built by the ones b
 - [Docker in Incus](docker-in-incus.md) — migrating existing `docker-compose.yml` stacks into a nesting-enabled system container (the build default).
 - [OCI application containers](oci-containers.md) — running a Docker/OCI image directly as an Incus instance, for simple single-image services.
 - [GPU passthrough](gpu-passthrough.md) — the ROCm/AMD story: the `gpu` device plus an explicit `/dev/kfd` `unix-char` device, verifying `rocminfo` inside a container, render-group GID matching, troubleshooting.
-- [Virtual machines](vms.md) — Incus VMs in general: creation, resources, virtio, `incus console`.
-- [Windows 11 VM](windows-vm.md) — TPM 2.0 + Secure Boot, virtio drivers, RDP, iGPU stays with the host.
+- [Virtual machines](vms.md) — Incus VMs in general: creation, ISO installs, resources, virtio, TPM, the agent, unattended install.
+- [Graphical access](graphical-access.md) — desktops and consoles in Incus: the SPICE/VGA console, local vs remote access, virtual GPU, clipboard/resolution, SPICE-to-RDP, troubleshooting.
+- [Windows 11 VM](windows-vm.md) — TPM 2.0 + Secure Boot, virtio drivers, autounattend, RDP, iGPU stays with the host.
 - [Profiles](profiles.md) — reusable profiles for this build (GPU-enabled, Docker-nesting, and more).
 
 ### Operations and reference
