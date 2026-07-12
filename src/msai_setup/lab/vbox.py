@@ -207,6 +207,21 @@ def add_ssh_port_forward(name: str, *, host_port: int, guest_port: int = 22) -> 
     log.info("added ssh port forward: 127.0.0.1:%d -> guest:%d", host_port, guest_port)
 
 
+def add_rdp_port_forward(name: str, *, host_port: int, guest_port: int = 3389) -> None:
+    """Add an RDP port forward (host_port -> guest 3389). No-op if already set."""
+    info = showvminfo(name)
+    # NAT port-forward keys look like: Forwarding(1)="rdp,tcp,127.0.0.1,3390,,3389"
+    for key, value in info.items():
+        if key.startswith("Forwarding(") and value.startswith("rdp,"):
+            log.info("rdp port forward already configured: %s", value)
+            return
+    _run([
+        "modifyvm", name,
+        "--natpf1", f"rdp,tcp,127.0.0.1,{host_port},,{guest_port}",
+    ])
+    log.info("added rdp port forward: 127.0.0.1:%d -> guest:%d", host_port, guest_port)
+
+
 # --- Storage -----------------------------------------------------------------
 
 

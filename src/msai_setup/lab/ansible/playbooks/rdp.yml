@@ -1,0 +1,82 @@
+---
+# xrdp — RDP into the lab desktop (opt-in; desktop profiles only).
+#
+# Installs xrdp plus a lightweight XFCE session and points xrdp at it. This is
+# deliberately NOT GNOME: GNOME's Wayland session does not serve over xrdp —
+# xrdp drives an X11 session — so a lightweight XFCE desktop is the path of
+# least resistance (and, since VMs on the real box get no GPU acceleration, the
+# desktop you want regardless). See the "xrdp — RDP into a Linux desktop"
+# section of docs/incus/graphical-access.md.
+#
+# After this runs, reach the desktop with any RDP client on the host's
+# forwarded RDP port (provision.py adds the NAT forward for graphical profiles;
+# `msai lab status` shows it) and log in with the lab user's console password.
+
+- hosts: lab
+  become: true
+  gather_facts: false
+
+  vars:
+    # The desktop/login user xrdp starts a session for. Defaults to the lab
+    # user; read from a var so it isn't hardcoded (override with -e lab_user=).
+    lab_user: morten
+
+  tasks:
+    - name: xrdp — install XFCE session + xrdp
+      ansible.builtin.apt:
+        name:
+          # Lightweight X11 desktop. GNOME/Wayland does not serve over xrdp, so
+          # XFCE is the reliable session behind an RDP login.
+          - xfce4
+          - xfce4-goodies
+          - xrdp
+        state: present
+        update_cache: true
+
+    - name: xrdp — select the XFCE session for the lab user (~/.xsession)
+      # xrdp runs ~/.xsession if present, otherwise falls back to
+      # /etc/xrdp/startwm.sh; an explicit session is the safest choice.
+      ansible.builtin.copy:
+        dest: "/home/{{ lab_user }}/.xsession"
+        owner: "{{ lab_user }}"
+        group: "{{ lab_user }}"
+        mode: "0644"
+        content: |
+          startxfce4
+
+    - name: xrdp — add the xrdp system user to ssl-cert (RDP key access)
+      # The xrdp package postinst usually does this; the module is idempotent
+      # and only reports 'changed' when the membership was actually missing. If
+      # xrdp fails to start with a TLS/key error, this is the usual culprit.
+      ansible.builtin.user:
+        name: xrdp
+        groups: ssl-cert
+        append: true
+      notify: restart xrdp
+
+    - name: xrdp — gather installed packages (to guard the ufw rule)
+      ansible.builtin.package_facts:
+        manager: auto
+
+    - name: xrdp — allow RDP (3389/tcp) through ufw, only if ufw is installed
+      # Lab-only: allow-from-anywhere is fine behind VirtualBox NAT. On the real
+      # box, restrict this to the LAN / Tailscale CIDR per the docs, e.g.
+      #   community.general.ufw: { rule: allow, from_ip: 192.168.0.0/24,
+      #                            port: "3389", proto: tcp }
+      when: "'ufw' in ansible_facts.packages"
+      community.general.ufw:
+        rule: allow
+        port: "3389"
+        proto: tcp
+
+    - name: xrdp — service enabled + started
+      ansible.builtin.systemd:
+        name: xrdp
+        enabled: true
+        state: started
+
+  handlers:
+    - name: restart xrdp
+      ansible.builtin.systemd:
+        name: xrdp
+        state: restarted

@@ -56,6 +56,15 @@ def test_ubuntu_desktop_has_gui_packages_and_rdp_playbook() -> None:
     assert profile.default_playbooks == ("rdp",)
 
 
+def test_desktop_playbooks_are_registered_and_runnable() -> None:
+    """Every playbook the desktop profile declares must be a known playbook."""
+    from msai_setup.lab.apply import KNOWN_PLAYBOOKS
+
+    assert "rdp" in KNOWN_PLAYBOOKS
+    for playbook in get_profile("ubuntu-desktop").default_playbooks:
+        assert playbook in KNOWN_PLAYBOOKS
+
+
 def test_ubuntu_desktop_uses_same_iso_as_server() -> None:
     server = get_profile("ubuntu-server")
     desktop = get_profile("ubuntu-desktop")

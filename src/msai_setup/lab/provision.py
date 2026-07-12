@@ -88,6 +88,10 @@ def main() -> None:
         platform=cfg.platform,
     )
     vbox.add_ssh_port_forward(cfg.vm_name, host_port=cfg.ssh_forward_port)
+    # Graphical profiles (e.g. ubuntu-desktop) get a second NAT forward so the
+    # in-guest xrdp is reachable on the host once `msai lab apply rdp` runs.
+    if cfg.profile.is_graphical:
+        vbox.add_rdp_port_forward(cfg.vm_name, host_port=cfg.rdp_forward_port)
 
     # 5. Disks
     vbox.create_disk(cfg.primary_disk_path, size_mb=cfg.primary_disk_size_mb)
@@ -188,6 +192,13 @@ def main() -> None:
     log.info("    ssh -p %d %s@%s", cfg.ssh_forward_port, cfg.vm_user, cfg.ssh_host)
     log.info("Your SSH key (%s) is already authorised via cloud-init.",
              cfg.ssh_public_key_path)
+
+    # For a graphical profile, point the user at RDP once the desktop is set up.
+    if cfg.profile.is_graphical:
+        log.info("Graphical profile '%s' detected. To enable the desktop over RDP:", cfg.os_profile)
+        log.info("    msai lab apply rdp")
+        log.info("then connect an RDP client to %s:%d and log in as '%s' (console password).",
+                 cfg.ssh_host, cfg.rdp_forward_port, cfg.vm_user)
 
     state.mark_phase_done(
         cfg.state_path,

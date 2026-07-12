@@ -113,6 +113,9 @@ class LabConfig:
 
     # Networking
     ssh_forward_port: int = _env_int("SSH_FORWARD_PORT", 2222)
+    # Host port that forwards to the guest's xrdp (3389) for graphical profiles.
+    # Defaults to 3390 to avoid clashing with the host's own RDP on 3389.
+    rdp_forward_port: int = _env_int("RDP_FORWARD_PORT", 3390)
 
     # Storage. Defaults to ./target relative to the current working
     # directory - run from the repo root and this lands at `./target/`,
