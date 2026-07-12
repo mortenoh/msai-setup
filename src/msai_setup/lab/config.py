@@ -83,8 +83,14 @@ def _profile_or_server(key: str) -> OSProfile:
 # architecture. Override any individual media value via env vars if you want.
 _DEFAULT_OS_PROFILE = _env("LAB_OS", "ubuntu-server")
 _profile = _profile_or_server(_DEFAULT_OS_PROFILE)
-_DEFAULT_ISO_FILENAME = _profile.iso_filename(_HOST_ARCH)
-_DEFAULT_ISO_BASE = _profile.iso_base_url(_HOST_ARCH)
+
+# Media env overrides are namespaced by family so each OS has its own knobs:
+# UBUNTU_ISO_FILENAME / UBUNTU_ISO_BASE_URL for Ubuntu, FEDORA_* for Fedora.
+_MEDIA_ENV_PREFIX = {"ubuntu": "UBUNTU", "fedora": "FEDORA"}.get(
+    _profile.family, _profile.family.upper()
+)
+_DEFAULT_ISO_FILENAME = _env(f"{_MEDIA_ENV_PREFIX}_ISO_FILENAME", _profile.iso_filename(_HOST_ARCH))
+_DEFAULT_ISO_BASE = _env(f"{_MEDIA_ENV_PREFIX}_ISO_BASE_URL", _profile.iso_base_url(_HOST_ARCH))
 _DEFAULT_OSTYPE = _profile.ostype(_HOST_ARCH)
 _DEFAULT_PLATFORM = _profile.platform(_HOST_ARCH)
 
@@ -166,8 +172,13 @@ class LabConfig:
     host_arch: str = _HOST_ARCH
     platform: str = _env("VBOX_PLATFORM", _DEFAULT_PLATFORM)
     ubuntu_release: str = _env("UBUNTU_RELEASE", "26.04")
-    ubuntu_iso_filename: str = _env("UBUNTU_ISO_FILENAME", _DEFAULT_ISO_FILENAME)
-    ubuntu_iso_base_url: str = _env("UBUNTU_ISO_BASE_URL", _DEFAULT_ISO_BASE)
+    fedora_release: str = _env("FEDORA_RELEASE", "44")
+    # Install-media fields. Historically Ubuntu-named, but they now hold the
+    # SELECTED profile's media (Fedora when os_profile=fedora) — the module
+    # default already folded in the family-appropriate *_ISO_FILENAME /
+    # *_ISO_BASE_URL env override above.
+    ubuntu_iso_filename: str = _DEFAULT_ISO_FILENAME
+    ubuntu_iso_base_url: str = _DEFAULT_ISO_BASE
     vm_ostype: str = _env("VM_OSTYPE", _DEFAULT_OSTYPE)
 
     # SSH key to push to the VM via cloud-init.
@@ -187,17 +198,26 @@ class LabConfig:
 
     @property
     def iso_url(self) -> str:
-        """Full download URL of the Ubuntu install ISO."""
+        """Full download URL of the selected profile's install ISO."""
         return f"{self.ubuntu_iso_base_url}/{self.ubuntu_iso_filename}"
 
     @property
     def iso_sha256_url(self) -> str:
-        """URL of the SHA256SUMS file for the Ubuntu install ISO."""
-        return f"{self.ubuntu_iso_base_url}/SHA256SUMS"
+        """URL of the checksum manifest for the install ISO.
+
+        The filename comes from the profile (Ubuntu `SHA256SUMS`, Fedora a
+        per-release `...-CHECKSUM`); the base URL honors the media override.
+        """
+        return f"{self.ubuntu_iso_base_url}/{self.profile.checksum_filename(self.host_arch)}"
+
+    @property
+    def os_release(self) -> str:
+        """The release string for the selected profile's family (for state/logs)."""
+        return self.fedora_release if self.profile.family == "fedora" else self.ubuntu_release
 
     @property
     def iso_path(self) -> Path:
-        """Local path to the cached Ubuntu install ISO."""
+        """Local path to the cached install ISO."""
         return self.target_dir / self.ubuntu_iso_filename
 
     @property
@@ -212,8 +232,13 @@ class LabConfig:
 
     @property
     def cidata_iso_path(self) -> Path:
-        """Local path to this instance's cloud-init CIDATA ISO."""
+        """Local path to this instance's cloud-init CIDATA ISO (Ubuntu seed)."""
         return self.target_dir / f"{self.vm_name}-cidata.iso"
+
+    @property
+    def oemdrv_iso_path(self) -> Path:
+        """Local path to this instance's OEMDRV kickstart seed ISO (Fedora)."""
+        return self.target_dir / f"{self.vm_name}-oemdrv.iso"
 
     @property
     def autoinstall_iso_path(self) -> Path:

@@ -26,7 +26,10 @@ def reset_config() -> Iterator[None]:
     has clean defaults regardless of fixture-teardown ordering vs monkeypatch.
     """
     yield
-    for key in ("LAB_OS", "LAB_HEADLESS", "TARGET_DIR"):
+    for key in (
+        "LAB_OS", "LAB_HEADLESS", "TARGET_DIR",
+        "FEDORA_RELEASE", "FEDORA_ISO_FILENAME", "FEDORA_ISO_BASE_URL",
+    ):
         os.environ.pop(key, None)
     importlib.reload(config_mod)
 
@@ -86,6 +89,35 @@ def test_unknown_lab_os_raises(
     _reload_config(monkeypatch, tmp_path, LAB_OS="fedora-server")
     with pytest.raises(ValueError, match="unknown OS profile 'fedora-server'"):
         config_mod.load_config(vm_name="lab")
+
+
+def test_fedora_media_routed_through_profile(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, reset_config: None
+) -> None:
+    _reload_config(monkeypatch, tmp_path, LAB_OS="fedora")
+    cfg = config_mod.load_config(vm_name="lab")
+    assert cfg.os_profile == "fedora"
+    # ISO + checksum URLs come from the Fedora profile for the host arch.
+    arch = cfg.host_arch
+    assert cfg.ubuntu_iso_filename == cfg.profile.iso_filename(arch)
+    assert cfg.iso_url.endswith(cfg.profile.iso_filename(arch))
+    assert cfg.iso_sha256_url.endswith(cfg.profile.checksum_filename(arch))
+    assert "CHECKSUM" in cfg.iso_sha256_url
+    assert cfg.oemdrv_iso_path.name == "lab-oemdrv.iso"
+    assert cfg.os_release == "44"
+
+
+def test_fedora_iso_filename_env_override(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, reset_config: None
+) -> None:
+    _reload_config(
+        monkeypatch, tmp_path,
+        LAB_OS="fedora",
+        FEDORA_ISO_FILENAME="Fedora-Server-netinst-x86_64-45-1.0.iso",
+    )
+    cfg = config_mod.load_config(vm_name="lab")
+    assert cfg.ubuntu_iso_filename == "Fedora-Server-netinst-x86_64-45-1.0.iso"
+    assert cfg.iso_path.name == "Fedora-Server-netinst-x86_64-45-1.0.iso"
 
 
 def test_env_bool_parsing(

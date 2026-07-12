@@ -83,3 +83,62 @@ def test_get_profile_raises_on_unknown() -> None:
 
 def test_registry_registers_both_ubuntu_profiles() -> None:
     assert set(PROFILES) >= {"ubuntu-server", "ubuntu-desktop"}
+
+
+# --- Fedora profile ---------------------------------------------------------
+
+# Pinned Fedora 44 (build 1.7) Server netinst media, verified 2026-07 against
+# the Fedora mirror directory index.
+_FED_AMD = {
+    "iso_filename": "Fedora-Server-netinst-x86_64-44-1.7.iso",
+    "iso_base_url": "https://download.fedoraproject.org/pub/fedora/linux/releases/44/Server/x86_64/iso",
+    "checksum_filename": "Fedora-Server-44-1.7-x86_64-CHECKSUM",
+    "ostype": "Fedora_64",
+    "platform": "x86",
+}
+_FED_ARM = {
+    "iso_filename": "Fedora-Server-netinst-aarch64-44-1.7.iso",
+    "iso_base_url": "https://download.fedoraproject.org/pub/fedora/linux/releases/44/Server/aarch64/iso",
+    "checksum_filename": "Fedora-Server-44-1.7-aarch64-CHECKSUM",
+    "ostype": "Fedora_arm64",
+    "platform": "arm",
+}
+
+
+def test_fedora_profile_is_kickstart_server() -> None:
+    profile = get_profile("fedora")
+    assert profile.family == "fedora"
+    assert profile.unattended == "kickstart"
+    assert profile.is_graphical is False
+    assert profile.extra_packages == ()
+    assert profile.default_playbooks == ()
+
+
+def test_fedora_media_amd64() -> None:
+    p = get_profile("fedora")
+    assert p.iso_filename("amd64") == _FED_AMD["iso_filename"]
+    assert p.iso_base_url("amd64") == _FED_AMD["iso_base_url"]
+    assert p.checksum_filename("amd64") == _FED_AMD["checksum_filename"]
+    assert p.ostype("amd64") == _FED_AMD["ostype"]
+    assert p.platform("amd64") == _FED_AMD["platform"]
+
+
+def test_fedora_media_arm64() -> None:
+    p = get_profile("fedora")
+    assert p.iso_filename("arm64") == _FED_ARM["iso_filename"]
+    assert p.iso_base_url("arm64") == _FED_ARM["iso_base_url"]
+    assert p.checksum_filename("arm64") == _FED_ARM["checksum_filename"]
+    assert p.ostype("arm64") == _FED_ARM["ostype"]
+    assert p.platform("arm64") == _FED_ARM["platform"]
+
+
+def test_fedora_checksum_url_combines_base_and_filename() -> None:
+    p = get_profile("fedora")
+    assert p.checksum_url("amd64") == f"{_FED_AMD['iso_base_url']}/{_FED_AMD['checksum_filename']}"
+    assert p.checksum_url("arm64") == f"{_FED_ARM['iso_base_url']}/{_FED_ARM['checksum_filename']}"
+
+
+def test_ubuntu_checksum_url_is_sha256sums() -> None:
+    p = get_profile("ubuntu-server")
+    assert p.checksum_filename("amd64") == "SHA256SUMS"
+    assert p.checksum_url("amd64") == "https://releases.ubuntu.com/26.04/SHA256SUMS"

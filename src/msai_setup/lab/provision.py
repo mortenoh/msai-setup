@@ -1,21 +1,24 @@
 #!/usr/bin/env python3
-"""Phase 01 - provision the lab VM via VirtualBox + a self-built cloud-init ISO.
+"""Phase 01 - provision the lab VM via VirtualBox + a self-built seed ISO.
 
 Flow:
 
-  1. Download the Ubuntu Server ISO and verify SHA256.
-  2. Render an autoinstall user-data file with our SSH key, hostname, sudo,
-     openssh-server, etc.
-  3. Build a NoCloud CIDATA ISO containing user-data + meta-data.
+  1. Download the install ISO and verify its checksum.
+  2/3. Prepare the boot ISO + seed ISO for the selected profile's install
+     mechanism (`_prepare_install_media` dispatches on `profile.unattended`):
+       - Ubuntu (subiquity): remaster the ISO with `autoinstall` in GRUB and
+         build a NoCloud CIDATA seed (user-data + meta-data).
+       - Fedora (kickstart): keep the netinst ISO unmodified and build an
+         OEMDRV-labelled seed carrying ks.cfg (anaconda auto-detects it).
   4. Create a VirtualBox VM (x86 or ARM, depending on host arch).
-  5. Attach: primary disk + N lab disks + Ubuntu ISO + CIDATA ISO.
-  6. Boot the VM headless. Subiquity reads CIDATA and installs Ubuntu
-     unattended. On first reboot, SSH is up with our key authorised.
+  5. Attach: primary disk + N lab disks + the boot ISO + the seed ISO.
+  6. Boot the VM. The installer reads the seed and installs unattended; on
+     first reboot SSH is up with our key authorised.
   7. Wait for SSH on the forwarded host port.
 
 This is independent of VBoxManage's `unattended install` wrapper (which is
-stale for newer Ubuntu releases) - we drive the install ourselves through
-the standard Subiquity autoinstall mechanism.
+stale for newer releases) - we drive the install ourselves through each
+distro's native unattended mechanism.
 
 Re-run safely: every step is idempotent. State recorded in target/.
 """
@@ -23,11 +26,73 @@ Re-run safely: every step is idempotent. State recorded in target/.
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 
-from msai_setup.lab import cloudinit, iso, ssh, state, vbox
-from msai_setup.lab.config import load_config
+from msai_setup.lab import cloudinit, iso, kickstart, ssh, state, vbox
+from msai_setup.lab.config import LabConfig, load_config
 
 log = logging.getLogger(__name__)
+
+
+def _prepare_ubuntu_media(cfg: LabConfig, ssh_pubkey: str) -> tuple[Path, Path]:
+    """Ubuntu (subiquity): remaster the ISO + build the CIDATA seed.
+
+    Returns ``(boot_iso, seed_iso)``: the autoinstall-remastered Ubuntu ISO the
+    VM boots, and the CIDATA ISO Subiquity scans for user-data/meta-data.
+    """
+    iso.ensure_iso(cfg.iso_path, url=cfg.iso_url, sha_url=cfg.iso_sha256_url)
+    iso.remaster_iso_for_autoinstall(cfg.iso_path, cfg.autoinstall_iso_path)
+    user_data = cloudinit.render_user_data(
+        hostname=cfg.vm_hostname.split(".")[0],
+        user=cfg.vm_user,
+        full_user_name=cfg.vm_fullname,
+        password=cfg.vm_password,
+        ssh_public_key=ssh_pubkey,
+        extra_packages=list(cfg.extra_packages),
+    )
+    meta_data = cloudinit.render_meta_data(hostname=cfg.vm_hostname.split(".")[0])
+    cloudinit.build_cidata_iso(
+        user_data=user_data,
+        meta_data=meta_data,
+        output_path=cfg.cidata_iso_path,
+    )
+    return cfg.autoinstall_iso_path, cfg.cidata_iso_path
+
+
+def _prepare_fedora_media(cfg: LabConfig, ssh_pubkey: str) -> tuple[Path, Path]:
+    """Fedora (kickstart): download the netinst ISO + build the OEMDRV seed.
+
+    Returns ``(boot_iso, seed_iso)``: the UNMODIFIED Fedora netinst ISO the VM
+    boots (no GRUB remaster), and the OEMDRV-labelled ISO anaconda auto-detects
+    to run ks.cfg — no boot argument needed.
+    """
+    iso.ensure_iso(cfg.iso_path, url=cfg.iso_url, sha_url=cfg.iso_sha256_url)
+    ks = kickstart.render_kickstart(
+        hostname=cfg.vm_hostname.split(".")[0],
+        user=cfg.vm_user,
+        full_user_name=cfg.vm_fullname,
+        password=cfg.vm_password,
+        ssh_public_key=ssh_pubkey,
+        extra_packages=list(cfg.extra_packages),
+    )
+    kickstart.build_oemdrv_iso(kickstart=ks, output_path=cfg.oemdrv_iso_path)
+    return cfg.iso_path, cfg.oemdrv_iso_path
+
+
+def _prepare_install_media(cfg: LabConfig, ssh_pubkey: str) -> tuple[Path, Path]:
+    """Dispatch on the profile's install mechanism; return ``(boot_iso, seed_iso)``.
+
+    Kept free of VBox calls so it's unit-testable: it only downloads/builds the
+    two ISOs the common boot path then attaches.
+    """
+    mechanism = cfg.profile.unattended
+    if mechanism == "subiquity":
+        return _prepare_ubuntu_media(cfg, ssh_pubkey)
+    if mechanism == "kickstart":
+        return _prepare_fedora_media(cfg, ssh_pubkey)
+    raise SystemExit(
+        f"unsupported install mechanism '{mechanism}' for profile '{cfg.os_profile}'"
+    )
 
 
 def main() -> None:
@@ -51,10 +116,6 @@ def main() -> None:
     ssh.ensure_lab_keypair(cfg.ssh_public_key_path)
     ssh_pubkey = cfg.ssh_public_key_path.read_text().strip()
 
-    # 2. ISO + remaster with autoinstall cmdline
-    iso.ensure_iso(cfg.iso_path, url=cfg.iso_url, sha_url=cfg.iso_sha256_url)
-    iso.remaster_iso_for_autoinstall(cfg.iso_path, cfg.autoinstall_iso_path)
-
     # Record the console password (random per-instance unless $VM_PASSWORD was
     # set) so the user can still log in on the VM console if they ever need to.
     # SSH uses key auth, so this is only for local console access.
@@ -62,21 +123,11 @@ def main() -> None:
     log.info("console login: user '%s', password '%s'", cfg.vm_user, cfg.vm_password)
     log.info("  (also saved to %s)", cfg.console_password_path)
 
-    # 3. Build the CIDATA ISO
-    user_data = cloudinit.render_user_data(
-        hostname=cfg.vm_hostname.split(".")[0],
-        user=cfg.vm_user,
-        full_user_name=cfg.vm_fullname,
-        password=cfg.vm_password,
-        ssh_public_key=ssh_pubkey,
-        extra_packages=list(cfg.extra_packages),
-    )
-    meta_data = cloudinit.render_meta_data(hostname=cfg.vm_hostname.split(".")[0])
-    cloudinit.build_cidata_iso(
-        user_data=user_data,
-        meta_data=meta_data,
-        output_path=cfg.cidata_iso_path,
-    )
+    # 2/3. Prepare the boot ISO + seed ISO for this profile's install mechanism
+    # (Ubuntu: remastered ISO + CIDATA; Fedora: plain netinst + OEMDRV kickstart).
+    log.info("preparing %s install media (%s) ...",
+             cfg.profile.display_name, cfg.profile.unattended)
+    boot_iso, seed_iso = _prepare_install_media(cfg, ssh_pubkey)
 
     # 4. Create the VM
     vbox.create_vm(cfg.vm_name, ostype=cfg.vm_ostype, platform=cfg.platform)
@@ -145,30 +196,30 @@ def main() -> None:
             cfg.vm_name, controller="SATA", port=cfg.lab_disk_count + i, device=0,
             medium=cfg.install_disk_path(i),
         )
-    # Ubuntu install ISO (the remastered one with `autoinstall` in GRUB)
+    # Boot ISO: Ubuntu's autoinstall-remastered ISO, or Fedora's plain netinst.
     vbox.attach_iso(
         cfg.vm_name, controller=iso_controller,
         port=iso_primary_port, device=0,
-        iso=cfg.autoinstall_iso_path,
+        iso=boot_iso,
     )
-    # CIDATA ISO (Subiquity scans removable media for it)
+    # Seed ISO: Ubuntu CIDATA (Subiquity scans removable media) or Fedora OEMDRV
+    # (anaconda auto-detects the OEMDRV label and runs its ks.cfg).
     vbox.attach_iso(
         cfg.vm_name, controller=iso_controller,
         port=iso_cidata_port, device=0,
-        iso=cfg.cidata_iso_path,
+        iso=seed_iso,
     )
 
     # 7. Boot the VM. Headless by default is off (cfg.headless): a visible GUI
     # console window lets the user take over a stuck installer by hand.
     vbox.start(cfg.vm_name, headless=cfg.headless)
 
-    if cfg.headless:
-        log.info("VM started headless. Subiquity is installing Ubuntu using the CIDATA ISO.")
-    else:
-        log.info(
-            "VM started with a visible console window. "
-            "Subiquity is installing Ubuntu using the CIDATA ISO."
-        )
+    # The installer reads the seed automatically: Subiquity from CIDATA,
+    # anaconda from the OEMDRV label.
+    seed_desc = "OEMDRV kickstart" if cfg.profile.unattended == "kickstart" else "CIDATA autoinstall"
+    mode = "headless" if cfg.headless else "with a visible console window"
+    log.info("VM started %s. Installing %s via the %s seed.",
+             mode, cfg.profile.display_name, seed_desc)
     log.info("Watch the install with:")
     log.info("    VBoxManage controlvm %s screenshotpng /tmp/lab.png && open /tmp/lab.png", cfg.vm_name)
     log.info("Waiting for SSH-as-%s on %s:%d (up to 30 min) ...",
@@ -190,7 +241,7 @@ def main() -> None:
 
     log.info("SSH is up. Connect with:")
     log.info("    ssh -p %d %s@%s", cfg.ssh_forward_port, cfg.vm_user, cfg.ssh_host)
-    log.info("Your SSH key (%s) is already authorised via cloud-init.",
+    log.info("Your SSH key (%s) is already authorised via the installer seed.",
              cfg.ssh_public_key_path)
 
     # For a graphical profile, point the user at RDP once the desktop is set up.
@@ -208,9 +259,9 @@ def main() -> None:
         headless=cfg.headless,
         platform=cfg.platform,
         ostype=cfg.vm_ostype,
-        ubuntu_release=cfg.ubuntu_release,
+        os_release=cfg.os_release,
         iso=str(cfg.iso_path),
-        cidata=str(cfg.cidata_iso_path),
+        seed=str(seed_iso),
         primary_disk=str(cfg.primary_disk_path),
         lab_disk_count=cfg.lab_disk_count,
         install_disk_count=cfg.install_disk_count,

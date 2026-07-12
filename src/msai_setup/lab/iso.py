@@ -30,15 +30,38 @@ def _fetch_text(url: str) -> str:
     return body.decode("utf-8")
 
 
-def _fetch_expected_sha256(sha_url: str, filename: str) -> str:
-    """Extract the SHA256 for the given ISO filename from a SHA256SUMS body."""
-    body = _fetch_text(sha_url)
-    needle = f"*{filename}"
-    for line in body.splitlines():
+# Fedora/BSD-style checksum line: `SHA256 (<file>) = <hex>`. Ubuntu/coreutils
+# uses the other form (`<hex> *<file>` / `<hex>  <file>`), parsed below.
+_BSD_SHA256_RE = re.compile(r"^SHA256\s*\((?P<name>.+?)\)\s*=\s*(?P<hex>[0-9a-fA-F]{64})$")
+
+
+def _parse_expected_sha256(body: str, filename: str) -> str:
+    """Extract the SHA256 for `filename` from a checksum manifest body.
+
+    Handles BOTH manifest formats by matching the exact target filename:
+      - Ubuntu / coreutils:  ``<hex> *<file>``  or  ``<hex>  <file>``
+      - Fedora / BSD-style:  ``SHA256 (<file>) = <hex>``
+    """
+    for raw in body.splitlines():
+        line = raw.strip()
+        bsd = _BSD_SHA256_RE.match(line)
+        if bsd is not None and bsd.group("name") == filename:
+            return bsd.group("hex")
+        # coreutils form: hash then filename, the latter maybe `*`-prefixed
+        # (binary mode). Compare the whole token, not a substring.
         parts = line.split()
-        if len(parts) >= 2 and parts[1] == needle:
+        if len(parts) >= 2 and parts[1].lstrip("*") == filename:
             return parts[0]
-    raise RuntimeError(f"SHA256 entry for {filename} not found in {sha_url}")
+    raise RuntimeError(f"SHA256 entry for {filename} not found")
+
+
+def _fetch_expected_sha256(sha_url: str, filename: str) -> str:
+    """Fetch a checksum manifest and extract the SHA256 for `filename`."""
+    body = _fetch_text(sha_url)
+    try:
+        return _parse_expected_sha256(body, filename)
+    except RuntimeError as e:
+        raise RuntimeError(f"{e} in {sha_url}") from e
 
 
 def _download(url: str, dest: Path) -> None:
