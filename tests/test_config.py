@@ -29,6 +29,7 @@ def reset_config() -> Iterator[None]:
     for key in (
         "LAB_OS", "LAB_HEADLESS", "TARGET_DIR",
         "FEDORA_RELEASE", "FEDORA_ISO_FILENAME", "FEDORA_ISO_BASE_URL",
+        "WINDOWS_ISO",
     ):
         os.environ.pop(key, None)
     importlib.reload(config_mod)
@@ -118,6 +119,41 @@ def test_fedora_iso_filename_env_override(
     cfg = config_mod.load_config(vm_name="lab")
     assert cfg.ubuntu_iso_filename == "Fedora-Server-netinst-x86_64-45-1.0.iso"
     assert cfg.iso_path.name == "Fedora-Server-netinst-x86_64-45-1.0.iso"
+
+
+def test_windows_iso_routed_as_local_iso(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, reset_config: None
+) -> None:
+    win_iso = tmp_path / "Win11.iso"
+    win_iso.write_bytes(b"\x00")
+    _reload_config(monkeypatch, tmp_path, LAB_OS="windows-11", WINDOWS_ISO=str(win_iso))
+    cfg = config_mod.load_config(vm_name="wintest")
+    # iso_path is the user-supplied local file itself, NOT under target/.
+    assert cfg.iso_path == win_iso
+    assert cfg.windows_iso == win_iso
+    assert cfg.unattend_iso_path.name == "wintest-unattend.iso"
+    assert cfg.os_release == ""
+
+
+def test_windows_profile_without_iso_raises(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, reset_config: None
+) -> None:
+    monkeypatch.delenv("WINDOWS_ISO", raising=False)
+    _reload_config(monkeypatch, tmp_path, LAB_OS="windows-10")
+    with pytest.raises(ValueError, match="needs a Windows install ISO"):
+        config_mod.load_config(vm_name="wintest")
+
+
+def test_windows_profile_with_missing_iso_file_raises(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, reset_config: None
+) -> None:
+    _reload_config(
+        monkeypatch, tmp_path,
+        LAB_OS="windows-10",
+        WINDOWS_ISO=str(tmp_path / "does-not-exist.iso"),
+    )
+    with pytest.raises(ValueError, match="does not exist"):
+        config_mod.load_config(vm_name="wintest")
 
 
 def test_env_bool_parsing(

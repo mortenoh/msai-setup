@@ -86,11 +86,30 @@ _profile = _profile_or_server(_DEFAULT_OS_PROFILE)
 
 # Media env overrides are namespaced by family so each OS has its own knobs:
 # UBUNTU_ISO_FILENAME / UBUNTU_ISO_BASE_URL for Ubuntu, FEDORA_* for Fedora.
+# Windows profiles supply a LOCAL ISO ($WINDOWS_ISO) and download nothing, so
+# their derived-media methods raise — we must NOT call them here.
 _MEDIA_ENV_PREFIX = {"ubuntu": "UBUNTU", "fedora": "FEDORA"}.get(
     _profile.family, _profile.family.upper()
 )
-_DEFAULT_ISO_FILENAME = _env(f"{_MEDIA_ENV_PREFIX}_ISO_FILENAME", _profile.iso_filename(_HOST_ARCH))
-_DEFAULT_ISO_BASE = _env(f"{_MEDIA_ENV_PREFIX}_ISO_BASE_URL", _profile.iso_base_url(_HOST_ARCH))
+
+
+def _media_defaults(profile: OSProfile, arch: str, prefix: str) -> tuple[str, str]:
+    """Return the (iso_filename, iso_base_url) defaults for the selected profile.
+
+    Empty strings for a local-ISO (Windows) profile — iso_path resolves to the
+    local $WINDOWS_ISO instead, and the download-oriented methods would raise.
+    Otherwise, the profile's per-arch values with a family-namespaced env
+    override layered on top.
+    """
+    if profile.requires_local_iso:
+        return "", ""
+    return (
+        _env(f"{prefix}_ISO_FILENAME", profile.iso_filename(arch)),
+        _env(f"{prefix}_ISO_BASE_URL", profile.iso_base_url(arch)),
+    )
+
+
+_DEFAULT_ISO_FILENAME, _DEFAULT_ISO_BASE = _media_defaults(_profile, _HOST_ARCH, _MEDIA_ENV_PREFIX)
 _DEFAULT_OSTYPE = _profile.ostype(_HOST_ARCH)
 _DEFAULT_PLATFORM = _profile.platform(_HOST_ARCH)
 
@@ -180,6 +199,14 @@ class LabConfig:
     ubuntu_iso_filename: str = _DEFAULT_ISO_FILENAME
     ubuntu_iso_base_url: str = _DEFAULT_ISO_BASE
     vm_ostype: str = _env("VM_OSTYPE", _DEFAULT_OSTYPE)
+    # Local install ISO for a `requires_local_iso` profile (Windows). Sourced
+    # from $WINDOWS_ISO — Windows media is user-supplied (licensing), never
+    # downloaded. load_config() requires it to exist for a windows profile.
+    windows_iso: Path | None = field(
+        default_factory=lambda: (
+            Path(os.environ["WINDOWS_ISO"]) if os.environ.get("WINDOWS_ISO") else None
+        )
+    )
 
     # SSH key to push to the VM via cloud-init.
     #
@@ -213,12 +240,33 @@ class LabConfig:
     @property
     def os_release(self) -> str:
         """The release string for the selected profile's family (for state/logs)."""
-        return self.fedora_release if self.profile.family == "fedora" else self.ubuntu_release
+        family = self.profile.family
+        if family == "fedora":
+            return self.fedora_release
+        if family == "ubuntu":
+            return self.ubuntu_release
+        return ""  # windows / local-iso: no derived release string
 
     @property
     def iso_path(self) -> Path:
-        """Local path to the cached install ISO."""
+        """Path to the install ISO the VM boots.
+
+        For a local-ISO profile (Windows) this is the user-supplied
+        ``$WINDOWS_ISO`` file itself (NOT under target/); load_config() has
+        already checked it exists. Otherwise it's the cached download.
+        """
+        if self.profile.requires_local_iso:
+            if self.windows_iso is None:
+                raise ValueError(
+                    f"profile '{self.os_profile}' needs a local ISO; set $WINDOWS_ISO"
+                )
+            return self.windows_iso
         return self.target_dir / self.ubuntu_iso_filename
+
+    @property
+    def unattend_iso_path(self) -> Path:
+        """Local path to this instance's Windows autounattend seed ISO."""
+        return self.target_dir / f"{self.vm_name}-unattend.iso"
 
     @property
     def state_path(self) -> Path:
@@ -305,9 +353,25 @@ def load_config(vm_name: str | None = None) -> LabConfig:
     _validate_identifier("VM_USER", config.vm_user)
     _validate_target_dir(config.target_dir)
     _validate_os_profile(config.os_profile)
+    _validate_local_iso(config)
 
     config.target_dir.mkdir(parents=True, exist_ok=True)
     return config
+
+
+def _validate_local_iso(config: LabConfig) -> None:
+    """For a local-ISO profile (Windows), require $WINDOWS_ISO to exist."""
+    if not config.profile.requires_local_iso:
+        return
+    if config.windows_iso is None:
+        raise ValueError(
+            f"profile '{config.os_profile}' needs a Windows install ISO. "
+            "Set WINDOWS_ISO=/path/to/Win.iso (or pass `msai lab create --iso <path>`)."
+        )
+    if not config.windows_iso.is_file():
+        raise ValueError(
+            f"WINDOWS_ISO does not exist or is not a file: {config.windows_iso}"
+        )
 
 
 def _validate_identifier(label: str, value: str) -> None:

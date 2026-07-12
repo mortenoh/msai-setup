@@ -142,3 +142,50 @@ def test_ubuntu_checksum_url_is_sha256sums() -> None:
     p = get_profile("ubuntu-server")
     assert p.checksum_filename("amd64") == "SHA256SUMS"
     assert p.checksum_url("amd64") == "https://releases.ubuntu.com/26.04/SHA256SUMS"
+
+
+# --- Windows profiles -------------------------------------------------------
+
+
+def test_windows_profiles_common_fields() -> None:
+    for key in ("windows-10", "windows-11"):
+        p = get_profile(key)
+        assert p.family == "windows"
+        assert p.unattended == "autounattend"
+        assert p.requires_local_iso is True
+        assert p.manage_firmware is True
+        assert p.wants_lab_disks is False
+        assert p.is_graphical is False
+
+
+def test_windows_10_firmware_and_ostype() -> None:
+    p = get_profile("windows-10")
+    assert p.needs_tpm is False
+    assert p.needs_secureboot is False
+    # VBox 7.2 has no Win10 arm64 type, so both arches map to the amd64 type.
+    assert p.ostype("amd64") == "Windows10_64"
+    assert p.ostype("arm64") == "Windows10_64"
+
+
+def test_windows_11_firmware_and_ostype() -> None:
+    p = get_profile("windows-11")
+    assert p.needs_tpm is True
+    assert p.needs_secureboot is True
+    assert p.ostype("amd64") == "Windows11_64"
+    assert p.ostype("arm64") == "Windows11_arm64"
+
+
+def test_windows_media_methods_raise() -> None:
+    p = get_profile("windows-11")
+    for call in (p.iso_filename, p.iso_base_url, p.checksum_filename, p.checksum_url):
+        with pytest.raises(ValueError, match="local ISO"):
+            call("amd64")
+
+
+def test_existing_profiles_keep_defaults() -> None:
+    # Regression: the new fields must not change Ubuntu/Fedora behavior.
+    for key in ("ubuntu-server", "ubuntu-desktop", "fedora"):
+        p = get_profile(key)
+        assert p.requires_local_iso is False
+        assert p.manage_firmware is False
+        assert p.wants_lab_disks is True

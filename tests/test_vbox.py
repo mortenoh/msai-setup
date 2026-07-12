@@ -196,6 +196,29 @@ def test_start_dispatches_to_headless(fake_run: FakeRun) -> None:
     assert fake_run.argv_for("startvm") == ["VBoxManage", "startvm", "lab", "--type", "headless"]
 
 
+def test_add_tpm_argv(fake_run: FakeRun) -> None:
+    vbox.add_tpm("lab", version="2.0")
+    assert fake_run.argv_for("modifyvm") == ["VBoxManage", "modifyvm", "lab", "--tpm-type", "2.0"]
+
+
+def test_set_secure_boot_enable_enrolls_keys_then_enables(fake_run: FakeRun) -> None:
+    vbox.set_secure_boot("lab", enabled=True)
+    nvram_calls = [c[2:] for c in fake_run.calls if len(c) > 1 and c[1] == "modifynvram"]
+    # Order: enroll Oracle PK, enroll MS signatures, then enable Secure Boot.
+    assert nvram_calls == [
+        ["lab", "enrollorclpk"],
+        ["lab", "enrollmssignatures"],
+        ["lab", "secureboot", "--enable"],
+    ]
+
+
+def test_set_secure_boot_disable_argv(fake_run: FakeRun) -> None:
+    vbox.set_secure_boot("lab", enabled=False)
+    nvram_calls = [c for c in fake_run.calls if len(c) > 1 and c[1] == "modifynvram"]
+    # Disable does NOT enroll keys — a single secureboot --disable call.
+    assert nvram_calls == [["VBoxManage", "modifynvram", "lab", "secureboot", "--disable"]]
+
+
 def test_start_dispatches_to_gui(fake_run: FakeRun) -> None:
     vbox.start("lab", headless=False)
     assert fake_run.argv_for("startvm") == ["VBoxManage", "startvm", "lab", "--type", "gui"]
