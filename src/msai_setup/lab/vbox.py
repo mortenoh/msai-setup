@@ -297,6 +297,27 @@ def start_headless(name: str) -> None:
     log.info("started %s headless", name)
 
 
+def start_gui(name: str) -> None:
+    """Start the VM with a visible GUI window. No-op if it's already running.
+
+    Mirrors :func:`start_headless` but uses `--type gui`, so the user can watch
+    the install and take over a stuck installer by hand.
+    """
+    if vm_running(name):
+        log.info("vm %s is already running", name)
+        return
+    _run(["startvm", name, "--type", "gui"])
+    log.info("started %s with GUI console", name)
+
+
+def start(name: str, *, headless: bool) -> None:
+    """Start the VM, dispatching to headless or GUI boot based on `headless`."""
+    if headless:
+        start_headless(name)
+    else:
+        start_gui(name)
+
+
 def power_off(name: str) -> None:
     """Hard power-off the VM. No-op if it's not running."""
     if not vm_running(name):

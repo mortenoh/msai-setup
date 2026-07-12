@@ -69,6 +69,7 @@ def main() -> None:
         full_user_name=cfg.vm_fullname,
         password=cfg.vm_password,
         ssh_public_key=ssh_pubkey,
+        extra_packages=list(cfg.extra_packages),
     )
     meta_data = cloudinit.render_meta_data(hostname=cfg.vm_hostname.split(".")[0])
     cloudinit.build_cidata_iso(
@@ -153,10 +154,17 @@ def main() -> None:
         iso=cfg.cidata_iso_path,
     )
 
-    # 7. Boot headless
-    vbox.start_headless(cfg.vm_name)
+    # 7. Boot the VM. Headless by default is off (cfg.headless): a visible GUI
+    # console window lets the user take over a stuck installer by hand.
+    vbox.start(cfg.vm_name, headless=cfg.headless)
 
-    log.info("VM started. Subiquity is installing Ubuntu using the CIDATA ISO.")
+    if cfg.headless:
+        log.info("VM started headless. Subiquity is installing Ubuntu using the CIDATA ISO.")
+    else:
+        log.info(
+            "VM started with a visible console window. "
+            "Subiquity is installing Ubuntu using the CIDATA ISO."
+        )
     log.info("Watch the install with:")
     log.info("    VBoxManage controlvm %s screenshotpng /tmp/lab.png && open /tmp/lab.png", cfg.vm_name)
     log.info("Waiting for SSH-as-%s on %s:%d (up to 30 min) ...",
@@ -185,6 +193,8 @@ def main() -> None:
         cfg.state_path,
         "provision",
         vm_name=cfg.vm_name,
+        os_profile=cfg.os_profile,
+        headless=cfg.headless,
         platform=cfg.platform,
         ostype=cfg.vm_ostype,
         ubuntu_release=cfg.ubuntu_release,

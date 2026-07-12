@@ -14,6 +14,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from msai_setup.lab import instance as _instance
+from msai_setup.lab.profiles import PROFILES, OSProfile, get_profile
 
 
 def _default_vm_name() -> str:
@@ -43,6 +44,14 @@ def _env_int(key: str, default: int) -> int:
     return int(raw) if raw is not None else default
 
 
+def _env_bool(key: str, default: bool) -> bool:
+    """Return a boolean env value; true/1/yes/on -> True (case-insensitive)."""
+    raw = os.environ.get(key)
+    if raw is None:
+        return default
+    return raw.strip().lower() in ("true", "1", "yes", "on")
+
+
 def _detect_arch() -> str:
     """Return 'arm64' on Apple Silicon / ARM, 'amd64' on x86_64."""
     machine = platform.machine().lower()
@@ -53,25 +62,31 @@ def _detect_arch() -> str:
 
 _HOST_ARCH = _detect_arch()
 
-# Ubuntu ISO locations differ by architecture:
-#   - amd64: https://releases.ubuntu.com/<release>/...
-#   - arm64: https://cdimage.ubuntu.com/releases/<release>/release/...
-#
-# VirtualBox on Apple Silicon ONLY runs ARM guests, and the ostype must
-# match. The defaults below auto-pick the right ISO+ostype based on the
-# host architecture; override anything via env vars if you want.
-if _HOST_ARCH == "arm64":
-    _DEFAULT_ISO_FILENAME = "ubuntu-26.04-live-server-arm64.iso"
-    _DEFAULT_ISO_BASE = "https://cdimage.ubuntu.com/releases/26.04/release"
-    # VBox 7.2 doesn't ship an Ubuntu26_LTS_arm64 ostype yet; the generic
-    # ARM64 Ubuntu type is fine - it only affects hardware hints, not boot.
-    _DEFAULT_OSTYPE = "Ubuntu_arm64"
-    _DEFAULT_PLATFORM = "arm"
-else:
-    _DEFAULT_ISO_FILENAME = "ubuntu-26.04-live-server-amd64.iso"
-    _DEFAULT_ISO_BASE = "https://releases.ubuntu.com/26.04"
-    _DEFAULT_OSTYPE = "Ubuntu_64"
-    _DEFAULT_PLATFORM = "x86"
+
+def _profile_or_server(key: str) -> OSProfile:
+    """Return the profile for `key`, falling back to ubuntu-server if unknown.
+
+    Module-level media defaults are derived from the profile named by $LAB_OS.
+    A bad $LAB_OS must not blow up at import - load_config() validates it and
+    raises a clean error - so here we degrade to the default profile.
+    """
+    try:
+        return get_profile(key)
+    except ValueError:
+        return get_profile("ubuntu-server")
+
+
+# The OS profile ($LAB_OS) selects which OS/install to run; default is a plain
+# Ubuntu server, which yields exactly the media values used before profiles
+# existed. VirtualBox on Apple Silicon ONLY runs ARM guests, and the ostype
+# must match, so the profile auto-picks the right ISO+ostype from the host
+# architecture. Override any individual media value via env vars if you want.
+_DEFAULT_OS_PROFILE = _env("LAB_OS", "ubuntu-server")
+_profile = _profile_or_server(_DEFAULT_OS_PROFILE)
+_DEFAULT_ISO_FILENAME = _profile.iso_filename(_HOST_ARCH)
+_DEFAULT_ISO_BASE = _profile.iso_base_url(_HOST_ARCH)
+_DEFAULT_OSTYPE = _profile.ostype(_HOST_ARCH)
+_DEFAULT_PLATFORM = _profile.platform(_HOST_ARCH)
 
 
 @dataclass(frozen=True)
@@ -135,6 +150,16 @@ class LabConfig:
     #
     # The real MS-S1 MAX still targets 26.04 amd64; the lab is for exercising
     # the tools and workflow, not pinning the Ubuntu point release.
+    #
+    # `os_profile` ($LAB_OS) picks the OS/install flavour; it sources the four
+    # media values below through the selected profile, so `ubuntu-server` (the
+    # default) yields identical values to before profiles existed. Individual
+    # env overrides (UBUNTU_ISO_FILENAME etc.) still win over the profile.
+    os_profile: str = _env("LAB_OS", "ubuntu-server")
+    # Boot the install with a visible GUI window by default (headless=False) so
+    # the user can take over a stuck installer by hand. Set LAB_HEADLESS=1 for
+    # a windowless headless boot.
+    headless: bool = _env_bool("LAB_HEADLESS", False)
     host_arch: str = _HOST_ARCH
     platform: str = _env("VBOX_PLATFORM", _DEFAULT_PLATFORM)
     ubuntu_release: str = _env("UBUNTU_RELEASE", "26.04")
@@ -218,6 +243,21 @@ class LabConfig:
         """Host the VM's forwarded SSH port is reachable on (always loopback)."""
         return "127.0.0.1"
 
+    @property
+    def profile(self) -> OSProfile:
+        """The selected :class:`OSProfile` (validated by load_config)."""
+        return get_profile(self.os_profile)
+
+    @property
+    def extra_packages(self) -> tuple[str, ...]:
+        """Extra apt packages the profile folds into the autoinstall."""
+        return self.profile.extra_packages
+
+    @property
+    def default_playbooks(self) -> tuple[str, ...]:
+        """Ansible playbooks the profile wants applied post-provision."""
+        return self.profile.default_playbooks
+
 
 def load_config(vm_name: str | None = None) -> LabConfig:
     """Build a LabConfig.
@@ -236,6 +276,7 @@ def load_config(vm_name: str | None = None) -> LabConfig:
     _validate_identifier("VM_NAME / instance name", config.vm_name)
     _validate_identifier("VM_USER", config.vm_user)
     _validate_target_dir(config.target_dir)
+    _validate_os_profile(config.os_profile)
 
     config.target_dir.mkdir(parents=True, exist_ok=True)
     return config
@@ -247,6 +288,13 @@ def _validate_identifier(label: str, value: str) -> None:
         _instance.validate_name(value)
     except ValueError as e:
         raise ValueError(f"invalid {label}: {e}") from e
+
+
+def _validate_os_profile(value: str) -> None:
+    """Reject an unknown $LAB_OS with a message listing the valid profiles."""
+    if value not in PROFILES:
+        valid = ", ".join(sorted(PROFILES))
+        raise ValueError(f"invalid LAB_OS: unknown OS profile '{value}'. Valid: {valid}")
 
 
 def _validate_target_dir(path: Path) -> None:

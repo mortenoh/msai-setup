@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from typing import Annotated
 
 import typer
@@ -11,6 +12,8 @@ from msai_setup.doctor.checks import Category
 from msai_setup.doctor.profile import Profile, resolve_profile, set_profile
 from msai_setup.doctor.runner import run_category, run_doctor
 from msai_setup.lab import instance as lab_instance
+from msai_setup.lab import profiles as lab_profiles
+from msai_setup.lab import state as lab_state
 from msai_setup.lab import vbox as lab_vbox
 from msai_setup.lab.cli import lab_app
 from msai_setup.lab.config import load_config
@@ -116,14 +119,33 @@ def bootstrap(
 @lab_app.command()
 def create(
     name: Annotated[str, typer.Argument(help="Instance name (lowercase, hyphens).")],
+    os_profile: Annotated[
+        str,
+        typer.Option(
+            "--os",
+            help="OS profile to install. Valid: " + ", ".join(sorted(lab_profiles.PROFILES)),
+        ),
+    ] = "ubuntu-server",
+    gui: Annotated[
+        bool,
+        typer.Option(
+            "--gui/--headless",
+            help="Boot the installer with a visible console window (default) or headless.",
+        ),
+    ] = True,
 ) -> None:
     """Create a new lab instance and make it the current one.
 
     Provisions a VirtualBox VM by the given name: downloads Ubuntu, builds
-    install + cloud-init ISOs, creates disks, boots headless and waits for
-    SSH. After this, `msai lab <cmd>` commands target this instance.
+    install + cloud-init ISOs, creates disks, boots the installer (with a
+    visible console by default; --headless for none) and waits for SSH. After
+    this, `msai lab <cmd>` commands target this instance.
     """
     lab_instance.validate_name(name)
+    if os_profile not in lab_profiles.PROFILES:
+        valid = ", ".join(sorted(lab_profiles.PROFILES))
+        typer.echo(f"unknown OS profile '{os_profile}'. Valid: {valid}", err=True)
+        raise typer.Exit(code=1)
     existing = {i.name for i in lab_instance.list_instances()}
     if name in existing:
         typer.echo(f"instance '{name}' already exists; switching to it instead.")
@@ -131,6 +153,10 @@ def create(
         return
     lab_instance.set_current(name)
     typer.echo(f"current instance is now '{name}'")
+    # The provision phase reads its settings from the environment (see
+    # config.py), so surface the chosen profile / boot mode that way.
+    os.environ["LAB_OS"] = os_profile
+    os.environ["LAB_HEADLESS"] = "0" if gui else "1"
     lab_provision()
 
 
@@ -192,8 +218,20 @@ def start(
         str | None,
         typer.Argument(help="Instance name (default: current)."),
     ] = None,
+    gui: Annotated[
+        bool | None,
+        typer.Option(
+            "--gui/--headless",
+            help="Show a visible console window, or run headless. "
+            "Default: match how the VM was provisioned, else GUI.",
+        ),
+    ] = None,
 ) -> None:
-    """Power on a lab instance (headless)."""
+    """Power on a lab instance.
+
+    Boots with a visible console by default (or matching how the VM was
+    provisioned); pass --headless for a windowless boot.
+    """
     target = name or lab_instance.require_current()
     if not lab_vbox.vm_exists(target):
         typer.echo(f"VM '{target}' not present. Create it: msai lab create {target}", err=True)
@@ -201,8 +239,16 @@ def start(
     if lab_vbox.vm_running(target):
         typer.echo(f"VM '{target}' is already running.")
         return
-    lab_vbox.start_headless(target)
-    typer.echo(f"started '{target}' headless")
+    if gui is None:
+        # Fall back to the boot mode recorded at provision time, else GUI.
+        cfg = load_config(vm_name=target)
+        provision_info = lab_state.load(cfg.state_path).get("phases", {}).get("provision", {})
+        recorded = provision_info.get("headless")
+        headless = bool(recorded) if recorded is not None else False
+    else:
+        headless = not gui
+    lab_vbox.start(target, headless=headless)
+    typer.echo(f"started '{target}' {'headless' if headless else 'with GUI console'}")
 
 
 @lab_app.command()
