@@ -103,11 +103,16 @@ The daemon binds `*:3389`, which includes the `tailscale0` interface, so no extr
 msai:3389
 ```
 
-- **macOS** — Windows App (formerly Microsoft Remote Desktop), add a PC `msai`.
-- **Linux** — `xfreerdp /v:msai /u:morten` or Remmina (RDP, `msai:3389`).
-- **iOS** — Windows App, add PC `msai`.
+- **macOS** — **Thincast Remote Desktop Client** (free, [thincast.com](https://thincast.com), a FreeRDP-based GUI), or the CLI: `brew install freerdp` then `sdl-freerdp /v:msai /u:morten /p:'…' /cert:ignore /dynamic-resolution` (the client binary is `sdl-freerdp`, not `xfreerdp`, on macOS; `freerdp-proxy` is a server component — do not use it).
+- **Linux** — `xfreerdp3 /v:msai /u:morten` or Remmina (RDP, `msai:3389`).
+- **iOS/Android** — a FreeRDP-based client; the Microsoft Windows App does **not** work (see below).
 
 Enter the **username and password you set in step 4** (`morten` + your account password). You do **not** see an interactive GDM greeter — the daemon authenticates you with those credentials and creates a fresh headless Wayland session directly. The self-signed certificate triggers a one-time "unverified certificate" prompt — expected; accept it (the fingerprint from `grdctl --system status` is what you are trusting).
+
+!!! danger "The Microsoft Windows App / Remote Desktop does NOT work with this mode"
+    GNOME's `--system` remote login performs its login handover with an **RDP server redirection** PDU — the client authenticates to the main daemon, then must *reconnect* to a spun-up per-session daemon. Microsoft's clients (the macOS/iOS **Windows App**, formerly Microsoft Remote Desktop) **do not follow that redirection**; they treat it as a logoff and abort with *"We couldn't connect… this might be due to an expired password."* The server log shows `[RDP] Sending server redirection` → `ERRINFO_LOGOFF_BY_USER`. This is a client limitation, not a server misconfiguration.
+
+    **Use a FreeRDP-based client instead** — `sdl-freerdp` (CLI) or **Thincast** (GUI) on macOS both follow the redirection and connect cleanly. There is no way to make the Windows App work with `--system` remote login, and the usual escape hatches are **both dead ends on this host**: per-user *screen sharing* stores its RDP password in the GNOME login keyring, which stays **locked** under headless autologin (no password is typed at boot to unlock it); and **xrdp** needs an Xorg/GNOME-on-Xorg session, but this is a **Wayland-only** install (no `/usr/share/xsessions`, no `Xorg` binary). A FreeRDP client is therefore the only workable option here.
 
 !!! tip "Keep it on the tailnet"
     Do not port-forward 3389 or open it in the firewall. RDP is a persistent target for credential-stuffing; reaching it only over Tailscale means the port is invisible to everything outside the tailnet. See [Tailscale](../tailscale/index.md).
