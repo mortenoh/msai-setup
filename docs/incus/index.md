@@ -67,8 +67,12 @@ Read roughly in order — each page assumes the mental model built by the ones b
 - [OCI application containers](oci-containers.md) — running a Docker/OCI image directly as an Incus instance, for simple single-image services.
 - [GPU passthrough](gpu-passthrough.md) — the ROCm/AMD story: the `gpu` device plus an explicit `/dev/kfd` `unix-char` device, verifying `rocminfo` inside a container, render-group GID matching, troubleshooting.
 - [Virtual machines](vms.md) — Incus VMs in general: creation, ISO installs, resources, virtio, TPM, the agent, unattended install.
-- [Graphical access](graphical-access.md) — desktops and consoles in Incus: the SPICE/VGA console, local vs remote access, virtual GPU, clipboard/resolution, SPICE-to-RDP, troubleshooting.
+- [Graphical access](graphical-access.md) — desktops and consoles in Incus: the SPICE/VGA console, local vs remote access, virtual GPU, clipboard/resolution, SPICE-to-RDP, xrdp into a Linux desktop, troubleshooting.
+- [Installing other Linux distros from ISO](linux-iso-install.md) — the multi-distro companion to `vms.md`: Debian preseed, RHEL-family Kickstart, openSUSE AutoYaST, Arch, Alpine unattended installs.
+- [Fedora VM](fedora-vm.md) — Fedora Server and Workstation on Incus: images vs ISO, Kickstart/OEMDRV, SSH and SPICE/VNC access.
 - [Windows 11 VM](windows-vm.md) — TPM 2.0 + Secure Boot, virtio drivers, autounattend, RDP, iGPU stays with the host.
+- [Windows 7 & 10 VM](windows-7-10-vm.md) — the older-Windows companion: what differs from 11 (no TPM/Secure Boot needed), virtio driver folders, the Win7 SHA-2 driver snag.
+- [Legacy Windows VM](windows-legacy-vm.md) — Windows 9x/2000/XP as a retro exercise: `security.csm`, IDE disks and legacy NICs via `raw.qemu`, VGA console only.
 - [Profiles](profiles.md) — reusable profiles for this build (GPU-enabled, Docker-nesting, and more).
 
 ### Operations and reference

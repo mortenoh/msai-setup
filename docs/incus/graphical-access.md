@@ -185,6 +185,7 @@ This gives you: authentication (client cert), encryption (HTTPS API), no extra l
 | **SPICE via SSH tunnel** (Option A) | SSH/Tailscale | SSH key | remote installer/rescue | with agent | with agent | no new ports |
 | **SPICE via remote client** (Option C) | HTTPS API | client cert | remote installer/rescue, native UX | with agent | with agent | needs API exposed |
 | **RDP** (Windows guest) | yes (RDP) | Windows creds | day-to-day Windows desktop | excellent | excellent | see [Windows VM](windows-vm.md) |
+| **RDP / xrdp** (Linux guest) | yes (RDP) | Linux/PAM | day-to-day Linux desktop, native RDP client, WAN | good | good | in-guest xrdp; proxy device to expose |
 | **VNC** (in-guest server) | tunnel it | VNC/PAM | day-to-day Linux desktop, cross-platform | server-dependent | server-dependent | proxy device to expose |
 | **SSH / SSH X11** (Linux guest) | yes | SSH key | Linux CLI, single GUI apps | n/a / X11 | n/a | no full desktop |
 
@@ -192,7 +193,7 @@ The short rule this build follows:
 
 - **Installing / rescuing / pre-network** -> SPICE VGA console (local, or Option A/C remote).
 - **Running Windows desktop** -> RDP.
-- **Running Linux desktop** -> VNC (or just SSH if you only need a shell / one app).
+- **Running Linux desktop** -> RDP via [xrdp](#xrdp-rdp-into-a-linux-desktop) or VNC (or just SSH if you only need a shell / one app).
 
 ## Virtual GPU options and performance
 
@@ -410,6 +411,64 @@ ssh -L 5901:127.0.0.1:5901 user@host-over-tailscale
 
 VNC vs SPICE for a Linux desktop: SPICE has better clipboard/resize integration via `spice-vdagent` and is already wired into `incus console`; VNC wins on client ubiquity and simplicity of tunnelling. For Windows, ignore both and use RDP.
 
+## xrdp — RDP into a Linux desktop
+
+RDP is not just for Windows. **xrdp** is an open-source RDP server for Linux: install it in the guest and you reach the Linux desktop with the exact same native RDP clients you already use for the Windows VM. Prefer this over SPICE/VNC when:
+
+- You want a **native RDP client** on Windows/macOS (the built-in Microsoft Remote Desktop app, or [a macOS RDP client](../remote-desktop/rdp/macos-clients.md)) rather than installing a SPICE viewer or hunting for a decent VNC client.
+- The link is a **WAN / higher-latency** path — RDP is tuned for 2D desktops over the network and generally feels crisper remotely than raw SPICE or VNC.
+- You already run RDP for the Windows VM and want **one protocol, one client** for every desktop on this box.
+
+### Guest-side setup
+
+Install a desktop and `xrdp`, then point xrdp at the session you want it to launch:
+
+```bash
+# Inside the Linux VM (via incus exec or SSH)
+sudo apt update
+sudo apt install -y xfce4 xfce4-goodies      # or ubuntu-desktop-minimal / gnome-core
+sudo apt install -y xrdp
+
+# Tell xrdp which session to start. xrdp runs ~/.xsession (or ~/.xsessionrc) if present,
+# otherwise falls back to /etc/xrdp/startwm.sh. For XFCE:
+echo "startxfce4" > ~/.xsession
+# For GNOME the fallback in startwm.sh usually works, but an explicit session is safest:
+#   echo "gnome-session" > ~/.xsession
+
+# Enable and start the service
+sudo systemctl enable --now xrdp
+sudo systemctl status xrdp        # should be active (listening on 3389)
+```
+
+!!! note "The `xrdp` user and the `ssl-cert` group"
+    The `xrdp` package creates a system user `xrdp` that needs read access to the RDP key material; the postinst adds it to the **`ssl-cert`** group for you. If xrdp fails to start with a TLS/key error, confirm the membership (`id xrdp` shows `ssl-cert`) and restart the service. Package specifics vary slightly across Debian/Ubuntu releases, so treat the group name as "whatever owns `/etc/xrdp` key material on your release" if it differs.
+
+!!! note "A GNOME session under xrdp can be fiddly"
+    GNOME's Wayland session does not serve over xrdp; xrdp drives an **X11** session. On some releases you must select "GNOME on Xorg" or set the `.xsession` explicitly as above. A **lightweight desktop (XFCE, LXQt)** is the path of least resistance under xrdp on this box — and, because there is no GPU acceleration in the VM anyway, the one you want regardless.
+
+### Reach xrdp from your client
+
+The VM is on `incusbr0` (NAT) by default, so expose port 3389 with a proxy device bound on the host, then gate it with UFW (per [Networking](networking.md)) — the same pattern the [Windows VM](windows-vm.md) uses:
+
+```bash
+# Forward host:3389 to the Linux VM's xrdp port
+incus config device add ubuntu-desktop rdp proxy \
+  listen=tcp:0.0.0.0:3389 \
+  connect=tcp:127.0.0.1:3389 \
+  bind=host
+
+# Restrict to the LAN / Tailscale, never the public internet
+sudo ufw allow from 192.168.0.0/24 to any port 3389 proto tcp
+```
+
+Then connect from a [macOS RDP client](../remote-desktop/rdp/macos-clients.md) (or `xfreerdp` / Remmina on Linux) to the host's address — or its MagicDNS name over Tailscale — on port 3389, and log in with the guest's Linux username and password.
+
+!!! warning "Never expose 3389 to the internet"
+    Same rule as the Windows RDP proxy: xrdp is reachable on the LAN and over Tailscale only, gated by UFW. Do not port-forward 3389 from your router. Only one desktop can bind 3389 on the host — if the Windows VM already claims it, give the Linux VM a different `listen` port (e.g. `listen=tcp:0.0.0.0:3390`).
+
+!!! note "xrdp gives you a 2D desktop only"
+    xrdp streams a software-rendered X11 desktop — there is **no GPU acceleration**, exactly as with SPICE and VNC. The Strix Halo iGPU stays with the host (see [Virtual GPU options and performance](#virtual-gpu-options-and-performance)). RDP's advantage here is protocol/client quality over the network, not rendering speed; full-screen video and 3D remain soft.
+
 ## Headless and automation
 
 You can drive and observe a VM's graphical console without ever opening a window.
@@ -464,7 +523,7 @@ incus query --request GET /1.0/instances/ubuntu-desktop/console?screenshot   # i
 
 - Expected ceiling: **no GPU acceleration in the VM on this host.** Full-screen video and 3D will be soft. Lower resolution/color depth, use a lightweight desktop (XFCE), and prefer a *local* socket or short-latency tunnel.
 - For a *running* Windows desktop, switch to **RDP** — it is dramatically better than SPICE over a network link.
-- For a *running* Linux desktop, VNC or RDP (xrdp in the guest) may feel better than SPICE remotely; locally, SPICE is best.
+- For a *running* Linux desktop, [xrdp](#xrdp-rdp-into-a-linux-desktop) or VNC may feel better than SPICE remotely; locally, SPICE is best.
 
 ### `incus exec` fails but the console works (agent not running)
 
