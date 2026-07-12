@@ -88,9 +88,12 @@ _profile = _profile_or_server(_DEFAULT_OS_PROFILE)
 # UBUNTU_ISO_FILENAME / UBUNTU_ISO_BASE_URL for Ubuntu, FEDORA_* for Fedora.
 # Windows profiles supply a LOCAL ISO ($WINDOWS_ISO) and download nothing, so
 # their derived-media methods raise — we must NOT call them here.
-_MEDIA_ENV_PREFIX = {"ubuntu": "UBUNTU", "fedora": "FEDORA"}.get(
-    _profile.family, _profile.family.upper()
-)
+def _media_env_prefix(profile: OSProfile) -> str:
+    """Env-var namespace for a profile's media overrides (UBUNTU_*, FEDORA_*)."""
+    return {"ubuntu": "UBUNTU", "fedora": "FEDORA"}.get(profile.family, profile.family.upper())
+
+
+_MEDIA_ENV_PREFIX = _media_env_prefix(_profile)
 
 
 def _media_defaults(profile: OSProfile, arch: str, prefix: str) -> tuple[str, str]:
@@ -338,13 +341,36 @@ class LabConfig:
 def load_config(vm_name: str | None = None) -> LabConfig:
     """Build a LabConfig.
 
-    `vm_name` (if given) overrides the env / current-instance default and is
-    used to scope all the per-instance paths (disks, ISOs, state file).
+    The OS/boot-selecting env vars ($LAB_OS, $LAB_HEADLESS, $WINDOWS_ISO) and the
+    per-family media overrides are re-read HERE, at call time — not frozen at
+    import — so `msai lab create --os/--headless/--iso` (which set them
+    in-process just before provisioning) actually take effect, and a non-default
+    $LAB_OS recomputes the ISO/ostype/platform from its own profile. `vm_name`
+    (if given) overrides the current-instance default and scopes the per-instance
+    paths (disks, ISOs, state file).
     """
     resolved_name = vm_name if vm_name is not None else _default_vm_name()
-    config = LabConfig(vm_name=resolved_name)
-    if not config.vm_hostname:
-        config = LabConfig(vm_name=resolved_name, vm_hostname=f"{config.vm_name}.local")
+
+    # Resolve the OS profile from the CURRENT environment (validated before use),
+    # then recompute media from it so a non-default profile gets the right
+    # ISO/ostype/platform rather than the import-time (ubuntu-server) defaults.
+    os_profile = _env("LAB_OS", "ubuntu-server")
+    _validate_os_profile(os_profile)
+    profile = get_profile(os_profile)
+    iso_filename, iso_base = _media_defaults(profile, _HOST_ARCH, _media_env_prefix(profile))
+    windows_iso_raw = os.environ.get("WINDOWS_ISO")
+
+    config = LabConfig(
+        vm_name=resolved_name,
+        vm_hostname=_env("VM_HOSTNAME", "") or f"{resolved_name}.local",
+        os_profile=os_profile,
+        headless=_env_bool("LAB_HEADLESS", False),
+        windows_iso=Path(windows_iso_raw) if windows_iso_raw else None,
+        ubuntu_iso_filename=iso_filename,
+        ubuntu_iso_base_url=iso_base,
+        vm_ostype=_env("VM_OSTYPE", profile.ostype(_HOST_ARCH)),
+        platform=_env("VBOX_PLATFORM", profile.platform(_HOST_ARCH)),
+    )
 
     # Validate env-sourced identifiers that flow into filenames / VBox VM names
     # / sudoers paths, so a malformed value fails fast instead of producing
@@ -352,7 +378,6 @@ def load_config(vm_name: str | None = None) -> LabConfig:
     _validate_identifier("VM_NAME / instance name", config.vm_name)
     _validate_identifier("VM_USER", config.vm_user)
     _validate_target_dir(config.target_dir)
-    _validate_os_profile(config.os_profile)
     _validate_local_iso(config)
 
     config.target_dir.mkdir(parents=True, exist_ok=True)

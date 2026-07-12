@@ -156,6 +156,32 @@ def test_windows_profile_with_missing_iso_file_raises(
         config_mod.load_config(vm_name="wintest")
 
 
+def test_lab_headless_honoured_at_call_time_without_reload(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, reset_config: None
+) -> None:
+    # Regression: `msai lab create --headless` sets $LAB_HEADLESS in-process,
+    # AFTER config.py was imported. load_config must re-read it at call time —
+    # WITHOUT a module reload — or the flag is silently ignored (it was).
+    monkeypatch.setenv("TARGET_DIR", str(tmp_path))
+    monkeypatch.setenv("LAB_HEADLESS", "1")
+    assert config_mod.load_config(vm_name="lab").headless is True
+    monkeypatch.setenv("LAB_HEADLESS", "0")
+    assert config_mod.load_config(vm_name="lab").headless is False
+
+
+def test_lab_os_honoured_at_call_time_without_reload(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, reset_config: None
+) -> None:
+    # Regression: `--os fedora` (env set post-import) must select Fedora media,
+    # not the frozen import-time ubuntu-server defaults.
+    monkeypatch.setenv("TARGET_DIR", str(tmp_path))
+    monkeypatch.setenv("LAB_OS", "fedora")
+    cfg = config_mod.load_config(vm_name="lab")
+    assert cfg.os_profile == "fedora"
+    assert cfg.ubuntu_iso_filename.startswith("Fedora-Server-netinst")
+    assert cfg.vm_ostype in ("Fedora_64", "Fedora_arm64")
+
+
 def test_env_bool_parsing(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, reset_config: None
 ) -> None:
