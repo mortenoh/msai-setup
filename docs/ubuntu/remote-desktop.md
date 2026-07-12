@@ -1,6 +1,6 @@
 # Remote Desktop — headless GNOME login over RDP
 
-This host runs Ubuntu 26.04 **Desktop** (GNOME 50, Wayland). When it boots with no monitor and nobody logged in at the physical console, you still want to reach a full graphical session — click through a GUI installer, drive a browser, use an app that has no CLI. GNOME's built-in RDP support does this, but only if you pick the *right* one of its two modes. This page documents the mode that actually works headless, the exact configuration used on this machine, and the one non-obvious gotcha that stops it from listening.
+This host runs Ubuntu 26.04 **Desktop** (GNOME 50, Wayland). When it boots with no monitor and nobody logged in at the physical console, you still want to reach a full graphical session — click through a GUI installer, drive a browser, use an app that has no CLI. GNOME's built-in RDP support does this, but only if you pick the *right* one of its two modes. This page documents the mode that actually works headless, the exact configuration used on this machine, the two non-obvious gotchas that silently break it (a certificate the daemon can't read, and login credentials it requires but the guides never mention), and how session reconnection actually behaves.
 
 Access is over [Tailscale](../tailscale/index.md) — the RDP port is never exposed to the LAN or the internet.
 
@@ -12,7 +12,7 @@ GNOME ships two completely separate remote-desktop paths. They are easy to confu
 |---|---|---|
 | systemd unit | `gnome-remote-desktop.service` (`--user`) | `gnome-remote-desktop.service` (system) |
 | Daemon runs as | your login user | dedicated `gnome-remote-desktop` system user |
-| What a client gets | a mirror of your **already-active** GNOME session | a fresh **GDM login screen** → brand-new session |
+| What a client gets | a mirror of your **already-active** GNOME session | authenticates with stored RDP credentials → a brand-new headless session |
 | Needs you logged in first? | **Yes** | **No** |
 | Configured with | `grdctl …` | `grdctl --system …` |
 | Headless boot? | **No** — nothing to mirror until someone logs in | **Yes** — this is the one you want |
@@ -61,10 +61,26 @@ sudo grdctl --system rdp enable
 sudo systemctl enable --now gnome-remote-desktop.service
 ```
 
-### 4. Verify
+### 4. Set the login credentials (the second gotcha)
+
+The system backend's default authentication method is `credentials`, and **until you set a username and password it denies every client** — the journal shows `[RDP] Credentials are not set, denying client` while the client just sees a generic connection failure. The certificate work above gets the port *listening*; this gets it *accepting*. The daemon validates the RDP client against these credentials and then hands the login to GDM as that user, so set them to a **real local account** — your own:
 
 ```bash
-sudo grdctl --system status      # RDP: enabled, cert/key/fingerprint populated
+# Omit the password to be prompted for it (keeps it out of shell history):
+sudo grdctl --system rdp set-credentials morten
+# If it does not prompt, pass it explicitly:
+#   sudo grdctl --system rdp set-credentials morten 'your-login-password'
+
+sudo systemctl restart gnome-remote-desktop.service
+```
+
+!!! warning "The password must match the real account"
+    These credentials are handed to GDM to perform the actual login. If the password does not match `morten`'s real account password, the RDP handshake succeeds but the session login fails afterwards — the Mac Windows App reports this as the misleading *"This might be due to an expired password."*
+
+### 5. Verify
+
+```bash
+sudo grdctl --system status --show-credentials   # RDP enabled; cert/key AND username/password populated
 systemctl is-active gnome-remote-desktop.service   # active
 systemctl is-enabled gnome-remote-desktop.service  # enabled (survives reboot)
 ss -tlnp | grep :3389            # gnome-remote-de listening on *:3389
@@ -91,16 +107,36 @@ msai:3389
 - **Linux** — `xfreerdp /v:msai /u:morten` or Remmina (RDP, `msai:3389`).
 - **iOS** — Windows App, add PC `msai`.
 
-You will get the **GDM greeter**, not a session mirror. Log in with your normal `morten` account password; GDM creates a fresh Wayland session. The self-signed certificate triggers a one-time "unverified certificate" prompt in the client — expected; accept it (the fingerprint from `grdctl --system status` is what you are trusting).
+Enter the **username and password you set in step 4** (`morten` + your account password). You do **not** see an interactive GDM greeter — the daemon authenticates you with those credentials and creates a fresh headless Wayland session directly. The self-signed certificate triggers a one-time "unverified certificate" prompt — expected; accept it (the fingerprint from `grdctl --system status` is what you are trusting).
 
 !!! tip "Keep it on the tailnet"
     Do not port-forward 3389 or open it in the firewall. RDP is a persistent target for credential-stuffing; reaching it only over Tailscale means the port is invisible to everything outside the tailnet. See [Tailscale](../tailscale/index.md).
+
+## Session persistence and reconnecting
+
+Understanding this avoids a confusing failure. A remote login is a real, seatless logind session (`loginctl` shows it as `Class=user`, `Remote=yes`, no seat — distinct from a physical `seat0`/`tty` login and from any SSH session by the same user):
+
+- **First connect** → a new headless session is created.
+- **Close the client without logging out** → the session **keeps running in the background**; apps stay open. It does not end on disconnect.
+- **Reconnect** → GNOME does **not** start a fresh login. It tries to **resume the existing session via RDP "server redirection."** FreeRDP-based clients follow the redirect and drop you back into your session. The **macOS/Windows App does not follow it reliably** — the connection aborts and it reports *"We couldn't connect… this might be due to an expired password."* The journal shows `[RDP] Sending server redirection` followed by `Failed to peek routing token` / `ERRINFO_LOGOFF_BY_USER`.
+- **Explicitly Log Out** (menu → power → Log Out, not just closing the window) → the session ends, and the next connect is a clean fresh login.
+
+!!! tip "Rule of thumb for the macOS Windows App"
+    **Log Out before you disconnect**, so every connect is a fresh session and you never hit the redirection failure. If you want true resume-where-you-left-off, use **FreeRDP** (`xfreerdp /v:msai /u:morten`) instead, which handles server redirection correctly. If a stale session ever locks you out, terminate it server-side with `loginctl terminate-session <id>` (find it via `loginctl list-sessions`) — note this kills whatever was open in it.
+
+!!! note "SSH and RDP by the same user do not conflict"
+    Being SSH'd in as `morten` while connecting RDP as `morten` is fine — they are two independent logind sessions. SSH is a `tty` session and is never a redirection target, so it does not cause the reconnect failure above. The only real hazard is cosmetic: `loginctl` lists several `morten` sessions from the same host, so identify the right one (`Service=sshd` vs the graphical one) before terminating anything.
 
 ## Troubleshooting
 
 | Symptom | Cause | Fix |
 |---|---|---|
 | `ss` shows nothing on 3389, journal says `certificate not configured properly` | Cert/key not readable by the `gnome-remote-desktop` user | Move certs into `/var/lib/gnome-remote-desktop/certificates/` owned by that user (step 2) |
+| Client is refused, journal says `[RDP] Credentials are not set, denying client` | No RDP credentials set | `sudo grdctl --system rdp set-credentials morten` (step 4), then restart the service |
+| Connects, then fails with *"…might be due to an expired password"* on a **first** login | The set password does not match the real account | Re-run `set-credentials` with the correct `morten` password |
+| Same *"expired password"* error only on **reconnect** | A prior session is still running; the Windows App can't follow the resume redirection | Log Out before disconnecting, or use FreeRDP, or `loginctl terminate-session <id>` the stale session (see [Session persistence](#session-persistence-and-reconnecting)) |
+| Journal shows `Sending server redirection` / `Failed to peek routing token` | Client failing RDP server redirection to an existing session | Same as above — this is the reconnect case, not a network fault |
+| Extra `gdm-greeter` sessions accumulate in `loginctl` after several attempts | One orphan greeter per connect attempt | Harmless; clear with `sudo systemctl restart gnome-remote-desktop.service` **while nobody is connected** (it drops active sessions) |
 | Port 3389 already bound by another `gnome-remote-de` | Per-user Screen Sharing still enabled | `grdctl rdp disable && systemctl --user disable --now gnome-remote-desktop.service`, or give one a different port with `grdctl --system rdp set-port 3390` |
 | Connection works only while you are logged in locally | You enabled Screen Sharing, not Remote Login | Use `grdctl --system …` (this page), not `grdctl …` |
 | Client rejects the certificate | Self-signed cert not trusted yet | Accept the prompt once; verify the fingerprint matches `grdctl --system status` |
