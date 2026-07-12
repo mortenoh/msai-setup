@@ -175,6 +175,7 @@ nav:
       - docker/index.md
       - Docker Setup: docker/setup.md
       - Docker vs LXC: docker/docker-vs-lxc.md
+      - OS Containers: docker/os-containers.md
       - Docker Compose: docker/compose.md
       - Resource Limits: docker/resources.md
       - Development Stacks: docker/development-stacks.md
@@ -195,12 +196,22 @@ nav:
     - GPU Passthrough: incus/gpu-passthrough.md
     - Virtual Machines: incus/vms.md
     - Graphical Access: incus/graphical-access.md
+    - Linux ISO Installs: incus/linux-iso-install.md
+    - Fedora VM: incus/fedora-vm.md
     - Windows 11 VM: incus/windows-vm.md
+    - Windows 7 & 10 VM: incus/windows-7-10-vm.md
+    - Legacy Windows VM: incus/windows-legacy-vm.md
     - Profiles: incus/profiles.md
     - Snapshots & Backup: incus/snapshots-backup.md
     - Troubleshooting: incus/troubleshooting.md
     - Reference:
       - Quick Reference: incus/reference/quick-reference.md
+
+  - Apple Container:
+    - apple-container/index.md
+    - Installation: apple-container/installation.md
+    - Running Containers: apple-container/running-containers.md
+    - Limitations: apple-container/limitations.md
 
   - Networking:
     - Netplan Configuration:
