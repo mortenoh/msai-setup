@@ -121,6 +121,7 @@ nav:
         - Network Services: ubuntu/services/network-services.md
       - Networking: ubuntu/networking.md
       - Firewall: ubuntu/firewall.md
+      - Remote Desktop: ubuntu/remote-desktop.md
       - Troubleshooting:
         - ubuntu/troubleshooting/index.md
         - Boot Issues: ubuntu/troubleshooting/boot-issues.md
