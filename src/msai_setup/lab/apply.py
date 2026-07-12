@@ -31,7 +31,7 @@ ANSIBLE_DIR = Path(__file__).resolve().parent / "ansible"
 INVENTORY_PATH = ANSIBLE_DIR / "inventory.generated.yml"
 
 DEFAULT_PLAYBOOKS = ("bootstrap", "ssh-hardening", "ufw")
-KNOWN_PLAYBOOKS = ("bootstrap", "ssh-hardening", "ufw", "zfs", "docker", "services", "incus")
+KNOWN_PLAYBOOKS = ("bootstrap", "ssh-hardening", "ufw", "zfs", "docker", "services", "incus", "rdp")
 
 
 def require_ansible() -> None:

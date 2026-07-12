@@ -39,6 +39,36 @@ def test_parse_sha256sums_ignores_substring_collisions(monkeypatch: pytest.Monke
     assert got == "3" * 64
 
 
+# Fedora's CHECKSUM file uses the BSD-style `SHA256 (file) = hex` format, and is
+# wrapped in a GPG clearsign block with a `Hash:` header the parser must ignore.
+FEDORA_CHECKSUM = """\
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA256
+
+# Fedora-Server-netinst-x86_64-44-1.7.iso: 700000000 bytes
+SHA256 (Fedora-Server-netinst-x86_64-44-1.7.iso) = aaaa000000000000000000000000000000000000000000000000000000000000
+SHA256 (Fedora-Server-dvd-x86_64-44-1.7.iso) = bbbb000000000000000000000000000000000000000000000000000000000000
+-----BEGIN PGP SIGNATURE-----
+(signature)
+-----END PGP SIGNATURE-----
+"""
+
+
+def test_parse_fedora_checksum_bsd_format(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(iso, "_fetch_text", lambda _url: FEDORA_CHECKSUM)
+    got = iso._fetch_expected_sha256(
+        "http://example/Fedora-Server-44-1.7-x86_64-CHECKSUM",
+        "Fedora-Server-netinst-x86_64-44-1.7.iso",
+    )
+    assert got == "aaaa" + "0" * 60
+
+
+def test_parse_fedora_checksum_missing_raises(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(iso, "_fetch_text", lambda _url: FEDORA_CHECKSUM)
+    with pytest.raises(RuntimeError, match="not found"):
+        iso._fetch_expected_sha256("http://example/CHECKSUM", "Fedora-Server-netinst-aarch64-44-1.7.iso")
+
+
 PLAIN_GRUB = """\
 menuentry "Try or Install Ubuntu Server" {
 	set gfxpayload=keep

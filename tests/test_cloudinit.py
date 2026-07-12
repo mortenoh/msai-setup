@@ -143,3 +143,27 @@ def test_meta_data_round_trips() -> None:
     doc = yaml.safe_load(text)
     assert doc["local-hostname"] == "testvm"
     assert doc["instance-id"] == "iid-local-testvm"
+
+
+def test_incus_user_data_is_first_boot_cloud_config() -> None:
+    """The Incus Ubuntu path needs a first-boot cloud-config, NOT an autoinstall."""
+    text = cloudinit.render_incus_user_data(
+        hostname="inctest",
+        user="morten",
+        full_user_name="Morten Hansen",
+        password="s3cret",
+        ssh_public_key=SSH_KEY,
+        extra_packages=["tmux"],
+    )
+    assert text.startswith("#cloud-config\n")
+    doc = yaml.safe_load(text)
+    # No installer-only autoinstall block; a plain users/ssh cloud-config.
+    assert "autoinstall" not in doc
+    assert doc["hostname"] == "inctest"
+    (account,) = doc["users"]
+    assert account["name"] == "morten"
+    assert account["ssh_authorized_keys"] == [SSH_KEY]
+    assert account["passwd"].startswith("$6$")  # crypt hash, not plaintext
+    assert "s3cret" not in text
+    assert doc["ssh_pwauth"] is False
+    assert "tmux" in doc["packages"]

@@ -155,3 +155,79 @@ def test_snapshot_restore_argv(fake_run: FakeRun) -> None:
     vbox.snapshot_restore("lab", "fresh-install")
     argv = fake_run.argv_for("snapshot")
     assert argv == ["VBoxManage", "snapshot", "lab", "restore", "fresh-install"]
+
+
+def test_add_rdp_port_forward_argv(fake_run: FakeRun) -> None:
+    # showvminfo returns "" (no existing forwards), so the rule is added.
+    vbox.add_rdp_port_forward("lab", host_port=3390)
+    argv = fake_run.argv_for("modifyvm")
+    assert argv == [
+        "VBoxManage", "modifyvm", "lab",
+        "--natpf1", "rdp,tcp,127.0.0.1,3390,,3389",
+    ]
+
+
+def test_add_rdp_port_forward_custom_guest_port(fake_run: FakeRun) -> None:
+    vbox.add_rdp_port_forward("lab", host_port=13389, guest_port=3389)
+    argv = fake_run.argv_for("modifyvm")
+    assert argv[argv.index("--natpf1") + 1] == "rdp,tcp,127.0.0.1,13389,,3389"
+
+
+def test_add_rdp_port_forward_idempotent(
+    monkeypatch: pytest.MonkeyPatch, fake_run: FakeRun
+) -> None:
+    # An existing "rdp,..." forwarding entry short-circuits: no modifyvm call.
+    monkeypatch.setattr(
+        vbox, "showvminfo",
+        lambda name: {"Forwarding(1)": "rdp,tcp,127.0.0.1,3390,,3389"},
+    )
+    vbox.add_rdp_port_forward("lab", host_port=3390)
+    assert fake_run.count("modifyvm") == 0
+
+
+def test_start_gui_argv(fake_run: FakeRun) -> None:
+    # Not in runningvms (FakeRun returns "" for that), so it actually starts.
+    vbox.start_gui("lab")
+    assert fake_run.argv_for("startvm") == ["VBoxManage", "startvm", "lab", "--type", "gui"]
+
+
+def test_start_dispatches_to_headless(fake_run: FakeRun) -> None:
+    vbox.start("lab", headless=True)
+    assert fake_run.argv_for("startvm") == ["VBoxManage", "startvm", "lab", "--type", "headless"]
+
+
+def test_add_tpm_argv(fake_run: FakeRun) -> None:
+    vbox.add_tpm("lab", version="2.0")
+    assert fake_run.argv_for("modifyvm") == ["VBoxManage", "modifyvm", "lab", "--tpm-type", "2.0"]
+
+
+def test_set_secure_boot_enable_enrolls_keys_then_enables(fake_run: FakeRun) -> None:
+    vbox.set_secure_boot("lab", enabled=True)
+    nvram_calls = [c[2:] for c in fake_run.calls if len(c) > 1 and c[1] == "modifynvram"]
+    # Order: enroll Oracle PK, enroll MS signatures, then enable Secure Boot.
+    assert nvram_calls == [
+        ["lab", "enrollorclpk"],
+        ["lab", "enrollmssignatures"],
+        ["lab", "secureboot", "--enable"],
+    ]
+
+
+def test_set_secure_boot_disable_argv(fake_run: FakeRun) -> None:
+    vbox.set_secure_boot("lab", enabled=False)
+    nvram_calls = [c for c in fake_run.calls if len(c) > 1 and c[1] == "modifynvram"]
+    # Disable does NOT enroll keys — a single secureboot --disable call.
+    assert nvram_calls == [["VBoxManage", "modifynvram", "lab", "secureboot", "--disable"]]
+
+
+def test_start_dispatches_to_gui(fake_run: FakeRun) -> None:
+    vbox.start("lab", headless=False)
+    assert fake_run.argv_for("startvm") == ["VBoxManage", "startvm", "lab", "--type", "gui"]
+
+
+def test_start_gui_idempotent_when_running(monkeypatch: pytest.MonkeyPatch) -> None:
+    fr = FakeRun(list_vms_output='"lab" {uuid-1234}')
+    # Report the VM as already running so start_gui short-circuits.
+    monkeypatch.setattr(vbox, "vm_running", lambda name: True)
+    monkeypatch.setattr(vbox.subprocess, "run", fr)
+    vbox.start_gui("lab")
+    assert fr.count("startvm") == 0

@@ -176,6 +176,48 @@ def set_boot_order(name: str, devices: list[str]) -> None:
     log.info("set boot order on %s: %s", name, ", ".join(slots))
 
 
+def add_tpm(name: str, *, version: str = "2.0") -> None:
+    """Attach an emulated TPM to the VM (Windows 11 requires TPM 2.0).
+
+    Uses `VBoxManage modifyvm <name> --tpm-type <version>` (verified against
+    VBox 7.2: `--tpm-type= none | 1.2 | 2.0 | host | swtpm`). `modifyvm` is
+    declarative, so re-running just re-sets the same value (idempotent-ish). The
+    VM must be stopped (TPM can't be hot-added).
+    """
+    _run(["modifyvm", name, "--tpm-type", version])
+    log.info("set TPM type %s on %s", version, name)
+
+
+def set_secure_boot(name: str, *, enabled: bool) -> None:
+    """Enable/disable UEFI Secure Boot on the VM (VBox 7.2 `modifynvram`).
+
+    VBox 7.2 controls Secure Boot via the NVRAM, not `modifyvm`:
+    `VBoxManage modifynvram <name> secureboot <--enable | --disable>`.
+
+    For Windows to actually BOOT under Secure Boot the NVRAM also needs the
+    platform key + Microsoft signature databases enrolled, so on enable we
+    best-effort `enrollorclpk` (Oracle PK) then `enrollmssignatures` (MS KEK/db)
+    before flipping it on. Those require the VM's EFI NVRAM to already exist and
+    may be no-ops/failures on some setups — hence check=False with a warning.
+
+    LIMITATION (honest): if enrollment fails (e.g. NVRAM not yet initialised on
+    this host, or a VBox build quirk), Secure Boot may need to be completed by
+    hand — enroll the keys in the VirtualBox GUI, or re-run these `modifynvram`
+    commands once the VM's firmware NVRAM has been created. This path is NOT
+    verifiable on the Apple-Silicon dev host (no amd64 Windows guest to boot).
+    """
+    if enabled:
+        # Enroll keys first so `secureboot --enable` has a trusted chain.
+        for sub in ("enrollorclpk", "enrollmssignatures"):
+            result = _run(["modifynvram", name, sub], check=False)
+            log.debug("modifynvram %s %s -> %s", name, sub, result or "(ok)")
+        _run(["modifynvram", name, "secureboot", "--enable"])
+        log.info("enabled Secure Boot on %s (keys enrolled best-effort)", name)
+    else:
+        _run(["modifynvram", name, "secureboot", "--disable"])
+        log.info("disabled Secure Boot on %s", name)
+
+
 def enable_vrde(name: str, *, port: int = 3389) -> None:
     """Enable VRDE (VirtualBox Remote Desktop) so a headless VM has a console.
 
@@ -205,6 +247,21 @@ def add_ssh_port_forward(name: str, *, host_port: int, guest_port: int = 22) -> 
         "--natpf1", f"ssh,tcp,127.0.0.1,{host_port},,{guest_port}",
     ])
     log.info("added ssh port forward: 127.0.0.1:%d -> guest:%d", host_port, guest_port)
+
+
+def add_rdp_port_forward(name: str, *, host_port: int, guest_port: int = 3389) -> None:
+    """Add an RDP port forward (host_port -> guest 3389). No-op if already set."""
+    info = showvminfo(name)
+    # NAT port-forward keys look like: Forwarding(1)="rdp,tcp,127.0.0.1,3390,,3389"
+    for key, value in info.items():
+        if key.startswith("Forwarding(") and value.startswith("rdp,"):
+            log.info("rdp port forward already configured: %s", value)
+            return
+    _run([
+        "modifyvm", name,
+        "--natpf1", f"rdp,tcp,127.0.0.1,{host_port},,{guest_port}",
+    ])
+    log.info("added rdp port forward: 127.0.0.1:%d -> guest:%d", host_port, guest_port)
 
 
 # --- Storage -----------------------------------------------------------------
@@ -295,6 +352,27 @@ def start_headless(name: str) -> None:
         return
     _run(["startvm", name, "--type", "headless"])
     log.info("started %s headless", name)
+
+
+def start_gui(name: str) -> None:
+    """Start the VM with a visible GUI window. No-op if it's already running.
+
+    Mirrors :func:`start_headless` but uses `--type gui`, so the user can watch
+    the install and take over a stuck installer by hand.
+    """
+    if vm_running(name):
+        log.info("vm %s is already running", name)
+        return
+    _run(["startvm", name, "--type", "gui"])
+    log.info("started %s with GUI console", name)
+
+
+def start(name: str, *, headless: bool) -> None:
+    """Start the VM, dispatching to headless or GUI boot based on `headless`."""
+    if headless:
+        start_headless(name)
+    else:
+        start_gui(name)
 
 
 def power_off(name: str) -> None:
