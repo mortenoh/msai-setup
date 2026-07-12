@@ -30,6 +30,7 @@ def reset_config() -> Iterator[None]:
         "LAB_OS", "LAB_HEADLESS", "TARGET_DIR",
         "FEDORA_RELEASE", "FEDORA_ISO_FILENAME", "FEDORA_ISO_BASE_URL",
         "WINDOWS_ISO",
+        "LAB_PROVIDER", "INCUS_POOL", "INCUS_PROJECT", "INCUS_IMAGE",
     ):
         os.environ.pop(key, None)
     importlib.reload(config_mod)
@@ -180,6 +181,42 @@ def test_lab_os_honoured_at_call_time_without_reload(
     assert cfg.os_profile == "fedora"
     assert cfg.ubuntu_iso_filename.startswith("Fedora-Server-netinst")
     assert cfg.vm_ostype in ("Fedora_64", "Fedora_arm64")
+
+
+def test_provider_defaults_to_vbox(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, reset_config: None
+) -> None:
+    monkeypatch.delenv("LAB_PROVIDER", raising=False)
+    _reload_config(monkeypatch, tmp_path)
+    cfg = config_mod.load_config(vm_name="lab")
+    assert cfg.provider == "vbox"
+    # Incus fields carry the documented defaults.
+    assert cfg.incus_pool == "lab"
+    assert cfg.incus_project == ""
+    assert cfg.incus_image == ""
+
+
+def test_provider_incus_honored_at_call_time(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, reset_config: None
+) -> None:
+    # Reload WITHOUT the env (freezing vbox at import), then set it just before
+    # load_config — proves the value is read at call time, not import time.
+    _reload_config(monkeypatch, tmp_path)
+    monkeypatch.setenv("LAB_PROVIDER", "incus")
+    monkeypatch.setenv("INCUS_POOL", "hot")
+    monkeypatch.setenv("INCUS_PROJECT", "user-1000")
+    cfg = config_mod.load_config(vm_name="lab")
+    assert cfg.provider == "incus"
+    assert cfg.incus_pool == "hot"
+    assert cfg.incus_project == "user-1000"
+
+
+def test_unknown_provider_raises(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, reset_config: None
+) -> None:
+    _reload_config(monkeypatch, tmp_path, LAB_PROVIDER="qemu")
+    with pytest.raises(ValueError, match="invalid LAB_PROVIDER"):
+        config_mod.load_config(vm_name="lab")
 
 
 def test_env_bool_parsing(

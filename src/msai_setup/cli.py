@@ -142,19 +142,30 @@ def create(
             "(user-supplied, not downloaded); ignored for Ubuntu/Fedora.",
         ),
     ] = None,
+    provider: Annotated[
+        str,
+        typer.Option(
+            "--provider",
+            help="Backend: 'vbox' (default, VirtualBox on this Mac) or 'incus' "
+            "(the real Linux box / MS-S1 MAX).",
+        ),
+    ] = "vbox",
 ) -> None:
     """Create a new lab instance and make it the current one.
 
-    Provisions a VirtualBox VM by the given name: prepares the install + seed
-    ISOs, creates disks, boots the installer (visible console by default;
-    --headless for none) and (for Linux) waits for SSH. Windows profiles need a
-    local ISO via --iso. After this, `msai lab <cmd>` commands target this
+    Provisions an instance by the given name via the chosen --provider: prepares
+    the install + seed media, boots the installer (visible console by default;
+    --headless for none) and (for Linux) waits for readiness. Windows profiles
+    need a local ISO via --iso. After this, `msai lab <cmd>` targets this
     instance.
     """
     lab_instance.validate_name(name)
     if os_profile not in lab_profiles.PROFILES:
         valid = ", ".join(sorted(lab_profiles.PROFILES))
         typer.echo(f"unknown OS profile '{os_profile}'. Valid: {valid}", err=True)
+        raise typer.Exit(code=1)
+    if provider not in ("vbox", "incus"):
+        typer.echo(f"unknown provider '{provider}'. Valid: vbox, incus", err=True)
         raise typer.Exit(code=1)
     # Local-ISO profiles (Windows) need a user-supplied install ISO — the config
     # layer reads it from $WINDOWS_ISO. Resolve --iso (or a pre-set env) here and
@@ -185,6 +196,7 @@ def create(
     # config.py), so surface the chosen profile / boot mode that way.
     os.environ["LAB_OS"] = os_profile
     os.environ["LAB_HEADLESS"] = "0" if gui else "1"
+    os.environ["LAB_PROVIDER"] = provider
     if profile.requires_local_iso and iso_path:
         os.environ["WINDOWS_ISO"] = iso_path
     lab_provision()

@@ -116,6 +116,50 @@ def render_user_data(
     return "#cloud-config\n" + body
 
 
+def render_incus_user_data(
+    *,
+    hostname: str,
+    user: str,
+    full_user_name: str,
+    password: str,
+    ssh_public_key: str,
+    extra_packages: list[str] | None = None,
+) -> str:
+    """Produce a FIRST-BOOT #cloud-config for a pre-built Incus VM image.
+
+    Unlike :func:`render_user_data` (a Subiquity *installer* autoinstall), the
+    Incus Ubuntu path launches a ready `images:ubuntu/...` VM and passes this as
+    `config: user.user-data`. cloud-init on the already-installed guest reads a
+    normal top-level cloud-config — the `autoinstall:` block is installer-only
+    and would be ignored here — so we create the user, authorise the SSH key,
+    grant passwordless sudo, and install packages directly.
+
+    Reuses the shared SHA-512 crypt helper for the console password (SSH stays
+    key-only; `lock_passwd: false` just allows console login).
+    """
+    packages = sorted({"openssh-server", "python3", *(extra_packages or [])})
+    doc = {
+        "hostname": hostname,
+        "users": [
+            {
+                "name": user,
+                "gecos": full_user_name,
+                "groups": ["sudo"],
+                "shell": "/bin/bash",
+                "sudo": "ALL=(ALL) NOPASSWD:ALL",
+                "lock_passwd": False,
+                "passwd": _crypt_password(password),
+                "ssh_authorized_keys": [ssh_public_key.strip()],
+            }
+        ],
+        "ssh_pwauth": False,
+        "package_update": True,
+        "packages": packages,
+    }
+    body = yaml.safe_dump(doc, default_flow_style=False, sort_keys=False, width=1000)
+    return "#cloud-config\n" + body
+
+
 def render_live_install_user_data(*, ssh_public_key: str) -> str:
     """Produce autoinstall user-data that opens SSH into the LIVE installer env.
 

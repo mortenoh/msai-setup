@@ -203,8 +203,21 @@ def _report_windows_next_steps(cfg: LabConfig) -> None:
 
 
 def main() -> None:
-    """Provision a VirtualBox lab VM end-to-end."""
+    """Provision a lab instance end-to-end, dispatching on the configured provider.
+
+    Default provider is "vbox" (the VirtualBox flow below, unchanged). With
+    LAB_PROVIDER=incus (`msai lab create --provider incus`) it hands off to the
+    Incus provider for the real Linux box instead.
+    """
     cfg = load_config()
+    if cfg.provider == "incus":
+        # Incus provider (the real Linux box). Lazy import avoids any import
+        # cost/cycle on the default VBox path. UNVALIDATED on this macOS host.
+        from msai_setup.lab import incus_provision
+
+        incus_provision.provision(cfg)
+        return
+
     log.info("provisioning VM '%s' (platform=%s)", cfg.vm_name, cfg.platform)
 
     if state.is_phase_done(cfg.state_path, "provision"):

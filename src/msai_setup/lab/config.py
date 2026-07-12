@@ -211,6 +211,17 @@ class LabConfig:
         )
     )
 
+    # Provider: which backend actually provisions the instance. Default "vbox"
+    # (the macOS dev path, unchanged); "incus" targets the real Linux box
+    # (MS-S1 MAX). Resolved from $LAB_PROVIDER at load_config() CALL time so
+    # `msai lab create --provider` takes effect. incus_pool/project/image match
+    # the docs' restricted user-1000 project conventions (managed volumes on the
+    # `lab` pool). incus_project "" means "current project".
+    provider: str = _env("LAB_PROVIDER", "vbox")
+    incus_pool: str = _env("INCUS_POOL", "lab")
+    incus_project: str = _env("INCUS_PROJECT", "")
+    incus_image: str = _env("INCUS_IMAGE", "")
+
     # SSH key to push to the VM via cloud-init.
     #
     # Default: a dedicated lab keypair generated under target/. This
@@ -360,6 +371,9 @@ def load_config(vm_name: str | None = None) -> LabConfig:
     iso_filename, iso_base = _media_defaults(profile, _HOST_ARCH, _media_env_prefix(profile))
     windows_iso_raw = os.environ.get("WINDOWS_ISO")
 
+    provider = _env("LAB_PROVIDER", "vbox")
+    _validate_provider(provider)
+
     config = LabConfig(
         vm_name=resolved_name,
         vm_hostname=_env("VM_HOSTNAME", "") or f"{resolved_name}.local",
@@ -370,6 +384,10 @@ def load_config(vm_name: str | None = None) -> LabConfig:
         ubuntu_iso_base_url=iso_base,
         vm_ostype=_env("VM_OSTYPE", profile.ostype(_HOST_ARCH)),
         platform=_env("VBOX_PLATFORM", profile.platform(_HOST_ARCH)),
+        provider=provider,
+        incus_pool=_env("INCUS_POOL", "lab"),
+        incus_project=_env("INCUS_PROJECT", ""),
+        incus_image=_env("INCUS_IMAGE", ""),
     )
 
     # Validate env-sourced identifiers that flow into filenames / VBox VM names
@@ -382,6 +400,12 @@ def load_config(vm_name: str | None = None) -> LabConfig:
 
     config.target_dir.mkdir(parents=True, exist_ok=True)
     return config
+
+
+def _validate_provider(value: str) -> None:
+    """Reject an unknown $LAB_PROVIDER (only vbox and incus are supported)."""
+    if value not in ("vbox", "incus"):
+        raise ValueError(f"invalid LAB_PROVIDER: {value!r} (valid: vbox, incus)")
 
 
 def _validate_local_iso(config: LabConfig) -> None:
